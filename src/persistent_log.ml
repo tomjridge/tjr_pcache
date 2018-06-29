@@ -39,14 +39,6 @@ module Pcl = Persistent_chunked_list
 open Pcl
 
 
-module Debug = struct
-  open Tjr_log
-  let log = Tjr_fs_shared.Log.log_ops.log
-  let log_lazy = Tjr_fs_shared.Log.log_ops.log_lazy
-end
-
-
-
 (* actions ---------------------------------------------------------- *)
 
 (* we need a concrete representation of actions; these are the
@@ -80,7 +72,7 @@ type ('k,'v,'repr) chunk_state = (('k,'v)op,'repr) pcl_state = {
 
 
 (* in-mem map; NOTE 'v is ('k,'v)op  *)
-type ('k,'v,'map) map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
+type ('k,'v,'map) detach_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
 
 
 type ('k,'v,'map,'ptr,'t) plog_ops = {
@@ -90,14 +82,28 @@ type ('k,'v,'map,'ptr,'t) plog_ops = {
 
   add: ('k,'v)op -> (unit,'t) m;  (* add rather than insert, to avoid confusion *)
   
-  detach: unit -> ('ptr * 'map * 'ptr,'t) m
+  detach: unit -> ('ptr * 'map * 'ptr,'t) m;
   (* 'ptr to first block in list; map upto current node; 'ptr to current node *)
+
+  get_block_list_length: unit -> (int,'t) m;
 }
 
 
+(** The state of the persistent cache. Parameters are:
+
+- [start_block] is the root of the log
+
+- [current_block] is the current block being written to
+
+- [map_past] is the map from root to just before [current_block]
+
+- [map_current] is the map for the current block
+
+*)
 type ('map,'ptr) plog_state = {
   start_block: 'ptr;  
   current_block: 'ptr;
+  block_list_length: int;
   map_past: 'map;  (* in reverse order *)
   map_current: 'map;
 }
@@ -111,17 +117,15 @@ let map_find_union ~map_ops ~m1 ~m2 k =
   | None -> 
     map_ops.map_find k m1
 
-(* moved to tjr_map       
-let map_union ~map_ops ~m1 ~m2 = 
-  let { map_add; map_bindings } = map_ops in
-  Tjr_list.with_each_elt
-    ~step:(fun ~state:m1' (k,op) -> map_add k op m1')
-    ~init_state:m1
-    (map_bindings m2)
-*)
-
 (* FIXME what about initialization? *)
 
+(** Construct the persistent cache operations. Parameters:
+
+- [monad_ops], the monadic operations
+- [map_ops], the in-memory cache of (k -> (k,v)op) map
+- [insert], the chunked list insert operation
+- [plog_state_ref], the ref to the persistent log state
+*)
 let make_plog_ops
     ~monad_ops
     ~map_ops
@@ -152,6 +156,7 @@ let make_plog_ops
       get () >>= fun s' ->
       set { s' with 
             current_block=ptr;
+            block_list_length=s'.block_list_length+1;
             map_past=map_union s.map_past s.map_current;
             map_current=map_ops.map_add (op2k op) op map_empty }
   in
@@ -165,15 +170,20 @@ let make_plog_ops
     let r = (s.start_block,s.map_past,s.current_block) in
     (* we need to adjust the start block and the map_past - we are
        forgetting everything in previous blocks *)
-    set { s with start_block=s.current_block; map_past=map_empty } >>= fun () ->
+    set { s with start_block=s.current_block; block_list_length=1; map_past=map_empty } >>= fun () ->
     return r
   in
-  { find; add; detach }  
+  let get_block_list_length () = get () >>= fun s ->
+    return s.block_list_length
+  in
+  { find; add; detach; get_block_list_length }  
 
 
 let _ = make_plog_ops
 
 
+(* FIXME we probably want a common instantiation here, so we can get a
+   pcache without constructing the intermediate layers explicitly *)
 
 
 (* debug ------------------------------------------------------------ *)
@@ -259,7 +269,7 @@ type ('k,'v) dbg = {
       get_state () >>= fun s ->
       let expected = find k (get_dbg s) in
       plog_ops.find k >>= fun v ->
-      Debug.log_lazy (fun () ->
+      Pcache_debug.log_lazy (fun () ->
           expected |> find_result_to_yojson |> fun expected ->
           v |> find_result_to_yojson |> fun v ->
           Printf.sprintf "%s:\n    expected(%s)\n    actual(%s)"
@@ -275,7 +285,7 @@ type ('k,'v) dbg = {
       get_state () >>= fun s' ->
       get_dbg s |> fun dbg ->
       plog_to_dbg (* ~ptr:(s'|>start_block) *) s' |> fun dbg' ->
-      Debug.log_lazy (fun () ->
+      Pcache_debug.log_lazy (fun () ->
           Printf.sprintf "%s: %s %s"
             "make_checked_plog_ops.add"
             (dbg_to_yojson dbg |> Yojson.Safe.pretty_to_string)
@@ -294,7 +304,8 @@ type ('k,'v) dbg = {
       set_state s' >>= fun () ->
       return r
     in  
-    { find; add; detach }
+    let get_block_list_length = plog_ops.get_block_list_length in
+    { find; add; detach; get_block_list_length }
 
 
   let _ = make_checked_plog_ops
@@ -446,6 +457,7 @@ module Test : sig val test : depth:int -> unit end = struct
       plog_state={
         start_block;
         current_block=start_block;
+        block_list_length=1;
         map_past=map_ops.map_empty;
         map_current=map_ops.map_empty
       };
@@ -477,21 +489,21 @@ module Test : sig val test : depth:int -> unit end = struct
         num_tests:=!num_tests+1;
         match op with
         | `Detach -> 
-          Debug.log "detach";
+          Pcache_debug.log "detach";
           run ~init_state:s (plog_ops.detach ()) |> fun (_,s') -> s'
         | `Delete k -> 
-          Printf.sprintf "delete(%d)" k |> Debug.log;
+          Printf.sprintf "delete(%d)" k |> Pcache_debug.log;
           run ~init_state:s (plog_ops.add (Delete(k))) |> fun (_,s') -> s'
         | `Find k ->
-          Printf.sprintf "find(%d)" k |> Debug.log;
+          Printf.sprintf "find(%d)" k |> Pcache_debug.log;
           run ~init_state:s (plog_ops.find k) |> fun (_,s') -> s'
         | `Insert(k,v) -> 
-          Printf.sprintf "insert(%d,%d)" k (k*2) |> Debug.log;
+          Printf.sprintf "insert(%d,%d)" k v |> Pcache_debug.log;
           run ~init_state:s (plog_ops.add (Insert(k,v))) |> fun (_,s') -> s'
       in
       let f op = 
         f op |> fun s' ->        
-        Debug.log_lazy (fun () ->
+        Pcache_debug.log_lazy (fun () ->
         Printf.sprintf "%s: %s"
           "test, post op"
           (dbg_to_yojson s'.dbg |> Yojson.Safe.pretty_to_string));
