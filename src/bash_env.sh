@@ -7,7 +7,7 @@ Libname=Tjr_pcache
 
 meta_description="tjr_pcache, a persistent cache (part of ImpFS)."
 
-required_packages="tjr_btree,tjr_lib" 
+required_packages="tjr_btree,tjr_lib_core" 
 
 # FIXME a bit inefficient if recalculating every time
 mls=`ocamlfind ocamldep -package $required_packages -sort -one-line *.ml`

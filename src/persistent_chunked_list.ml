@@ -244,6 +244,7 @@ module Test = struct
 
   (* run some tests *)
   let main () = 
+    Printf.printf "%s: tests starting...\n%!" __FILE__;
     let repr_ops = repr_ops 2 in
     let init_state = init_state ~repr_ops in
     chunked_list ~repr_ops |> function { insert } ->
@@ -260,6 +261,7 @@ module Test = struct
     in  
     State_passing_instance.run ~init_state cmds |> fun (x,s) -> 
     assert(x=());
+    Printf.printf "%s: ...tests finished\n" __FILE__;
     s
 
 

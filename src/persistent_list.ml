@@ -215,6 +215,7 @@ module Test = struct
 
   (* Write some new nodes, update some, and finally print out the list *)
   let main () = 
+    Printf.printf "%s: tests starting...\n%!" __FILE__;
     let get_state () = with_world (fun s -> (s,s)) in
     let ops = ops () in
     let cmds = 
@@ -229,6 +230,7 @@ module Test = struct
     assert(xs = ["New start";"second node";"alternative third node"]);
     xs |> Tjr_string.concat_strings ~sep:";" |> fun str ->
     print_endline str;
+    Printf.printf "%s: ...tests finished\n" __FILE__;
     s  (* actually return the state *)
 
 end

@@ -1,0 +1,5 @@
+-*- org -*-
+
+- remove dep on tjr_btree (and j.st. core) by moving required defns to
+  tjr_fs_shared (monad, basic types? perhaps block type has to come
+  from isa_btree?)
