@@ -97,7 +97,7 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
     dest_map_ops btree_ops @@ fun ~find ~insert ~delete ~insert_many ->
     (* rename just so we don't get confused *)
     let (bt_find,bt_insert,bt_delete,bt_insert_many) = (find,insert,delete,insert_many) in
-    let Persistent_log.{find; add; detach; get_block_list_length} = pcache_ops in
+    let (*Persistent_log.*){find; add; detach; get_block_list_length} = pcache_ops in
     let (pc_find,pc_add,pc_detach,pc_get_block_list_length) = (find,add,detach,get_block_list_length) in
     let find k = 
       pc_find k >>= fun op ->
