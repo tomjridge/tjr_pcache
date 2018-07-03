@@ -1,0 +1,61 @@
+<html><head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gom" rel="Chapter" href="Gom.html">
+<link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
+<link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
+<link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_log.Dbg</title>
+</head>
+<body>
+<code class="code"><span class="keyword">sig</span><br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;op_to_yojson&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>b&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(int,&nbsp;int)&nbsp;<span class="constructor">Persistent_log</span>.op&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Yojson</span>.<span class="constructor">Safe</span>.json<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;op_of_yojson&nbsp;:&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>b&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>c&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>d<br>
+&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;find_result&nbsp;=&nbsp;(int,&nbsp;int)&nbsp;<span class="constructor">Persistent_log</span>.op&nbsp;option<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;find_result_to_yojson&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.find_result&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Yojson</span>.<span class="constructor">Safe</span>.json<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;find_result_of_yojson&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Yojson</span>.<span class="constructor">Safe</span>.json&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.find_result&nbsp;<span class="constructor">Ppx_deriving_yojson_runtime</span>.error_or<br>
+&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;dbg&nbsp;=&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;dbg_current&nbsp;:&nbsp;(int,&nbsp;int)&nbsp;<span class="constructor">Persistent_log</span>.op&nbsp;list;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;dbg_past&nbsp;:&nbsp;(int,&nbsp;int)&nbsp;<span class="constructor">Persistent_log</span>.op&nbsp;list;<br>
+&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;dbg_to_yojson&nbsp;:&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Yojson</span>.<span class="constructor">Safe</span>.json<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;dbg_of_yojson&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Yojson</span>.<span class="constructor">Safe</span>.json&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg&nbsp;<span class="constructor">Ppx_deriving_yojson_runtime</span>.error_or<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;init_dbg&nbsp;:&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;plog_to_dbg&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;pclist_to_nodes:(ptr:<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>t&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="keywordsign">'</span>b&nbsp;*&nbsp;(int,&nbsp;int)&nbsp;<span class="constructor">Persistent_log</span>.op&nbsp;list)&nbsp;list)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;get_plog_state:(<span class="keywordsign">'</span>t&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="keywordsign">'</span>c,&nbsp;<span class="keywordsign">'</span>a)&nbsp;<span class="constructor">Persistent_log</span>.plog_state)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>t&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;dbg2list&nbsp;:&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(int,&nbsp;int)&nbsp;<span class="constructor">Persistent_log</span>.op&nbsp;list<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;dbg2assoc_list&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(int&nbsp;*&nbsp;(int,&nbsp;int)&nbsp;<span class="constructor">Persistent_log</span>.op)&nbsp;list<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;find&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(int,&nbsp;int)&nbsp;<span class="constructor">Persistent_log</span>.op&nbsp;option<br>
+&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;tmp&nbsp;=&nbsp;<span class="constructor">Yojson</span>.<span class="constructor">Safe</span>.json&nbsp;option<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;tmp_to_yojson&nbsp;:&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.tmp&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Yojson</span>.<span class="constructor">Safe</span>.json<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;tmp_of_yojson&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Yojson</span>.<span class="constructor">Safe</span>.json&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.tmp&nbsp;<span class="constructor">Ppx_deriving_yojson_runtime</span>.error_or<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;with_world&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>b&nbsp;*&nbsp;<span class="keywordsign">'</span>a)&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="keywordsign">'</span>b,&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="constructor">Tjr_monad</span>.state_passing)&nbsp;<span class="constructor">Tjr_monad</span>.<span class="constructor">Monad</span>.m<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;make_checked_plog_ops&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;monad_ops:<span class="keywordsign">'</span>a&nbsp;<span class="constructor">Tjr_monad</span>.state_passing&nbsp;<span class="constructor">Tjr_btree</span>.<span class="constructor">Base_types</span>.monad_ops&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;plog_ops:(int,&nbsp;int,&nbsp;<span class="keywordsign">'</span>map,&nbsp;<span class="keywordsign">'</span>ptr,&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="constructor">Tjr_monad</span>.state_passing)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.plog_ops&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;plog_to_dbg:(<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;set_dbg:(<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>a)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;get_dbg:(<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Dbg</span>.dbg)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;(int,&nbsp;int,&nbsp;<span class="keywordsign">'</span>map,&nbsp;<span class="keywordsign">'</span>ptr,&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="constructor">Tjr_monad</span>.state_passing)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.plog_ops<br>
+<span class="keyword">end</span></code></body></html>

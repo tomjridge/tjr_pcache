@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link rel="previous" href="Persistent_list.html">
+<link rel="Up" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gom" rel="Chapter" href="Gom.html">
+<link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
+<link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
+<link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_log</title>
+</head>
+<body>
+<div class="navbar"><a class="pre" href="Persistent_list.html" title="Persistent_list">Previous</a>
+&nbsp;<a class="up" href="index.html" title="Index">Up</a>
+&nbsp;</div>
+<h1>Module <a href="type_Persistent_log.html">Persistent_log</a></h1>
+
+<pre><span class="keyword">module</span> Persistent_log: <code class="code">sig</code> <a href="Persistent_log.html">..</a> <code class="code">end</code></pre><div class="info module top">
+A persistent log, used to reduce traffic via the B-tree. NOTE
+    append-only logs are quickest when data must be stored persistently<br>
+</div>
+<hr width="100%">
+
+<pre><span class="keyword">module</span> <a href="Persistent_log.Pl.html">Pl</a>: <code class="type"><a href="Persistent_list.html">Persistent_list</a></code></pre>
+<pre><span class="keyword">module</span> <a href="Persistent_log.Pcl.html">Pcl</a>: <code class="type"><a href="Persistent_chunked_list.html">Persistent_chunked_list</a></code></pre>
+<pre><span id="TYPEop"><span class="keyword">type</span> <code class="type">('k, 'v)</code> op</span> = <code class="type">('k, 'v) Pcl.Test.op</code> = </pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTop.Insert"><span class="constructor">Insert</span></span> <span class="keyword">of</span> <code class="type">'k * 'v</code></code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTop.Delete"><span class="constructor">Delete</span></span> <span class="keyword">of</span> <code class="type">'k</code></code></td>
+
+</tr></table>
+
+
+
+<pre><span id="VALop2k"><span class="keyword">val</span> op2k</span> : <code class="type">('a, 'b) <a href="Persistent_log.html#TYPEop">op</a> -> 'a</code></pre>
+<pre><span id="TYPEdetach_map_ops"><span class="keyword">type</span> <code class="type">('k, 'v, 'map)</code> detach_map_ops</span> = <code class="type">('k, ('k, 'v) <a href="Persistent_log.html#TYPEop">op</a>, 'map) Tjr_map.map_ops</code> </pre>
+
+
+<pre><code><span id="TYPEplog_ops"><span class="keyword">type</span> <code class="type">('k, 'v, 'map, 'ptr, 't)</code> plog_ops</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_ops.find">find</span>&nbsp;: <code class="type">'k -> (('k, 'v) <a href="Persistent_log.html#TYPEop">op</a> option, 't) Tjr_btree.Base_types.m</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_ops.add">add</span>&nbsp;: <code class="type">('k, 'v) <a href="Persistent_log.html#TYPEop">op</a> -> (unit, 't) Tjr_btree.Base_types.m</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_ops.detach">detach</span>&nbsp;: <code class="type">unit -> ('ptr * 'map * 'ptr, 't) Tjr_btree.Base_types.m</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_ops.get_block_list_length">get_block_list_length</span>&nbsp;: <code class="type">unit -> (int, 't) Tjr_btree.Base_types.m</code>;</code></td>
+
+</tr></table>
+}
+
+
+
+<pre><code><span id="TYPEplog_state"><span class="keyword">type</span> <code class="type">('map, 'ptr)</code> plog_state</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_state.start_block">start_block</span>&nbsp;: <code class="type">'ptr</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_state.current_block">current_block</span>&nbsp;: <code class="type">'ptr</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_state.block_list_length">block_list_length</span>&nbsp;: <code class="type">int</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_state.map_past">map_past</span>&nbsp;: <code class="type">'map</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTplog_state.map_current">map_current</span>&nbsp;: <code class="type">'map</code>;</code></td>
+
+</tr></table>
+}
+
+<div class="info ">
+The state of the persistent cache. Parameters are:
+<p>
+<ul>
+<li><code class="code">start_block</code> is the root of the log</li>
+</ul>
+<ul>
+<li><code class="code">current_block</code> is the current block being written to</li>
+</ul>
+<ul>
+<li><code class="code">map_past</code> is the map from root to just before <code class="code">current_block</code></li>
+</ul>
+<ul>
+<li><code class="code">map_current</code> is the map for the current block</li>
+</ul>
+<br>
+</div>
+
+
+<pre><span id="VALmap_find_union"><span class="keyword">val</span> map_find_union</span> : <code class="type">map_ops:('a, 'b, 'c) Tjr_map.map_ops -> m1:'c -> m2:'c -> 'a -> 'b option</code></pre>
+<pre><span id="VALmake_plog_ops"><span class="keyword">val</span> make_plog_ops</span> : <code class="type">monad_ops:'t Tjr_btree.Base_types.monad_ops -><br>       map_ops:('k, ('k, 'v) <a href="Persistent_log.html#TYPEop">op</a>, 'map) Tjr_map.map_ops -><br>       insert:(('k, 'v) <a href="Persistent_log.html#TYPEop">op</a> -><br>               ('ptr Pcl.inserted_type, 't) Tjr_btree.Base_types.m) -><br>       plog_state_ref:(('map, 'ptr) <a href="Persistent_log.html#TYPEplog_state">plog_state</a>, 't)<br>                      Tjr_btree.Base_types.mref -><br>       ('k, 'v, 'map, 'ptr, 't) <a href="Persistent_log.html#TYPEplog_ops">plog_ops</a></code></pre><div class="info ">
+Construct the persistent cache operations. Parameters:
+<p>
+<ul>
+<li><code class="code">monad_ops</code>, the monadic operations</li>
+<li><code class="code">map_ops</code>, the in-memory cache of (k -&gt; (k,v)op) map</li>
+<li><code class="code">insert</code>, the chunked list insert operation</li>
+<li><code class="code">plog_state_ref</code>, the ref to the persistent log state</li>
+</ul>
+<br>
+</div>
+
+<pre><span class="keyword">module</span> <a href="Persistent_log.Dbg.html">Dbg</a>: <code class="code">sig</code> <a href="Persistent_log.Dbg.html">..</a> <code class="code">end</code></pre>
+<pre><span class="keyword">module</span> <a href="Persistent_log.Test.html">Test</a>: <code class="code">sig</code> <a href="Persistent_log.Test.html">..</a> <code class="code">end</code></pre></body></html>

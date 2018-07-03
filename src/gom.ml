@@ -71,7 +71,11 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
 
   open Persistent_log
 
-  (** The gom state consists of a flag indicating that we are executing a roll-up *)
+  (** The gom state.
+- [in_roll_up]: a flag covering the critical section when we are executing a roll up
+- [pcache_root]: the root of the pcache
+- [btree_root]: the root of the B-tree
+  *)
   type gom_state = {
     in_roll_up: bool;
     pcache_root: blk_id;
@@ -86,11 +90,26 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
      B-tree, when the number of pcache blocks reaches
      pcache_blocks_limit *)
 
+  (** Parameters:
+- [monad_ops]
+- [btree_ops]
+- [pcache_ops]
+- [pcache_blocks_limit]: how many blocks in the pcache before attempting a roll-up
+- [gom_mref_ops]: a reference to the gom state; the pcache and btree roots get updated (also [in_roll_up] is updated)
+- [detach_map_ops]: used to get the bindings for the blocks that have been detached from the pcache
+- [bt_sync]: at the end of the roll-up, we sync the B-tree itself to disk
+- [sync_gom_roots]: called just before leaving the critical section, to record new roots for B-tree and pcache
+  *)
+
+  (* NOTE when we detach, we should not alter the pcache root, but
+     later after the btree changes are synced, we can sync the new
+     pcache root; in memory we also store both roots (as the gom
+     state) in an mref *)
   let make_gom_ops
       ~monad_ops ~btree_ops ~pcache_ops ~pcache_blocks_limit 
       ~gom_mref_ops ~(detach_map_ops:('k,'v,'map) Persistent_log.detach_map_ops) 
-      ~bt_sync  (* to sync the btree *)
-      ~sync_pcache_roots  (* to write the pcache roots to disk somewhere *)
+      ~bt_sync  (* to sync the B-tree to get the new B-tree root *)
+      ~sync_gom_roots  (* to write the gom roots to disk somewhere *)
     =
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in
@@ -139,7 +158,7 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
                    case the cache is running too far ahead of the B-tree *)
                 pc_detach () >>= fun (old_root,(map:'map),new_root) ->
                 (* map consists of all the entries we need to roll up *)
-                map |> detach_map_ops.map_bindings |> fun kvs ->
+                map |> detach_map_ops.Tjr_map.map_bindings |> fun kvs ->
                 let rec loop kvs = 
                   match kvs with
                   | [] -> return  (`Finished(old_root,new_root))
@@ -159,7 +178,7 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
                 (* NOTE this should be done in the critical section, before resetting the flag *)
                 bt_sync () >>= fun btree_root ->
                 (* now we need to reset the flag, and the roots *)
-                sync_pcache_roots ~btree_root ~pcache_root >>= fun () ->
+                sync_gom_roots ~btree_root ~pcache_root >>= fun () ->
                 gom_mref_ops.with_ref (fun s -> 
                     assert(s.in_roll_up);
                     (),{ in_roll_up=false; btree_root; pcache_root }) >>= fun () ->
@@ -172,7 +191,9 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
       return ()
     in
     let delete k =
-      pc_add (Delete k)
+      pc_add (Delete k) >>= fun () -> 
+      maybe_roll_up () >>= fun _ ->
+      return ()
     in
     let insert_many k v kvs = 
       (* FIXME we should do something smarter here *)
@@ -181,9 +202,5 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
     { find; insert; delete; insert_many }
     
 
-  (* FIXME when we detach, we should not alter the pcache root, but
-     later after the btree changes are synced, we can sync the new
-     pcache root; or perhaps we store both roots somewhere else - in
-     the gom controller *)
 
 end

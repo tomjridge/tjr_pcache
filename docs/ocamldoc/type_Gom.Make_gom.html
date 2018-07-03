@@ -1,0 +1,38 @@
+<html><head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gom" rel="Chapter" href="Gom.html">
+<link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
+<link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
+<link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Gom.Make_gom</title>
+</head>
+<body>
+<code class="code"><span class="keyword">functor</span>&nbsp;(<span class="constructor">Gom_requires</span>&nbsp;:&nbsp;<span class="keyword">sig</span>&nbsp;<span class="keyword">type</span>&nbsp;blk_id&nbsp;<span class="keyword">end</span>)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;<span class="keyword">sig</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;gom_state&nbsp;=&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in_roll_up&nbsp;:&nbsp;bool;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcache_root&nbsp;:&nbsp;<span class="constructor">Gom_requires</span>.blk_id;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;btree_root&nbsp;:&nbsp;<span class="constructor">Gom_requires</span>.blk_id;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;<span class="keywordsign">'</span>t&nbsp;gom_state_ops&nbsp;=<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="constructor">Gom</span>.<span class="constructor">Make_gom</span>.gom_state,&nbsp;<span class="keywordsign">'</span>t)&nbsp;<span class="constructor">Tjr_monad</span>.<span class="constructor">Mref_plus</span>.mref<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;make_gom_ops&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;monad_ops:<span class="keywordsign">'</span>a&nbsp;<span class="constructor">Tjr_monad</span>.<span class="constructor">Monad</span>.monad_ops&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;btree_ops:(<span class="keywordsign">'</span>k,&nbsp;<span class="keywordsign">'</span>v,&nbsp;<span class="keywordsign">'</span>a)&nbsp;<span class="constructor">Tjr_btree</span>.<span class="constructor">Map_ops</span>.map_ops&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcache_ops:(<span class="keywordsign">'</span>k,&nbsp;<span class="keywordsign">'</span>v,&nbsp;<span class="keywordsign">'</span>map,&nbsp;<span class="constructor">Gom_requires</span>.blk_id,&nbsp;<span class="keywordsign">'</span>a)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.plog_ops&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcache_blocks_limit:int&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gom_mref_ops:(<span class="constructor">Gom</span>.<span class="constructor">Make_gom</span>.gom_state,&nbsp;<span class="keywordsign">'</span>a)&nbsp;<span class="constructor">Tjr_monad</span>.<span class="constructor">Mref_plus</span>.mref&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;detach_map_ops:(<span class="keywordsign">'</span>k,&nbsp;<span class="keywordsign">'</span>v,&nbsp;<span class="keywordsign">'</span>map)&nbsp;<span class="constructor">Persistent_log</span>.detach_map_ops&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bt_sync:(unit&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="constructor">Gom_requires</span>.blk_id,&nbsp;<span class="keywordsign">'</span>a)&nbsp;<span class="constructor">Tjr_monad</span>.<span class="constructor">Monad</span>.m)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sync_gom_roots:(btree_root:<span class="constructor">Gom_requires</span>.blk_id&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pcache_root:<span class="constructor">Gom_requires</span>.blk_id&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(unit,&nbsp;<span class="keywordsign">'</span>a)&nbsp;<span class="constructor">Tjr_monad</span>.<span class="constructor">Monad</span>.m)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>k,&nbsp;<span class="keywordsign">'</span>v,&nbsp;<span class="keywordsign">'</span>a)&nbsp;<span class="constructor">Tjr_btree</span>.<span class="constructor">Map_ops</span>.map_ops<br>
+&nbsp;&nbsp;<span class="keyword">end</span></code></body></html>

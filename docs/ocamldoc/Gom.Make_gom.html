@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link rel="Up" href="Gom.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gom" rel="Chapter" href="Gom.html">
+<link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
+<link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
+<link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Gom.Make_gom</title>
+</head>
+<body>
+<div class="navbar">&nbsp;<a class="up" href="Gom.html" title="Gom">Up</a>
+&nbsp;</div>
+<h1>Functor <a href="type_Gom.Make_gom.html">Gom.Make_gom</a></h1>
+
+<pre><span class="keyword">module</span> Make_gom: <div class="sig_block"><code class="code">functor (</code><code class="code">Gom_requires</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block">
+<pre><span id="TYPEblk_id"><span class="keyword">type</span> <code class="type"></code>blk_id</span> </pre>
+
+</div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.html">..</a> <code class="code">end</code></div></pre><table border="0" cellpadding="3" width="100%">
+<tr>
+<td align="left" valign="top" width="1%%"><b>Parameters: </b></td>
+<td>
+<table class="paramstable">
+<tr>
+<td align="center" valign="top" width="15%">
+<code>Gom_requires</code></td>
+<td align="center" valign="top">:</td>
+<td><code class="type">sig type blk_id end</code>
+</table>
+</td>
+</tr>
+</table>
+<hr width="100%">
+
+<pre><code><span id="TYPEgom_state"><span class="keyword">type</span> <code class="type"></code>gom_state</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTgom_state.in_roll_up">in_roll_up</span>&nbsp;: <code class="type">bool</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTgom_state.pcache_root">pcache_root</span>&nbsp;: <code class="type">Gom_requires.blk_id</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTgom_state.btree_root">btree_root</span>&nbsp;: <code class="type">Gom_requires.blk_id</code>;</code></td>
+
+</tr></table>
+}
+
+<div class="info ">
+The gom state.<ul>
+<li><code class="code">in_roll_up</code>: a flag covering the critical section when we are executing a roll up</li>
+<li><code class="code">pcache_root</code>: the root of the pcache</li>
+<li><code class="code">btree_root</code>: the root of the B-tree</li>
+</ul>
+<br>
+</div>
+
+
+<pre><span id="TYPEgom_state_ops"><span class="keyword">type</span> <code class="type">'t</code> gom_state_ops</span> = <code class="type">(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 't) Tjr_monad.Mref_plus.mref</code> </pre>
+
+<br>
+Parameters:<ul>
+<li><code class="code">monad_ops</code></li>
+<li><code class="code">btree_ops</code></li>
+<li><code class="code">pcache_ops</code></li>
+<li><code class="code">pcache_blocks_limit</code>: how many blocks in the pcache before attempting a roll-up</li>
+<li><code class="code">gom_mref_ops</code>: a reference to the gom state; the pcache and btree roots get updated (also <code class="code">in_roll_up</code> is updated)</li>
+<li><code class="code">detach_map_ops</code>: used to get the bindings for the blocks that have been detached from the pcache</li>
+<li><code class="code">bt_sync</code>: at the end of the roll-up, we sync the B-tree itself to disk</li>
+<li><code class="code">sync_gom_roots</code>: called just before leaving the critical section, to record new roots for B-tree and pcache</li>
+</ul>
+<br>
+
+<pre><span id="VALmake_gom_ops"><span class="keyword">val</span> make_gom_ops</span> : <code class="type">monad_ops:'a Tjr_monad.Monad.monad_ops -><br>       btree_ops:('k, 'v, 'a) Tjr_btree.Map_ops.map_ops -><br>       pcache_ops:('k, 'v, 'map, Gom_requires.blk_id, 'a) <a href="Persistent_log.html#TYPEplog_ops">Persistent_log.plog_ops</a> -><br>       pcache_blocks_limit:int -><br>       gom_mref_ops:(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 'a) Tjr_monad.Mref_plus.mref -><br>       detach_map_ops:('k, 'v, 'map) <a href="Persistent_log.html#TYPEdetach_map_ops">Persistent_log.detach_map_ops</a> -><br>       bt_sync:(unit -> (Gom_requires.blk_id, 'a) Tjr_monad.Monad.m) -><br>       sync_gom_roots:(btree_root:Gom_requires.blk_id -><br>                       pcache_root:Gom_requires.blk_id -><br>                       (unit, 'a) Tjr_monad.Monad.m) -><br>       ('k, 'v, 'a) Tjr_btree.Map_ops.map_ops</code></pre></body></html>

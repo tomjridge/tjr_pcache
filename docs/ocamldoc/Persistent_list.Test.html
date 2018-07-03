@@ -1,0 +1,66 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link rel="Up" href="Persistent_list.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gom" rel="Chapter" href="Gom.html">
+<link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
+<link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
+<link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_list.Test</title>
+</head>
+<body>
+<div class="navbar">&nbsp;<a class="up" href="Persistent_list.html" title="Persistent_list">Up</a>
+&nbsp;</div>
+<h1>Module <a href="type_Persistent_list.Test.html">Persistent_list.Test</a></h1>
+
+<pre><span class="keyword">module</span> Test: <code class="code">sig</code> <a href="Persistent_list.Test.html">..</a> <code class="code">end</code></pre><hr width="100%">
+
+<pre><code><span id="TYPEstate"><span class="keyword">type</span> <code class="type">('ptr, 'a)</code> state</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTstate.map">map</span>&nbsp;: <code class="type">('ptr * ('ptr, 'a) <a href="Persistent_list.html#TYPElist_node">Persistent_list.list_node</a>) list</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTstate.cursor_state">cursor_state</span>&nbsp;: <code class="type">('ptr, 'a) <a href="Persistent_list.html#TYPEplist_state">Persistent_list.plist_state</a></code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTstate.free">free</span>&nbsp;: <code class="type">int</code>;</code></td>
+
+</tr></table>
+}
+
+
+
+<pre><span id="VALmonad_ops"><span class="keyword">val</span> monad_ops</span> : <code class="type">(int, string) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing<br>       Tjr_monad.Monad.monad_ops</code></pre>
+<pre><span id="VAL(>>=)"><span class="keyword">val</span> (&gt;&gt;=)</span> : <code class="type">('a, (int, string) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_monad.Monad.m -><br>       ('a -><br>        ('b, (int, string) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>        Tjr_monad.Monad.m) -><br>       ('b, (int, string) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_monad.Monad.m</code></pre>
+<pre><span id="VALreturn"><span class="keyword">val</span> return</span> : <code class="type">'a -><br>       ('a, (int, string) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_monad.Monad.m</code></pre>
+<pre><span id="VALwith_world"><span class="keyword">val</span> with_world</span> : <code class="type">('a -> 'b * 'a) -> ('b, 'a Tjr_monad.state_passing) Tjr_monad.Monad.m</code></pre>
+<pre><span id="VALread_node"><span class="keyword">val</span> read_node</span> : <code class="type">'a -><br>       ('a, 'b) <a href="Persistent_list.Test.html#TYPEstate">state</a> -> ('a, 'b) <a href="Persistent_list.html#TYPElist_node">Persistent_list.list_node</a></code></pre>
+<pre><span id="VALwrite_node"><span class="keyword">val</span> write_node</span> : <code class="type">'a -><br>       ('a, 'b) <a href="Persistent_list.html#TYPElist_node">Persistent_list.list_node</a> -><br>       (unit, ('a, 'b) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_monad.Monad.m</code></pre>
+<pre><span id="VALread_state"><span class="keyword">val</span> read_state</span> : <code class="type">unit -><br>       (('a, 'b) <a href="Persistent_list.html#TYPEplist_state">Persistent_list.plist_state</a>,<br>        ('a, 'b) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_monad.Monad.m</code></pre>
+<pre><span id="VALwrite_state"><span class="keyword">val</span> write_state</span> : <code class="type">('a, 'b) <a href="Persistent_list.html#TYPEplist_state">Persistent_list.plist_state</a> -><br>       (unit, ('a, 'b) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_monad.Monad.m</code></pre>
+<pre><span id="VALplist_state_ref"><span class="keyword">val</span> plist_state_ref</span> : <code class="type">(('a, 'b) <a href="Persistent_list.html#TYPEplist_state">Persistent_list.plist_state</a>,<br>        ('a, 'b) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_btree.Base_types.mref</code></pre>
+<pre><span id="VALalloc"><span class="keyword">val</span> alloc</span> : <code class="type">unit -><br>       (int, ('a, 'b) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_monad.Monad.m</code></pre>
+<pre><span id="VALint_to_ptr"><span class="keyword">val</span> int_to_ptr</span> : <code class="type">'a -> 'a</code></pre>
+<pre><span id="VALalloc"><span class="keyword">val</span> alloc</span> : <code class="type">unit -><br>       (int, ('a, 'b) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       Tjr_monad.Monad.m</code></pre>
+<pre><span id="VALops"><span class="keyword">val</span> ops</span> : <code class="type">unit -><br>       (string, int,<br>        (int, string) <a href="Persistent_list.Test.html#TYPEstate">state</a> Tjr_monad.state_passing)<br>       <a href="Persistent_list.html#TYPElist_ops">Persistent_list.list_ops</a></code></pre>
+<pre><span id="VALstart_block"><span class="keyword">val</span> start_block</span> : <code class="type">int</code></pre>
+<pre><span id="VALinit_state"><span class="keyword">val</span> init_state</span> : <code class="type">(int, string) <a href="Persistent_list.Test.html#TYPEstate">state</a></code></pre>
+<pre><span id="VALmain"><span class="keyword">val</span> main</span> : <code class="type">unit -> (int, string) <a href="Persistent_list.Test.html#TYPEstate">state</a></code></pre></body></html>

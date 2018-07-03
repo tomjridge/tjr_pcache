@@ -27,9 +27,9 @@ reinstall:
 	remove
 	install
 
-# doc:
-# 	echo Make sure to build first
-# 	mk_doc
+doc:
+	echo Make sure to build first
+	mk_doc
 # 	cp *.html *.css ../docs
 
 clean:

@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link rel="previous" href="Pcache_debug.html">
+<link rel="next" href="Persistent_list.html">
+<link rel="Up" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gom" rel="Chapter" href="Gom.html">
+<link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
+<link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
+<link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_chunked_list</title>
+</head>
+<body>
+<div class="navbar"><a class="pre" href="Pcache_debug.html" title="Pcache_debug">Previous</a>
+&nbsp;<a class="up" href="index.html" title="Index">Up</a>
+&nbsp;<a class="post" href="Persistent_list.html" title="Persistent_list">Next</a>
+</div>
+<h1>Module <a href="type_Persistent_chunked_list.html">Persistent_chunked_list</a></h1>
+
+<pre><span class="keyword">module</span> Persistent_chunked_list: <code class="code">sig</code> <a href="Persistent_chunked_list.html">..</a> <code class="code">end</code></pre><div class="info module top">
+Use Persistent_list to implement a "chunked" list. Store multiple
+    items in a node, and automatically create a new node when the
+    current fills up. 
+<p>
+
+    We want to avoid repeated serialization. So the representation of the
+    kv is present already as a separate type. We need a function:
+<p>
+
+    'repr -&gt; 'kv -&gt; 'repr
+<p>
+
+    which extends the repr type with another 'kv; we also need a way
+    to check that 'repr fits in the block.
+<p>
+
+    An alternative is just to allocate a range of blocks contiguously,
+    and write operations into these blocks consecutively. But this is
+    a bit horrible.<br>
+</div>
+<hr width="100%">
+
+<pre><code><span id="TYPEpcl_state"><span class="keyword">type</span> <code class="type">('e, 'repr)</code> pcl_state</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTpcl_state.elts">elts</span>&nbsp;: <code class="type">'e list</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTpcl_state.elts_repr">elts_repr</span>&nbsp;: <code class="type">'repr</code>;</code></td>
+
+</tr></table>
+}
+
+
+
+<pre><code><span id="TYPErepr_ops"><span class="keyword">type</span> <code class="type">('e, 'repr)</code> repr_ops</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTrepr_ops.nil">nil</span>&nbsp;: <code class="type">'repr</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTrepr_ops.snoc">snoc</span>&nbsp;: <code class="type">'e -> 'repr -> [ `Error_too_large | `Ok of 'repr ]</code>;</code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTrepr_ops.repr_to_list">repr_to_list</span>&nbsp;: <code class="type">'repr -> 'e list</code>;</code></td>
+
+</tr></table>
+}
+
+
+
+<pre><code><span id="TYPEinserted_type"><span class="keyword">type</span> <code class="type">'ptr</code> inserted_type</span> = </code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTinserted_type.Inserted_in_current_node"><span class="constructor">Inserted_in_current_node</span></span></code></td>
+
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTinserted_type.Inserted_in_new_node"><span class="constructor">Inserted_in_new_node</span></span> <span class="keyword">of</span> <code class="type">'ptr</code></code></td>
+
+</tr></table>
+
+
+
+<pre><code><span id="TYPEpcl_ops"><span class="keyword">type</span> <code class="type">('e, 'ptr, 't)</code> pcl_ops</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTpcl_ops.insert">insert</span>&nbsp;: <code class="type">'e -> ('ptr <a href="Persistent_chunked_list.html#TYPEinserted_type">inserted_type</a>, 't) Tjr_monad.Monad.m</code>;</code></td>
+
+</tr></table>
+}
+
+
+
+<pre><span id="VALmake_persistent_chunked_list"><span class="keyword">val</span> make_persistent_chunked_list</span> : <code class="type">monad_ops:'t Tjr_monad.Monad.monad_ops -><br>       list_ops:('repr, 'ptr, 't) <a href="Persistent_list.html#TYPElist_ops">Persistent_list.list_ops</a> -><br>       repr_ops:('e, 'repr) <a href="Persistent_chunked_list.html#TYPErepr_ops">repr_ops</a> -><br>       pcl_state_ref:(('e, 'repr) <a href="Persistent_chunked_list.html#TYPEpcl_state">pcl_state</a>, 't)<br>                     Tjr_btree.Base_types.mref -><br>       ('e, 'ptr, 't) <a href="Persistent_chunked_list.html#TYPEpcl_ops">pcl_ops</a></code></pre>
+<pre><span id="VALpclist_to_nodes"><span class="keyword">val</span> pclist_to_nodes</span> : <code class="type">repr_to_list:('repr -> 'e list) -><br>       plist_to_nodes:(ptr:'ptr -><br>                       't -> ('ptr * ('ptr, 'repr) <a href="Persistent_list.html#TYPElist_node">Persistent_list.list_node</a>) list) -><br>       ptr:'ptr -> 't -> ('ptr * 'e list) list</code></pre>
+<pre><span class="keyword">module</span> <a href="Persistent_chunked_list.Test.html">Test</a>: <code class="code">sig</code> <a href="Persistent_chunked_list.Test.html">..</a> <code class="code">end</code></pre></body></html>

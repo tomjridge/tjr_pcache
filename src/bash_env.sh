@@ -102,14 +102,20 @@ EOF
 # doc ----------------------------------------------------
 
 function mk_doc() {
-    ocamlfind ocamldoc -short-paths $PKGS $WARN -html `cat depend/*`
+    ocamlfind ocamldoc $PKGS $WARN -html *.ml
+    mv *.html ../docs/ocamldoc
+    rm *.css
+# odoc -----------------------------------------------------------------
+# depends on jbuilder really; the following isn't quite right
+#    for f in *.cmt; do odoc compile --package $libname $f; done
+#    for f in *.odoc; do odoc html -o /tmp $f; done
 }
 
 
 # clean ----------------------------------------------------------------
 
 function clean() {
-	rm -f *.{cmi,cmo,cmx,o,cmt} a.out *.cma *.cmxa *.a *.byte *.native
+	rm -f *.{cmi,cmo,cmx,o,cmt} a.out *.cma *.cmxa *.a *.byte *.native *.odoc *.html *.css
 }
 
 # ocamlfind install, remove, reinstall --------------------
