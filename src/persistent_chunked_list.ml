@@ -316,6 +316,7 @@ module Test = struct
   *)
 
 
+  (* FIXME do more testing a la gom testing with abstract models etc *)
 end
 
 
