@@ -86,15 +86,19 @@ module Make_gom(Gom_requires : sig type bt_blk_id type pc_blk_id end) = struct
 
   type 't gom_state_ops = (gom_state,'t) mref
 
+
+  type ('k,'v,'t) gom_ops = ('k,'v,'t) Tjr_btree.Map_ops.map_ops
+
   (* we perform a "roll up" operation, merging the pcache into the
      B-tree, when the number of pcache blocks reaches
      pcache_blocks_limit *)
 
-  (** Parameters:
+  (** 
+Parameters:
 - [monad_ops]
 - [btree_ops]
 - [pcache_ops]
-- [pcache_blocks_limit]: how many blocks in the pcache before attempting a roll-up
+- [pcache_blocks_limit]: how many blocks in the pcache before attempting a roll-up; if the length of pcache is [>=] this limit, we attempt a roll-up; NOTE that this limit should be >= 2 (if we roll up with 1 block, then in fact nothing gets rolled up because we roll up "upto" the current block; not a problem but probably pointless for testing)
 - [gom_mref_ops]: a reference to the gom state; the pcache and btree roots get updated (also [in_roll_up] is updated)
 - [detach_map_ops]: used to get the bindings for the blocks that have been detached from the pcache
 - [bt_sync]: at the end of the roll-up, we sync the B-tree itself to disk
@@ -110,6 +114,8 @@ module Make_gom(Gom_requires : sig type bt_blk_id type pc_blk_id end) = struct
       ~gom_mref_ops ~(detach_map_ops:('k,'v,'map) Persistent_log.detach_map_ops) 
       ~bt_sync  (* to sync the B-tree to get the new B-tree root *)
       ~sync_gom_roots  (* to write the gom roots to disk somewhere *)
+
+    : ('k,'v,'t) gom_ops 
     =
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in
@@ -152,11 +158,15 @@ module Make_gom(Gom_requires : sig type bt_blk_id type pc_blk_id end) = struct
                    meantime *)
                 return `Already_in_roll_up
               | `Ok -> 
-                (* the flag has been set; we need to roll up the cache;
-                   FIXME we also need some sort of
-                   backpressure/prioritization on this roll-up thread in
-                   case the cache is running too far ahead of the B-tree *)
-                pc_detach () >>= fun (old_root,(map:'map),new_root) ->
+                (* the flag has been set; we need to roll up the
+                   cache; NOTE that if we have a single block in the
+                   pcache, and attempt to roll-up, then in fact
+                   nothing will be rolled up; FIXME this is presumably
+                   an error, so we require pclimit >= 2 FIXME we also
+                   need some sort of backpressure/prioritization on
+                   this roll-up thread in case the cache is running
+                   too far ahead of the B-tree *)
+                pc_detach () >>= fun (old_root,(map:'map),new_root,_(*new_map*)) ->
                 (* map consists of all the entries we need to roll up *)
                 map |> detach_map_ops.Tjr_map.map_bindings |> fun kvs ->
                 let rec loop kvs = 
@@ -202,7 +212,7 @@ module Make_gom(Gom_requires : sig type bt_blk_id type pc_blk_id end) = struct
     { find; insert; delete; insert_many }
     
 
-  module Test() = struct
+  module Test() = (struct
 
     (* 
 We need
@@ -213,19 +223,126 @@ We need
 - detach_map_ops; just a map supporting ('k, ('k, 'v) op, 'map) Tjr_map.map_ops 
 - bt_sync: perhaps we also record valid states as part of the global state? the bt_sync operation could return a btree_root (iso to int); FIXME do we want to identify btree_root as a different type? or maybe work with 'a blkid?
 - sync_gom_roots: also record this as part of our global state
+
+
+What do we want to test?
+
+- That the gom abstracts to a simple map
+  - take B-tree state (as a map) and append pcache state (as a map)
+  - the abstract state should be the same before and after a sync_gom_root action (which occurs when a roll-up occurs)
+- That the state is always well formed:
+  - (concurrency ... needs to be tested with multiple insert threads and arb interleaving FIXME)
+  - ?anything else?
+
 *)
 
+    module K = Tjr_int.Make_type_isomorphic_to_int()
+    type key = K.t
 
-    type ('k,'v) btree_repr
+    module V = Tjr_int.Make_type_isomorphic_to_int()
+    type value = V.t
 
-    type ('k,'v,'map,'ptr) state = {
-      pcache_state: ('map,'ptr) Persistent_log.plog_state;
+    module K_map = Tjr_map.Make(struct type t = key let compare: t -> t -> int = Pervasives.compare end)
+    type btree_repr = value K_map.Map_.t
+
+    
+    (* need a map from k to (k,v)op *)
+        
+    (* if we make the map types the same type, we can union the maps more easily *)
+    type k_vop_map = (key,value)Persistent_log.op K_map.Map_.t
+    let k_vop_map_ops = K_map.map_ops
+    
+
+    type state = {
+      btree_state: btree_repr;
+      pcache_state: (key,value) Persistent_log.Abstract_model_ops.state;
       gom_state: gom_state;
-      btree_roots: (bt_blk_id*('k,'v) btree_repr)list;  (* assoc list *)
+      btree_roots: (bt_blk_id* btree_repr)list;  (* assoc list *)
       synced_gom_roots: (bt_blk_id*pc_blk_id) list; 
     }
 
-  end
+    let btree_ops : (key,value,btree_repr) Tjr_btree.Map_ops.map_ops = failwith __LOC__
+
+    let map_union s1 s2 = 
+      K_map.Map_.union (fun k a1 a2 -> Some a2) s1 s2 
+
+(*
+    (* merge bt and pc; for pc, we have ins and delete actions *)
+    let map_merge bt pc =
+      let f key v1 v2 =
+        match v2 with
+        | None -> v1
+        | Some(Delete k') ->
+          assert(key=k');
+          None
+        | Some(Insert (k,v)) ->
+          assert(key=k);
+          Some(v)
+      in
+      K_map.Map_.merge f bt pc
+*)
+
+    let ops_to_map ops = 
+      Tjr_list.with_each_elt
+        ~step:(fun ~state elt -> 
+            match elt with 
+            | Delete k ->  K_map.Map_.remove k state
+            | Insert(k,v) -> K_map.Map_.add k v state)
+        ~init_state:K_map.Map_.empty
+        ops
+
+    let _ = ops_to_map
+
+    let abstract_state s = 
+      s.pcache_state.Abstract_model_ops.kvs |> List.map snd |> fun ops -> 
+      ops_to_map ops |> fun pc_map ->
+      map_union s.btree_state pc_map
 
 
-end
+    type abstract_state = value K_map.Map_.t
+
+
+    let monad_ops: state Tjr_monad.state_passing Tjr_monad.Monad.monad_ops =  
+      Tjr_monad.State_passing_instance.monad_ops ()
+
+    let gom_ops : (key,value,'t) gom_ops = failwith __LOC__
+
+    let mref = failwith __LOC__
+
+    (* we don't construct these; instead we use an abstract model
+       FIXME the abstract model should be in plog *)
+    let pcache_ops = 
+      Persistent_log.Abstract_model_ops.abstract_model_ops
+        ~monad_ops
+        ~ops_per_block:2
+        ~mref
+
+    let _ = pcache_ops
+    
+    let insert k v s =
+      let t = abstract_state s in
+      let correct_t' = K_map.Map_.add k v t in
+      gom_ops.insert k v |> fun m ->
+      Tjr_monad.State_passing_instance.run ~init_state:s m |> fun (_,s') ->
+      assert(correct_t' = abstract_state s');
+      ((),s')
+
+    let delete k s =
+      let t = abstract_state s in
+      let correct_t' = K_map.Map_.remove k t in
+      gom_ops.delete k |> fun m ->
+      Tjr_monad.State_passing_instance.run ~init_state:s m |> fun (_,s') ->
+      assert(correct_t' = abstract_state s');
+      ((),s')
+
+
+    (* OK; now we can run some tests by exhaustively enumerating states *)
+    (* FIXME reuse btree testing code *)
+
+
+  end : sig end)
+
+    
+
+
+end  (* Make_gom *)

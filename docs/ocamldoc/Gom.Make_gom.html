@@ -78,12 +78,15 @@ The gom state.<ul>
 
 <pre><span id="TYPEgom_state_ops"><span class="keyword">type</span> <code class="type">'t</code> gom_state_ops</span> = <code class="type">(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 't) Tjr_monad.Mref_plus.mref</code> </pre>
 
+
+<pre><span id="TYPEgom_ops"><span class="keyword">type</span> <code class="type">('k, 'v, 't)</code> gom_ops</span> = <code class="type">('k, 'v, 't) Tjr_btree.Map_ops.map_ops</code> </pre>
+
 <br>
 Parameters:<ul>
 <li><code class="code">monad_ops</code></li>
 <li><code class="code">btree_ops</code></li>
 <li><code class="code">pcache_ops</code></li>
-<li><code class="code">pcache_blocks_limit</code>: how many blocks in the pcache before attempting a roll-up</li>
+<li><code class="code">pcache_blocks_limit</code>: how many blocks in the pcache before attempting a roll-up; if the length of pcache is <code class="code">&gt;=</code> this limit, we attempt a roll-up; NOTE that this limit should be &gt;= 2 (if we roll up with 1 block, then in fact nothing gets rolled up because we roll up "upto" the current block; not a problem but probably pointless for testing)</li>
 <li><code class="code">gom_mref_ops</code>: a reference to the gom state; the pcache and btree roots get updated (also <code class="code">in_roll_up</code> is updated)</li>
 <li><code class="code">detach_map_ops</code>: used to get the bindings for the blocks that have been detached from the pcache</li>
 <li><code class="code">bt_sync</code>: at the end of the roll-up, we sync the B-tree itself to disk</li>
@@ -91,5 +94,5 @@ Parameters:<ul>
 </ul>
 <br>
 
-<pre><span id="VALmake_gom_ops"><span class="keyword">val</span> make_gom_ops</span> : <code class="type">monad_ops:'a Tjr_monad.Monad.monad_ops -><br>       btree_ops:('k, 'v, 'a) Tjr_btree.Map_ops.map_ops -><br>       pcache_ops:('k, 'v, 'map, Gom_requires.pc_blk_id, 'a) <a href="Persistent_log.html#TYPEplog_ops">Persistent_log.plog_ops</a> -><br>       pcache_blocks_limit:int -><br>       gom_mref_ops:(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 'a) Tjr_monad.Mref_plus.mref -><br>       detach_map_ops:('k, 'v, 'map) <a href="Persistent_log.html#TYPEdetach_map_ops">Persistent_log.detach_map_ops</a> -><br>       bt_sync:(unit -> (Gom_requires.bt_blk_id, 'a) Tjr_monad.Monad.m) -><br>       sync_gom_roots:(btree_root:Gom_requires.bt_blk_id -><br>                       pcache_root:Gom_requires.pc_blk_id -><br>                       (unit, 'a) Tjr_monad.Monad.m) -><br>       ('k, 'v, 'a) Tjr_btree.Map_ops.map_ops</code></pre>
+<pre><span id="VALmake_gom_ops"><span class="keyword">val</span> make_gom_ops</span> : <code class="type">monad_ops:'t Tjr_monad.Monad.monad_ops -><br>       btree_ops:('k, 'v, 't) Tjr_btree.Map_ops.map_ops -><br>       pcache_ops:('k, 'v, 'map, Gom_requires.pc_blk_id, 't) <a href="Persistent_log.html#TYPEplog_ops">Persistent_log.plog_ops</a> -><br>       pcache_blocks_limit:int -><br>       gom_mref_ops:(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 't) Tjr_monad.Mref_plus.mref -><br>       detach_map_ops:('k, 'v, 'map) <a href="Persistent_log.html#TYPEdetach_map_ops">Persistent_log.detach_map_ops</a> -><br>       bt_sync:(unit -> (Gom_requires.bt_blk_id, 't) Tjr_monad.Monad.m) -><br>       sync_gom_roots:(btree_root:Gom_requires.bt_blk_id -><br>                       pcache_root:Gom_requires.pc_blk_id -><br>                       (unit, 't) Tjr_monad.Monad.m) -><br>       ('k, 'v, 't) <a href="Gom.Make_gom.html#TYPEgom_ops">gom_ops</a></code></pre>
 <pre><span class="keyword">module</span> <a href="Gom.Make_gom.Test.html">Test</a>: <div class="sig_block"><code class="code">functor (</code><code class="code">*</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block"></div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.Test.html">..</a> <code class="code">end</code></div></pre></body></html>

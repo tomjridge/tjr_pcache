@@ -71,7 +71,7 @@ A persistent log, used to reduce traffic via the B-tree. NOTE
 <td align="left" valign="top" >
 <code>&nbsp;&nbsp;</code></td>
 <td align="left" valign="top" >
-<code><span id="TYPEELTplog_ops.detach">detach</span>&nbsp;: <code class="type">unit -> ('ptr * 'map * 'ptr, 't) Tjr_btree.Base_types.m</code>;</code></td>
+<code><span id="TYPEELTplog_ops.detach">detach</span>&nbsp;: <code class="type">unit -> ('ptr * 'map * 'ptr * 'map, 't) Tjr_btree.Base_types.m</code>;</code></td>
 
 </tr>
 <tr>
@@ -83,6 +83,9 @@ A persistent log, used to reduce traffic via the B-tree. NOTE
 </tr></table>
 }
 
+<div class="info ">
+detach returns: 'ptr to first block in list; map upto current node; 'ptr to current node; map for current node<br>
+</div>
 
 
 <pre><code><span id="TYPEplog_state"><span class="keyword">type</span> <code class="type">('map, 'ptr)</code> plog_state</span> = {</code></pre><table class="typetable">
@@ -155,5 +158,7 @@ Construct the persistent cache operations. Parameters:
 <br>
 </div>
 
+<pre><span id="VALplog_to_map"><span class="keyword">val</span> plog_to_map</span> : <code class="type">map_union:('a -> 'a -> 'b) -> ('a, 'c) <a href="Persistent_log.html#TYPEplog_state">plog_state</a> -> 'b</code></pre>
 <pre><span class="keyword">module</span> <a href="Persistent_log.Dbg.html">Dbg</a>: <code class="code">sig</code> <a href="Persistent_log.Dbg.html">..</a> <code class="code">end</code></pre>
-<pre><span class="keyword">module</span> <a href="Persistent_log.Test.html">Test</a>: <code class="code">sig</code> <a href="Persistent_log.Test.html">..</a> <code class="code">end</code></pre></body></html>
+<pre><span class="keyword">module</span> <a href="Persistent_log.Test.html">Test</a>: <code class="code">sig</code> <a href="Persistent_log.Test.html">..</a> <code class="code">end</code></pre>
+<pre><span class="keyword">module</span> <a href="Persistent_log.Abstract_model_ops.html">Abstract_model_ops</a>: <code class="code">sig</code> <a href="Persistent_log.Abstract_model_ops.html">..</a> <code class="code">end</code></pre></body></html>

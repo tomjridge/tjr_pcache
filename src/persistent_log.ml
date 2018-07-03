@@ -75,6 +75,7 @@ type ('k,'v,'repr) chunk_state = (('k,'v)op,'repr) pcl_state = {
 type ('k,'v,'map) detach_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
 
 
+(* FIXME the detach operation would make more sense if we also returned the map for the current node *)
 type ('k,'v,'map,'ptr,'t) plog_ops = {
   find: 'k -> (('k,'v) op option,'t) m;  
   (* should execute in mem but to control concurrency we put in the
@@ -82,11 +83,11 @@ type ('k,'v,'map,'ptr,'t) plog_ops = {
 
   add: ('k,'v)op -> (unit,'t) m;  (* add rather than insert, to avoid confusion *)
   
-  detach: unit -> ('ptr * 'map * 'ptr,'t) m;
-  (* 'ptr to first block in list; map upto current node; 'ptr to current node *)
+  detach: unit -> ('ptr * 'map * 'ptr * 'map, 't) m;
 
   get_block_list_length: unit -> (int,'t) m;
 }
+(** detach returns: 'ptr to first block in list; map upto current node; 'ptr to current node; map for current node *)
 
 
 (** The state of the persistent cache. Parameters are:
@@ -167,7 +168,7 @@ let make_plog_ops
      non-atomicity *)
   let detach () =  
     get () >>= fun s ->
-    let r = (s.start_block,s.map_past,s.current_block) in
+    let r = (s.start_block,s.map_past,s.current_block,s.map_current) in
     (* we need to adjust the start block and the map_past - we are
        forgetting everything in previous blocks *)
     set { s with start_block=s.current_block; block_list_length=1; map_past=map_empty } >>= fun () ->
@@ -185,6 +186,7 @@ let _ = make_plog_ops
 (* FIXME we probably want a common instantiation here, so we can get a
    pcache without constructing the intermediate layers explicitly *)
 
+let plog_to_map ~map_union s = map_union s.map_past s.map_current
 
 (* debug ------------------------------------------------------------ *)
 
@@ -524,3 +526,58 @@ end
 
 
 
+module Abstract_model_ops = struct
+
+  module Ptr = Tjr_int.Make_type_isomorphic_to_int()
+
+  (* FIXME we may want the state to be a map rather than an assoc
+     list; but then we need polymorphic maps over k *)
+
+  (* for pointers, we just make sure to allocate a new pointer every time we detach a non-empty prefix *)
+  type ('k,'v) state = {
+    kvs: ('k*('k,'v) op) list;  (* association list *)
+    ptr_ref: Ptr.t
+  }
+
+
+  (* from List.ml *)
+  let rec assoc_opt x = function
+      [] -> None
+    | (a,b)::l -> if compare a x = 0 then Some b else assoc_opt x l
+
+  let abstract_model_ops ~monad_ops ~ops_per_block ~mref = 
+    let ( >>= ) = monad_ops.bind in
+    let return = monad_ops.return in      
+    let find k =
+      mref.get () >>= fun s -> assoc_opt k s.kvs |> return
+    in
+    let add op =
+      mref.get () >>= fun s -> 
+      let k = op2k op in
+      (* NOTE we make sure there are no duplicate keys in the list FIXME add as assoc_insert in tjr_lib *)
+      (k,op)::(List.filter (fun (k',_) -> k' <> k) s.kvs) |> fun kvs ->
+      {s with kvs } |> mref.set
+    in
+    let detach () =
+      mref.get () >>= fun s ->
+      let n = List.length s.kvs in
+      let n_remaining = n mod ops_per_block in
+      let remaining = Tjr_list.take n_remaining s.kvs in
+      let dropped = Tjr_list.drop n_remaining s.kvs in
+      match n = n_remaining with
+      | true -> return (s.ptr_ref,[],s.ptr_ref,s.kvs)
+      | false -> 
+        let ptr' = s.ptr_ref |> Ptr.t2int |> fun x -> x+1 |> Ptr.int2t in
+        mref.set { kvs=remaining; ptr_ref=ptr' } >>= fun () ->
+        return (s.ptr_ref,dropped,ptr',remaining)
+    in
+    let get_block_list_length () = 
+      mref.get () >>= fun s ->
+      return (1+ (List.length s.kvs / ops_per_block) )
+    in
+    {find; add; detach; get_block_list_length}
+
+
+  let init_state = { kvs=[]; ptr_ref=Ptr.int2t 0 }
+
+end
