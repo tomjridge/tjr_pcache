@@ -21,7 +21,10 @@
 <h1>Functor <a href="type_Gom.Make_gom.html">Gom.Make_gom</a></h1>
 
 <pre><span class="keyword">module</span> Make_gom: <div class="sig_block"><code class="code">functor (</code><code class="code">Gom_requires</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block">
-<pre><span id="TYPEblk_id"><span class="keyword">type</span> <code class="type"></code>blk_id</span> </pre>
+<pre><span id="TYPEbt_blk_id"><span class="keyword">type</span> <code class="type"></code>bt_blk_id</span> </pre>
+
+
+<pre><span id="TYPEpc_blk_id"><span class="keyword">type</span> <code class="type"></code>pc_blk_id</span> </pre>
 
 </div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.html">..</a> <code class="code">end</code></div></pre><table border="0" cellpadding="3" width="100%">
 <tr>
@@ -32,7 +35,7 @@
 <td align="center" valign="top" width="15%">
 <code>Gom_requires</code></td>
 <td align="center" valign="top">:</td>
-<td><code class="type">sig type blk_id end</code>
+<td><code class="type">sig type bt_blk_id type pc_blk_id end</code>
 </table>
 </td>
 </tr>
@@ -51,14 +54,14 @@
 <td align="left" valign="top" >
 <code>&nbsp;&nbsp;</code></td>
 <td align="left" valign="top" >
-<code><span id="TYPEELTgom_state.pcache_root">pcache_root</span>&nbsp;: <code class="type">Gom_requires.blk_id</code>;</code></td>
+<code><span id="TYPEELTgom_state.pcache_root">pcache_root</span>&nbsp;: <code class="type">Gom_requires.pc_blk_id</code>;</code></td>
 
 </tr>
 <tr>
 <td align="left" valign="top" >
 <code>&nbsp;&nbsp;</code></td>
 <td align="left" valign="top" >
-<code><span id="TYPEELTgom_state.btree_root">btree_root</span>&nbsp;: <code class="type">Gom_requires.blk_id</code>;</code></td>
+<code><span id="TYPEELTgom_state.btree_root">btree_root</span>&nbsp;: <code class="type">Gom_requires.bt_blk_id</code>;</code></td>
 
 </tr></table>
 }
@@ -88,4 +91,5 @@ Parameters:<ul>
 </ul>
 <br>
 
-<pre><span id="VALmake_gom_ops"><span class="keyword">val</span> make_gom_ops</span> : <code class="type">monad_ops:'a Tjr_monad.Monad.monad_ops -><br>       btree_ops:('k, 'v, 'a) Tjr_btree.Map_ops.map_ops -><br>       pcache_ops:('k, 'v, 'map, Gom_requires.blk_id, 'a) <a href="Persistent_log.html#TYPEplog_ops">Persistent_log.plog_ops</a> -><br>       pcache_blocks_limit:int -><br>       gom_mref_ops:(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 'a) Tjr_monad.Mref_plus.mref -><br>       detach_map_ops:('k, 'v, 'map) <a href="Persistent_log.html#TYPEdetach_map_ops">Persistent_log.detach_map_ops</a> -><br>       bt_sync:(unit -> (Gom_requires.blk_id, 'a) Tjr_monad.Monad.m) -><br>       sync_gom_roots:(btree_root:Gom_requires.blk_id -><br>                       pcache_root:Gom_requires.blk_id -><br>                       (unit, 'a) Tjr_monad.Monad.m) -><br>       ('k, 'v, 'a) Tjr_btree.Map_ops.map_ops</code></pre></body></html>
+<pre><span id="VALmake_gom_ops"><span class="keyword">val</span> make_gom_ops</span> : <code class="type">monad_ops:'a Tjr_monad.Monad.monad_ops -><br>       btree_ops:('k, 'v, 'a) Tjr_btree.Map_ops.map_ops -><br>       pcache_ops:('k, 'v, 'map, Gom_requires.pc_blk_id, 'a) <a href="Persistent_log.html#TYPEplog_ops">Persistent_log.plog_ops</a> -><br>       pcache_blocks_limit:int -><br>       gom_mref_ops:(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 'a) Tjr_monad.Mref_plus.mref -><br>       detach_map_ops:('k, 'v, 'map) <a href="Persistent_log.html#TYPEdetach_map_ops">Persistent_log.detach_map_ops</a> -><br>       bt_sync:(unit -> (Gom_requires.bt_blk_id, 'a) Tjr_monad.Monad.m) -><br>       sync_gom_roots:(btree_root:Gom_requires.bt_blk_id -><br>                       pcache_root:Gom_requires.pc_blk_id -><br>                       (unit, 'a) Tjr_monad.Monad.m) -><br>       ('k, 'v, 'a) Tjr_btree.Map_ops.map_ops</code></pre>
+<pre><span class="keyword">module</span> <a href="Gom.Make_gom.Test.html">Test</a>: <div class="sig_block"><code class="code">functor (</code><code class="code">*</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block"></div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.Test.html">..</a> <code class="code">end</code></div></pre></body></html>

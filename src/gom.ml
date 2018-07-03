@@ -63,7 +63,7 @@ end
 *)
 
 
-module Make_gom(Gom_requires : sig type blk_id end) = struct
+module Make_gom(Gom_requires : sig type bt_blk_id type pc_blk_id end) = struct
   
   open Gom_requires
 
@@ -78,8 +78,8 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
   *)
   type gom_state = {
     in_roll_up: bool;
-    pcache_root: blk_id;
-    btree_root: blk_id;
+    pcache_root: pc_blk_id;
+    btree_root: bt_blk_id;
   }
 
   open Tjr_monad.Mref_plus
@@ -201,6 +201,31 @@ module Make_gom(Gom_requires : sig type blk_id end) = struct
     in
     { find; insert; delete; insert_many }
     
+
+  module Test() = struct
+
+    (* 
+We need
+- monad; use state-passing
+- btree_ops; these are just map ops
+- pcache_ops; these are from persistent_log; the pcache state needs to be part of our global state
+- gom_mref_ops; this is just the state
+- detach_map_ops; just a map supporting ('k, ('k, 'v) op, 'map) Tjr_map.map_ops 
+- bt_sync: perhaps we also record valid states as part of the global state? the bt_sync operation could return a btree_root (iso to int); FIXME do we want to identify btree_root as a different type? or maybe work with 'a blkid?
+- sync_gom_roots: also record this as part of our global state
+*)
+
+
+    type ('k,'v) btree_repr
+
+    type ('k,'v,'map,'ptr) state = {
+      pcache_state: ('map,'ptr) Persistent_log.plog_state;
+      gom_state: gom_state;
+      btree_roots: (bt_blk_id*('k,'v) btree_repr)list;  (* assoc list *)
+      synced_gom_roots: (bt_blk_id*pc_blk_id) list; 
+    }
+
+  end
 
 
 end
