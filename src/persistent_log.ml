@@ -526,9 +526,7 @@ end
 
 
 
-module Abstract_model_ops = struct
-
-  module Ptr = Tjr_int.Make_type_isomorphic_to_int()
+module Abstract_model_ops(Ptr:Tjr_int.TYPE_ISOMORPHIC_TO_INT) = struct
 
   (* FIXME we may want the state to be a map rather than an assoc
      list; but then we need polymorphic maps over k *)
@@ -545,6 +543,10 @@ module Abstract_model_ops = struct
       [] -> None
     | (a,b)::l -> if compare a x = 0 then Some b else assoc_opt x l
 
+  (** 
+Parameters:
+- [mref] - the mref for the abstract state as a subpart of the global state
+  *)
   let abstract_model_ops ~monad_ops ~ops_per_block ~mref = 
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in      

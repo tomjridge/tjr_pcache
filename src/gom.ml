@@ -63,13 +63,20 @@ end
 *)
 
 
-module Make_gom(Gom_requires : sig type bt_blk_id type pc_blk_id end) = struct
+module Make_gom(Gom_requires : sig 
+    type bt_blk_id 
+    module Pc_blk_id:Tjr_int.TYPE_ISOMORPHIC_TO_INT (* NOTE only needed for testing; otherwise abstract *)
+  end) 
+= struct
   
   open Gom_requires
-
+      
   open Tjr_btree.Map_ops
 
   open Persistent_log
+
+
+  type pc_blk_id = Pc_blk_id.t
 
   (** The gom state.
 - [in_roll_up]: a flag covering the critical section when we are executing a roll up
@@ -235,6 +242,8 @@ What do we want to test?
   - ?anything else?
 
 *)
+    module Abstract_model = Persistent_log.Abstract_model_ops(Pc_blk_id)
+
 
     module K = Tjr_int.Make_type_isomorphic_to_int()
     type key = K.t
@@ -250,18 +259,18 @@ What do we want to test?
         
     (* if we make the map types the same type, we can union the maps more easily *)
     type k_vop_map = (key,value)Persistent_log.op K_map.Map_.t
-    let k_vop_map_ops = K_map.map_ops
-    
+    let detach_map_ops = K_map.map_ops
+
 
     type state = {
       btree_state: btree_repr;
-      pcache_state: (key,value) Persistent_log.Abstract_model_ops.state;
+      pcache_state: (key,value) Abstract_model.state;
       gom_state: gom_state;
       btree_roots: (bt_blk_id* btree_repr)list;  (* assoc list *)
       synced_gom_roots: (bt_blk_id*pc_blk_id) list; 
     }
 
-    let btree_ops : (key,value,btree_repr) Tjr_btree.Map_ops.map_ops = failwith __LOC__
+    let btree_ops : (key,value,'t) Tjr_btree.Map_ops.map_ops = failwith __LOC__
 
     let map_union s1 s2 = 
       K_map.Map_.union (fun k a1 a2 -> Some a2) s1 s2 
@@ -294,7 +303,7 @@ What do we want to test?
     let _ = ops_to_map
 
     let abstract_state s = 
-      s.pcache_state.Abstract_model_ops.kvs |> List.map snd |> fun ops -> 
+      s.pcache_state.Abstract_model.kvs |> List.map snd |> fun ops -> 
       ops_to_map ops |> fun pc_map ->
       map_union s.btree_state pc_map
 
@@ -305,17 +314,26 @@ What do we want to test?
     let monad_ops: state Tjr_monad.state_passing Tjr_monad.Monad.monad_ops =  
       Tjr_monad.State_passing_instance.monad_ops ()
 
-    let gom_ops : (key,value,'t) gom_ops = failwith __LOC__
 
     let mref = failwith __LOC__
 
     (* we don't construct these; instead we use an abstract model
        FIXME the abstract model should be in plog *)
     let pcache_ops = 
-      Persistent_log.Abstract_model_ops.abstract_model_ops
+      Abstract_model.abstract_model_ops
         ~monad_ops
         ~ops_per_block:2
         ~mref
+
+    let pcache_blocks_limit = 2
+
+    let gom_ops : (key,value,'t) gom_ops = 
+      make_gom_ops
+        ~monad_ops ~btree_ops ~pcache_ops ~pcache_blocks_limit 
+        ~gom_mref_ops ~detach_map_ops
+        ~bt_sync  (* to sync the B-tree to get the new B-tree root *)
+        ~sync_gom_roots  (* to write the gom roots to disk somewhere *)
+
 
     let _ = pcache_ops
     
