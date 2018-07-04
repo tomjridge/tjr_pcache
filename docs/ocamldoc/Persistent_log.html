@@ -49,7 +49,7 @@ A persistent log, used to reduce traffic via the B-tree. NOTE
 
 
 <pre><span id="VALop2k"><span class="keyword">val</span> op2k</span> : <code class="type">('a, 'b) <a href="Persistent_log.html#TYPEop">op</a> -> 'a</code></pre>
-<pre><span id="TYPEdetach_map_ops"><span class="keyword">type</span> <code class="type">('k, 'v, 'map)</code> detach_map_ops</span> = <code class="type">('k, ('k, 'v) <a href="Persistent_log.html#TYPEop">op</a>, 'map) Tjr_map.map_ops</code> </pre>
+<pre><span id="TYPEkvop_map_ops"><span class="keyword">type</span> <code class="type">('k, 'v, 'map)</code> kvop_map_ops</span> = <code class="type">('k, ('k, 'v) <a href="Persistent_log.html#TYPEop">op</a>, 'map) Tjr_map.map_ops</code> </pre>
 
 
 <pre><code><span id="TYPEplog_ops"><span class="keyword">type</span> <code class="type">('k, 'v, 'map, 'ptr, 't)</code> plog_ops</span> = {</code></pre><table class="typetable">
@@ -146,7 +146,7 @@ The state of the persistent cache. Parameters are:
 
 
 <pre><span id="VALmap_find_union"><span class="keyword">val</span> map_find_union</span> : <code class="type">map_ops:('a, 'b, 'c) Tjr_map.map_ops -> m1:'c -> m2:'c -> 'a -> 'b option</code></pre>
-<pre><span id="VALmake_plog_ops"><span class="keyword">val</span> make_plog_ops</span> : <code class="type">monad_ops:'t Tjr_btree.Base_types.monad_ops -><br>       map_ops:('k, ('k, 'v) <a href="Persistent_log.html#TYPEop">op</a>, 'map) Tjr_map.map_ops -><br>       insert:(('k, 'v) <a href="Persistent_log.html#TYPEop">op</a> -><br>               ('ptr Pcl.inserted_type, 't) Tjr_btree.Base_types.m) -><br>       plog_state_ref:(('map, 'ptr) <a href="Persistent_log.html#TYPEplog_state">plog_state</a>, 't)<br>                      Tjr_btree.Base_types.mref -><br>       ('k, 'v, 'map, 'ptr, 't) <a href="Persistent_log.html#TYPEplog_ops">plog_ops</a></code></pre><div class="info ">
+<pre><span id="VALmake_plog_ops"><span class="keyword">val</span> make_plog_ops</span> : <code class="type">monad_ops:'t Tjr_btree.Base_types.monad_ops -><br>       map_ops:('k, 'v, 'map) <a href="Persistent_log.html#TYPEkvop_map_ops">kvop_map_ops</a> -><br>       insert:(('k, 'v) <a href="Persistent_log.html#TYPEop">op</a> -><br>               ('ptr Pcl.inserted_type, 't) Tjr_btree.Base_types.m) -><br>       plog_state_ref:(('map, 'ptr) <a href="Persistent_log.html#TYPEplog_state">plog_state</a>, 't)<br>                      Tjr_btree.Base_types.mref -><br>       ('k, 'v, 'map, 'ptr, 't) <a href="Persistent_log.html#TYPEplog_ops">plog_ops</a></code></pre><div class="info ">
 Construct the persistent cache operations. Parameters:
 <p>
 <ul>
@@ -161,4 +161,4 @@ Construct the persistent cache operations. Parameters:
 <pre><span id="VALplog_to_map"><span class="keyword">val</span> plog_to_map</span> : <code class="type">map_union:('a -> 'a -> 'b) -> ('a, 'c) <a href="Persistent_log.html#TYPEplog_state">plog_state</a> -> 'b</code></pre>
 <pre><span class="keyword">module</span> <a href="Persistent_log.Dbg.html">Dbg</a>: <code class="code">sig</code> <a href="Persistent_log.Dbg.html">..</a> <code class="code">end</code></pre>
 <pre><span class="keyword">module</span> <a href="Persistent_log.Test.html">Test</a>: <code class="code">sig</code> <a href="Persistent_log.Test.html">..</a> <code class="code">end</code></pre>
-<pre><span class="keyword">module</span> <a href="Persistent_log.Abstract_model_ops.html">Abstract_model_ops</a>: <code class="code">sig</code> <a href="Persistent_log.Abstract_model_ops.html">..</a> <code class="code">end</code></pre></body></html>
+<pre><span class="keyword">module</span> <a href="Persistent_log.Abstract_model_ops.html">Abstract_model_ops</a>: <div class="sig_block"><code class="code">functor (</code><code class="code">Ptr</code><code class="code"> : </code><code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Persistent_log.Abstract_model_ops.html">..</a> <code class="code">end</code></div></pre></body></html>

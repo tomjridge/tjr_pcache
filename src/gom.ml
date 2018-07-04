@@ -64,7 +64,7 @@ end
 
 
 module Make_gom(Gom_requires : sig 
-    type bt_blk_id 
+    module Bt_blk_id:Tjr_int.TYPE_ISOMORPHIC_TO_INT
     module Pc_blk_id:Tjr_int.TYPE_ISOMORPHIC_TO_INT (* NOTE only needed for testing; otherwise abstract *)
   end) 
 = struct
@@ -75,7 +75,9 @@ module Make_gom(Gom_requires : sig
 
   open Persistent_log
 
+  open Tjr_monad
 
+  type bt_blk_id = Bt_blk_id.t
   type pc_blk_id = Pc_blk_id.t
 
   (** The gom state.
@@ -89,9 +91,11 @@ module Make_gom(Gom_requires : sig
     btree_root: bt_blk_id;
   }
 
-  open Tjr_monad.Mref_plus
+  
+  (* FIXME don't open this - can get confusing if we are with mref or mrefplus *)
+  (* open Tjr_monad.Mref_plus *)
 
-  type 't gom_state_ops = (gom_state,'t) mref
+  type 't gom_state_ops = (gom_state,'t) Tjr_monad.Mref_plus.mref
 
 
   type ('k,'v,'t) gom_ops = ('k,'v,'t) Tjr_btree.Map_ops.map_ops
@@ -118,12 +122,13 @@ Parameters:
      state) in an mref *)
   let make_gom_ops
       ~monad_ops ~btree_ops ~pcache_ops ~pcache_blocks_limit 
-      ~gom_mref_ops ~(detach_map_ops:('k,'v,'map) Persistent_log.detach_map_ops) 
+      ~gom_mref_ops ~kvop_map_bindings
       ~bt_sync  (* to sync the B-tree to get the new B-tree root *)
       ~sync_gom_roots  (* to write the gom roots to disk somewhere *)
 
     : ('k,'v,'t) gom_ops 
     =
+    let open Mref_plus in
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in
     dest_map_ops btree_ops @@ fun ~find ~insert ~delete ~insert_many ->
@@ -175,16 +180,16 @@ Parameters:
                    too far ahead of the B-tree *)
                 pc_detach () >>= fun (old_root,(map:'map),new_root,_(*new_map*)) ->
                 (* map consists of all the entries we need to roll up *)
-                map |> detach_map_ops.Tjr_map.map_bindings |> fun kvs ->
-                let rec loop kvs = 
-                  match kvs with
+                map |> kvop_map_bindings |> fun ops ->
+                let rec loop ops = 
+                  match ops with
                   | [] -> return  (`Finished(old_root,new_root))
-                  | (k,v)::kvs ->
+                  | v::ops ->
                     match v with
-                    | Insert (k,v) -> bt_insert k v >>= fun () -> loop kvs
-                    | Delete k -> bt_delete k >>= fun () -> loop kvs
+                    | Insert (k,v) -> bt_insert k v >>= fun () -> loop ops
+                    | Delete k -> bt_delete k >>= fun () -> loop ops
                 in
-                loop kvs
+                loop ops
             end
             >>= 
             begin
@@ -221,6 +226,11 @@ Parameters:
 
   module Test() = (struct
 
+    open Tjr_monad
+    open Monad
+    open State_passing_instance
+    module Spi = State_passing_instance
+
     (* 
 We need
 - monad; use state-passing
@@ -242,7 +252,10 @@ What do we want to test?
   - ?anything else?
 
 *)
-    module Abstract_model = Persistent_log.Abstract_model_ops(Pc_blk_id)
+
+
+    (* FIXME remove "abstract" and just use model; remove model_ops *)
+    module Pc_model = Persistent_log.Abstract_model_ops(Pc_blk_id)
 
 
     module K = Tjr_int.Make_type_isomorphic_to_int()
@@ -252,25 +265,62 @@ What do we want to test?
     type value = V.t
 
     module K_map = Tjr_map.Make(struct type t = key let compare: t -> t -> int = Pervasives.compare end)
+
     type btree_repr = value K_map.Map_.t
 
+    type pc_model_state = (key,value) Pc_model.state
     
     (* need a map from k to (k,v)op *)
         
     (* if we make the map types the same type, we can union the maps more easily *)
     type k_vop_map = (key,value)Persistent_log.op K_map.Map_.t
-    let detach_map_ops = failwith __LOC__ (* K_map.map_ops - need carrier to be a list *)
 
-
-    type state = {
+    type 'test state = {
+      test:'test;
+      (* pc_model_state: pc_model_state; *)
       btree_state: btree_repr;
-      pcache_state: (key,value) Abstract_model.state;
+      pcache_state: pc_model_state;  (* contains ptr_ref *)
       gom_state: gom_state;
-      btree_roots: (bt_blk_id* btree_repr)list;  (* assoc list *)
+      free_bt_blk_id: int;
+      synced_btrees: (bt_blk_id* btree_repr)list;  (* assoc list *)
       synced_gom_roots: (bt_blk_id*pc_blk_id) list; 
     }
 
-    let btree_ops : (key,value,'t) Tjr_btree.Map_ops.map_ops = failwith __LOC__
+    let init_test_state = {
+      test=0;
+      btree_state=K_map.Map_.empty;
+      pcache_state=Pc_model.{kvs=[];ptr_ref=Pc_blk_id.int2t 0};
+      (* FIXME pcache root is duplicated *)
+      gom_state={ in_roll_up=false; pcache_root=Pc_blk_id.int2t 0; btree_root=Bt_blk_id.int2t 0 };
+      free_bt_blk_id=1;
+      synced_btrees=[];
+      synced_gom_roots=[]                     
+    }
+
+
+    let monad_ops: 'test state state_passing monad_ops =  
+      Spi.monad_ops ()
+
+    let ( >>= ) = monad_ops.bind 
+    let return = monad_ops.return
+
+
+    (* implement btree ops with a simple map; FIXME maybe put in tjr_btree.test *)
+    let btree_ops : (key,value,'t) Tjr_btree.Map_ops.map_ops = 
+      (* let ops = K_map.map_ops in *)
+      let find k = with_world (fun s ->
+          (try Some (K_map.Map_.find k s.btree_state) with _ -> None),s)
+      in
+      let insert k v = with_world (fun s ->
+          (),{s with btree_state=K_map.Map_.add k v s.btree_state})
+      in
+      let delete k = with_world (fun s ->
+          (),{s with btree_state=K_map.Map_.remove k s.btree_state})
+      in
+      (* FIXME could do better *)
+      let insert_many k v kvs = insert k v >>= fun () -> return kvs in
+      {find;insert;delete;insert_many}
+
 
     let map_union s1 s2 = 
       K_map.Map_.union (fun k a1 a2 -> Some a2) s1 s2 
@@ -293,17 +343,17 @@ What do we want to test?
 
     let ops_to_map ops = 
       Tjr_list.with_each_elt
+        ~list:ops
         ~step:(fun ~state elt -> 
             match elt with 
             | Delete k ->  K_map.Map_.remove k state
             | Insert(k,v) -> K_map.Map_.add k v state)
-        ~init_state:K_map.Map_.empty
-        ops
+        ~init:K_map.Map_.empty
 
     let _ = ops_to_map
 
     let abstract_state s = 
-      s.pcache_state.Abstract_model.kvs |> List.map snd |> fun ops -> 
+      s.pcache_state.Pc_model.kvs |> List.map snd |> fun ops -> 
       ops_to_map ops |> fun pc_map ->
       map_union s.btree_state pc_map
 
@@ -311,57 +361,129 @@ What do we want to test?
     type abstract_state = value K_map.Map_.t
 
 
-    let monad_ops: state Tjr_monad.state_passing Tjr_monad.Monad.monad_ops =  
-      Tjr_monad.State_passing_instance.monad_ops ()
-
-
-    let mref = failwith __LOC__
+    let mref = Mref.{
+      get=(fun () -> with_world (fun s -> s.pcache_state,s));
+      set=fun pcache_state -> with_world (fun s -> (),{s with pcache_state})
+    }
 
     (* we don't construct these; instead we use an abstract model
        FIXME the abstract model should be in plog *)
-    let pcache_ops = 
-      Abstract_model.abstract_model_ops
+    let pcache_ops : (key, value, (key * (key, value) op) list, pc_blk_id, 'test state state_passing) plog_ops = 
+      Pc_model.abstract_model_ops
         ~monad_ops
         ~ops_per_block:2
         ~mref
 
+    let _ = pcache_ops
+
     let pcache_blocks_limit = 2
 
-    let gom_mref_ops = failwith __LOC__
+    let gom_mref_ops : (gom_state, 'test state state_passing) Mref_plus.mref = 
+      let get () = with_world (fun s -> s.gom_state,s) in
+      let set gom_state = with_world (fun s -> (),{s with gom_state}) in
+      let with_ref f = with_world (fun s -> 
+          let (b,gom_state) = f s.gom_state in
+          b,{s with gom_state})
+      in
+      Mref_plus.{ get; set; with_ref }
 
-    let bt_sync = failwith __LOC__
 
-    let sync_gom_roots = failwith __LOC__
+    (* when we sync a btree we simply increment the bt_blk_id and
+       store the current btree state in the list *)
+    let bt_sync () : (bt_blk_id,'t) m = 
+      with_world (fun s -> 
+          let n = s.free_bt_blk_id in
+          let nn = Bt_blk_id.int2t n in
+          nn,{ s with free_bt_blk_id=n+1;
+                     synced_btrees=(nn,s.btree_state)::s.synced_btrees })
+
+    (* what do we want to do here? when we detach the pc, the abstract
+       model increases ptr_ref; for each ptr ref, there is therefore a
+       corresponding map from that ptr, and a map upto that ptr; when
+       we update the bt and sync, it contains the map upto the ptr,
+       and so does the pc; but then we swing the bt and pc root
+       pointers with this operation; let's avoid tracking the
+       correspondence between ptrs and kvops; instead, just require
+       that after a sync the abstract map is what it should be FIXME
+       we are not really testing the behaviour whereby pc and bt roots
+       sync to disk at arbitrary times *)
+    let sync_gom_roots ~btree_root ~pcache_root = return ()
+
+    (* FIXME why are we revealing the map impl type here? pcache_ops also shares 'map type *)
+    let kvop_map_bindings kvops = kvops |> List.map snd
 
     let gom_ops : (key,value,'t) gom_ops = 
       make_gom_ops
         ~monad_ops ~btree_ops ~pcache_ops ~pcache_blocks_limit 
-        ~gom_mref_ops ~detach_map_ops
+        ~gom_mref_ops ~kvop_map_bindings
         ~bt_sync  (* to sync the B-tree to get the new B-tree root *)
         ~sync_gom_roots  (* to write the gom roots to disk somewhere *)
-
 
     let _ = pcache_ops
     
     let insert k v s =
-      let t = abstract_state s in
-      let correct_t' = K_map.Map_.add k v t in
       gom_ops.insert k v |> fun m ->
       Tjr_monad.State_passing_instance.run ~init_state:s m |> fun (_,s') ->
-      assert(correct_t' = abstract_state s');
-      ((),s')
+      s'
 
     let delete k s =
-      let t = abstract_state s in
-      let correct_t' = K_map.Map_.remove k t in
       gom_ops.delete k |> fun m ->
       Tjr_monad.State_passing_instance.run ~init_state:s m |> fun (_,s') ->
-      assert(correct_t' = abstract_state s');
-      ((),s')
+      s'
 
 
     (* OK; now we can run some tests by exhaustively enumerating states *)
     (* FIXME reuse btree testing code *)
+
+    open Tjr_exhaustive_testing
+
+    let ops = 
+      Tjr_list.from_to 1 20 |> 
+      List.map (fun k -> 
+          let v = 2*k in
+          let (k,v) = (K.int2t k, V.int2t v) in
+          [Insert(k,v); Delete k]) |> 
+      List.concat
+
+
+    (* we do not have sets of states (since we can't really compare
+       states for equality very easily); instead we just apply all
+       operations upto a set depth *)
+
+    let run_tests ~depth =
+      
+      let step s op = 
+        if s.test > depth then [] else
+          match op with
+          | Insert(k,v) -> [insert k v s]
+          | Delete k -> [delete k s]
+      in
+
+      let check_state s = () in
+
+      let check_step s op s' = 
+        let t = abstract_state s in
+        match op with
+        | Insert(k,v) ->
+          let correct_t' = K_map.Map_.add k v t in
+          assert(correct_t' = abstract_state s');
+          ()
+        | Delete k ->
+          let correct_t' = K_map.Map_.remove k t in
+          assert(correct_t' = abstract_state s');
+          ()
+      in
+
+      let test_ops = { step; check_state; check_step } in
+
+
+      let init_states = [init_test_state] in
+
+      (* we also need to maintain a set of states; in this case, we
+         can't really check equality of two states; so instead we need
+         to impose a max bound on the number of states considered, which
+         can be done by bounding the depth of operations *)
+      assert(() = Tjr_exhaustive_testing.test_till_no_successor_states ~test_ops ~ops ~init_states)
 
 
   end : sig end)

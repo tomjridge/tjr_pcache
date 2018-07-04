@@ -72,10 +72,9 @@ type ('k,'v,'repr) chunk_state = (('k,'v)op,'repr) pcl_state = {
 
 
 (* in-mem map; NOTE 'v is ('k,'v)op  *)
-type ('k,'v,'map) detach_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
+type ('k,'v,'map) kvop_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
 
 
-(* FIXME the detach operation would make more sense if we also returned the map for the current node *)
 type ('k,'v,'map,'ptr,'t) plog_ops = {
   find: 'k -> (('k,'v) op option,'t) m;  
   (* should execute in mem but to control concurrency we put in the
@@ -129,7 +128,7 @@ let map_find_union ~map_ops ~m1 ~m2 k =
 *)
 let make_plog_ops
     ~monad_ops
-    ~map_ops
+    ~(map_ops:('k,'v,'map)kvop_map_ops)
     ~insert
     ~plog_state_ref
   : ('k,'v,'map,'ptr,'t) plog_ops 
@@ -542,6 +541,42 @@ module Abstract_model_ops(Ptr:Tjr_int.TYPE_ISOMORPHIC_TO_INT) = struct
   let rec assoc_opt x = function
       [] -> None
     | (a,b)::l -> if compare a x = 0 then Some b else assoc_opt x l
+
+
+  (* FIXME work with just a list; move this module out of here; then make a version which works with the model state *)
+  module Kvop_list_as_kv_map = struct
+
+    let map_empty = { kvs=[]; ptr_ref=Ptr.int2t 0 }
+    let map_is_empty x = x.kvs = []
+
+    let find k s = assoc_opt k s.kvs |> function
+      | None -> None
+      | Some(Delete k) -> None
+      | Some(Insert(k,v)) -> Some v
+
+    let delete k s =
+      List.filter (fun (k',_) -> k' <> k) s.kvs |> fun kvs -> 
+      { s with kvs }
+
+    let insert k v s = 
+      delete k s |> fun s ->
+      (k,Insert(k,v))::s.kvs |> fun kvs ->
+      { s with kvs }
+
+    let map_add = insert
+    let map_remove = delete
+    let map_find = find
+    let map_bindings = 
+      fun s -> 
+        s.kvs |> 
+        List.map snd |> 
+        List.filter (function Delete _ -> false | _ -> true) |> 
+        List.map (function Insert(k,v) -> (k,v) | _ -> failwith "impossible")
+
+    let kvop_map_ops = Tjr_map.{ map_empty; map_is_empty; map_add; map_remove; map_find; map_bindings }
+        
+  end
+
 
   (** 
 Parameters:

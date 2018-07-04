@@ -13,20 +13,52 @@
 <link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_log.Abstract_model_ops</title>
 </head>
 <body>
-<code class="code"><span class="keyword">sig</span><br>
-&nbsp;&nbsp;<span class="keyword">module</span>&nbsp;<span class="constructor">Ptr</span>&nbsp;:&nbsp;<span class="keyword">sig</span>&nbsp;<span class="keyword">type</span>&nbsp;t&nbsp;<span class="keyword">val</span>&nbsp;int2t&nbsp;:&nbsp;int&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;t&nbsp;<span class="keyword">val</span>&nbsp;t2int&nbsp;:&nbsp;t&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;int&nbsp;<span class="keyword">end</span><br>
-&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;(<span class="keywordsign">'</span>k,&nbsp;<span class="keywordsign">'</span>v)&nbsp;state&nbsp;=&nbsp;{<br>
-&nbsp;&nbsp;&nbsp;&nbsp;kvs&nbsp;:&nbsp;(<span class="keywordsign">'</span>k&nbsp;*&nbsp;(<span class="keywordsign">'</span>k,&nbsp;<span class="keywordsign">'</span>v)&nbsp;<span class="constructor">Persistent_log</span>.op)&nbsp;list;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;ptr_ref&nbsp;:&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.<span class="constructor">Ptr</span>.t;<br>
-&nbsp;&nbsp;}<br>
-&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;assoc_opt&nbsp;:&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="keywordsign">'</span>a&nbsp;*&nbsp;<span class="keywordsign">'</span>b)&nbsp;list&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>b&nbsp;option<br>
-&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;abstract_model_ops&nbsp;:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;monad_ops:<span class="keywordsign">'</span>a&nbsp;<span class="constructor">Tjr_btree</span>.<span class="constructor">Base_types</span>.monad_ops&nbsp;<span class="keywordsign">-&gt;</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;ops_per_block:int&nbsp;<span class="keywordsign">-&gt;</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;mref:((<span class="keywordsign">'</span>b,&nbsp;<span class="keywordsign">'</span>c)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state,&nbsp;<span class="keywordsign">'</span>a)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Tjr_btree</span>.<span class="constructor">Base_types</span>.mref&nbsp;<span class="keywordsign">-&gt;</span><br>
-&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>b,&nbsp;<span class="keywordsign">'</span>c,&nbsp;(<span class="keywordsign">'</span>b&nbsp;*&nbsp;(<span class="keywordsign">'</span>b,&nbsp;<span class="keywordsign">'</span>c)&nbsp;<span class="constructor">Persistent_log</span>.op)&nbsp;list,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.<span class="constructor">Ptr</span>.t,&nbsp;<span class="keywordsign">'</span>a)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.plog_ops<br>
-&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;init_state&nbsp;:&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state<br>
-<span class="keyword">end</span></code></body></html>
+<code class="code"><span class="keyword">functor</span>&nbsp;(<span class="constructor">Ptr</span>&nbsp;:&nbsp;<span class="constructor">Tjr_int</span>.<span class="constructor">TYPE_ISOMORPHIC_TO_INT</span>)&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;<span class="keyword">sig</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;(<span class="keywordsign">'</span>k,&nbsp;<span class="keywordsign">'</span>v)&nbsp;state&nbsp;=&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kvs&nbsp;:&nbsp;(<span class="keywordsign">'</span>k&nbsp;*&nbsp;(<span class="keywordsign">'</span>k,&nbsp;<span class="keywordsign">'</span>v)&nbsp;<span class="constructor">Persistent_log</span>.op)&nbsp;list;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ptr_ref&nbsp;:&nbsp;<span class="constructor">Ptr</span>.t;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;assoc_opt&nbsp;:&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="keywordsign">'</span>a&nbsp;*&nbsp;<span class="keywordsign">'</span>b)&nbsp;list&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>b&nbsp;option<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">module</span>&nbsp;<span class="constructor">Kvop_list_as_kv_map</span>&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">sig</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;map_empty&nbsp;:&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;map_is_empty&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;bool<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;find&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>b&nbsp;option<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;delete&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;insert&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>b&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;map_add&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>b&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;map_remove&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;map_find&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keywordsign">'</span>a&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="keywordsign">'</span>b&nbsp;option<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;map_bindings&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(<span class="keywordsign">'</span>a&nbsp;*&nbsp;<span class="keywordsign">'</span>b)&nbsp;list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;kvop_map_ops&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b,&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Tjr_map</span>.map_ops<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">end</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;abstract_model_ops&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;monad_ops:<span class="keywordsign">'</span>a&nbsp;<span class="constructor">Tjr_btree</span>.<span class="constructor">Base_types</span>.monad_ops&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ops_per_block:int&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mref:((<span class="keywordsign">'</span>b,&nbsp;<span class="keywordsign">'</span>c)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state,&nbsp;<span class="keywordsign">'</span>a)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Tjr_btree</span>.<span class="constructor">Base_types</span>.mref&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keywordsign">'</span>b,&nbsp;<span class="keywordsign">'</span>c,&nbsp;(<span class="keywordsign">'</span>b&nbsp;*&nbsp;(<span class="keywordsign">'</span>b,&nbsp;<span class="keywordsign">'</span>c)&nbsp;<span class="constructor">Persistent_log</span>.op)&nbsp;list,&nbsp;<span class="constructor">Ptr</span>.t,&nbsp;<span class="keywordsign">'</span>a)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Persistent_log</span>.plog_ops<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;init_state&nbsp;:&nbsp;(<span class="keywordsign">'</span>a,&nbsp;<span class="keywordsign">'</span>b)&nbsp;<span class="constructor">Persistent_log</span>.<span class="constructor">Abstract_model_ops</span>.state<br>
+&nbsp;&nbsp;<span class="keyword">end</span></code></body></html>
