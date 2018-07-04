@@ -1,4 +1,5 @@
 all:
+	$(MAKE) clean
 	ocamlbuild -quiet -use-ocamlfind -tag thread -pkg tjr_pcache run_tests.native
 	./run_tests.native
 

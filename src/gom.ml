@@ -452,11 +452,16 @@ What do we want to test?
 
     let run_tests ~depth =
       
+      let inc_depth s = {s with test=s.test+1} in
+
       let step s op = 
         if s.test > depth then [] else
+          begin 
+          Printf.printf "stepping...\n%!";
           match op with
-          | Insert(k,v) -> [insert k v s]
-          | Delete k -> [delete k s]
+          | Insert(k,v) -> [insert k v s|>inc_depth]
+          | Delete k -> [delete k s|>inc_depth]
+        end
       in
 
       let check_state s = () in
@@ -479,14 +484,17 @@ What do we want to test?
 
       let init_states = [init_test_state] in
 
+      Printf.printf "%s: tests starting...\n%!" __FILE__;
+
       (* we also need to maintain a set of states; in this case, we
          can't really check equality of two states; so instead we need
          to impose a max bound on the number of states considered, which
          can be done by bounding the depth of operations *)
-      assert(() = Tjr_exhaustive_testing.test_till_no_successor_states ~test_ops ~ops ~init_states)
+      assert(() = Tjr_exhaustive_testing.test_till_no_successor_states ~test_ops ~ops ~init_states);
+      Printf.printf "%s: ...tests finished\n%!" __FILE__
 
 
-  end : sig end)
+  end : sig val run_tests: depth:int -> unit end)
 
     
 
