@@ -259,7 +259,7 @@ What do we want to test?
         
     (* if we make the map types the same type, we can union the maps more easily *)
     type k_vop_map = (key,value)Persistent_log.op K_map.Map_.t
-    let detach_map_ops = K_map.map_ops
+    let detach_map_ops = failwith __LOC__ (* K_map.map_ops - need carrier to be a list *)
 
 
     type state = {
@@ -326,6 +326,12 @@ What do we want to test?
         ~mref
 
     let pcache_blocks_limit = 2
+
+    let gom_mref_ops = failwith __LOC__
+
+    let bt_sync = failwith __LOC__
+
+    let sync_gom_roots = failwith __LOC__
 
     let gom_ops : (key,value,'t) gom_ops = 
       make_gom_ops
