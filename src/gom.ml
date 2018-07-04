@@ -286,8 +286,8 @@ What do we want to test?
       synced_gom_roots: (bt_blk_id*pc_blk_id) list; 
     }
 
-    let init_test_state = {
-      test=0;
+    let init_test_state ~test = {
+      test;
       btree_state=K_map.Map_.empty;
       pcache_state=Pc_model.{kvs=[];ptr_ref=Pc_blk_id.int2t 0};
       (* FIXME pcache root is duplicated *)
@@ -341,21 +341,21 @@ What do we want to test?
       K_map.Map_.merge f bt pc
 *)
 
-    let ops_to_map ops = 
+    let ops_to_map ~init ~ops =
       Tjr_list.with_each_elt
         ~list:ops
         ~step:(fun ~state elt -> 
             match elt with 
             | Delete k ->  K_map.Map_.remove k state
             | Insert(k,v) -> K_map.Map_.add k v state)
-        ~init:K_map.Map_.empty
+        ~init
 
     let _ = ops_to_map
 
     let abstract_state s = 
       s.pcache_state.Pc_model.kvs |> List.map snd |> fun ops -> 
-      ops_to_map ops |> fun pc_map ->
-      map_union s.btree_state pc_map
+      let init = s.btree_state in
+      ops_to_map ~init ~ops
 
 
     type abstract_state = value K_map.Map_.t
@@ -450,18 +450,33 @@ What do we want to test?
        states for equality very easily); instead we just apply all
        operations upto a set depth *)
 
+
+    (* the test state is a list of operations (most recent first) *)
+
+    type op' = I of int * int | D of int  [@@deriving yojson]
+
+    type ops' = op' list [@@deriving yojson]
+
+    let op2op' = function
+      | Insert(k,v) -> I(K.t2int k,V.t2int v)
+      | Delete k -> D(K.t2int k)
+
+    
+    type iis = (int * int) list [@@deriving yojson]
+
+
     let run_tests ~depth =
       
-      let inc_depth s = {s with test=s.test+1} in
+      let step_test op s = {s with test=op::s.test} in
 
       let step s op = 
-        if s.test > depth then [] else
+        if List.length s.test > depth then [] else
           begin 
-          Printf.printf "stepping...\n%!";
-          match op with
-          | Insert(k,v) -> [insert k v s|>inc_depth]
-          | Delete k -> [delete k s|>inc_depth]
-        end
+            (* Printf.printf "stepping...\n%!"; *)
+            match op with
+            | Insert(k,v) -> [insert k v s|>step_test op]
+            | Delete k -> [delete k s|>step_test op]
+          end
       in
 
       let check_state s = () in
@@ -471,18 +486,62 @@ What do we want to test?
         match op with
         | Insert(k,v) ->
           let correct_t' = K_map.Map_.add k v t in
-          assert(correct_t' = abstract_state s');
+          let abstract_s' = abstract_state s' in
+          Pcache_debug.log_lazy (fun () ->
+              let bindings map = 
+                K_map.Map_.bindings map |> 
+                List.map (fun (k,v) -> K.t2int k,V.t2int v) |>
+                iis_to_yojson |> Yojson.Safe.pretty_to_string
+              in
+              let expected = bindings correct_t' in
+              let actual = bindings abstract_s' in
+              Printf.sprintf "
+Checking step...
+Op: %s
+Previous ops: %s
+Expected: %s
+Actual: %s
+"
+                (op|>op2op'|>op'_to_yojson|>Yojson.Safe.pretty_to_string)
+                (s.test|>List.map op2op'|>ops'_to_yojson|>Yojson.Safe.pretty_to_string)
+                expected
+                actual
+            );
+          (* NOTE we can't just expect pervasive equality to work on maps *)
+          assert(K_map.Map_.equal (=) correct_t' abstract_s');
           ()
         | Delete k ->
           let correct_t' = K_map.Map_.remove k t in
-          assert(correct_t' = abstract_state s');
+          let abstract_s' = abstract_state s' in
+          Pcache_debug.log_lazy (fun () ->
+              let bindings map = 
+                K_map.Map_.bindings map |> 
+                List.map (fun (k,v) -> K.t2int k,V.t2int v) |>
+                iis_to_yojson |> Yojson.Safe.pretty_to_string
+              in
+              let expected = bindings correct_t' in
+              let actual = bindings abstract_s' in
+              Printf.sprintf "
+Checking step...
+Op: %s
+Previous ops: %s
+Expected: %s
+Actual: %s
+"
+                (op|>op2op'|>op'_to_yojson|>Yojson.Safe.pretty_to_string)
+                (s.test|>List.map op2op'|>ops'_to_yojson|>Yojson.Safe.pretty_to_string)
+                expected
+                actual
+            );
+          (* NOTE we can't just expect pervasive equality to work on maps *)
+          assert(K_map.Map_.equal (=) correct_t' abstract_s');
           ()
       in
 
       let test_ops = { step; check_state; check_step } in
 
 
-      let init_states = [init_test_state] in
+      let init_states = [init_test_state ~test:[]] in
 
       Printf.printf "%s: tests starting...\n%!" __FILE__;
 
