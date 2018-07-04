@@ -438,7 +438,7 @@ What do we want to test?
     open Tjr_exhaustive_testing
 
     let ops = 
-      Tjr_list.from_to 1 20 |> 
+      Tjr_list.from_to 1 10 |> 
       List.map (fun k -> 
           let v = 2*k in
           let (k,v) = (K.int2t k, V.int2t v) in
