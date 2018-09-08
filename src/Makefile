@@ -20,6 +20,9 @@ install:
 	-remove
 	install
 
+uninstall:
+	remove
+
 remove: 
 	remove
 
