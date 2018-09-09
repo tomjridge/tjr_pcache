@@ -1,19 +1,18 @@
-(** Use Persistent_list to implement a "chunked" list. Store multiple
-    items in a node, and automatically create a new node when the
-    current fills up. 
+(** Implement a "chunked" list (multiple items per node) using
+   {!Persistent_list}. Automatically create a new node when the
+   current fills up.
 
+   We want to avoid repeated serialization. So the representation of
+   the kv is present already as a separate type. We need a function:
 
-    We want to avoid repeated serialization. So the representation of the
-    kv is present already as a separate type. We need a function:
+   ['repr -> 'kv -> 'repr]
 
-    'repr -> 'kv -> 'repr
+   which extends the 'repr type with another 'kv; we also need a way
+   to check that 'repr fits in the block.
 
-    which extends the repr type with another 'kv; we also need a way
-    to check that 'repr fits in the block.
-
-    An alternative is just to allocate a range of blocks contiguously,
-    and write operations into these blocks consecutively. But this is
-    a bit horrible.
+   An alternative is just to allocate a range of blocks contiguously,
+   and write operations into these blocks consecutively. But this is a
+   bit horrible.
 
 
 *)
@@ -24,6 +23,7 @@ open Persistent_list
 
 
 (* state we maintain; this is for the current chunk *)
+(** The persistent chunked list (pcl) state. *)
 type ('e,'repr) pcl_state = {
   elts: 'e list;
   elts_repr: 'repr
@@ -31,6 +31,11 @@ type ('e,'repr) pcl_state = {
 }
 
 (* what we need from marshalling *)
+
+(** Routines for marshalling elements to disk. ['repr] is the
+   underlying representation type; ['e] is the element type. Note that
+   [snoc] (join element at end of list) takes an element and the {e
+   representation} of the current node.  *)
 type ('e,'repr) repr_ops = {
   nil: 'repr;
 
@@ -40,15 +45,22 @@ type ('e,'repr) repr_ops = {
   repr_to_list: 'repr -> 'e list  (* inverse of marshalling *)
 }
 
-
+(** A type that records whether an element was inserted in the current
+   node, or whether a new node was allocated to hold the element. *)
 type 'ptr inserted_type = 
-  Inserted_in_current_node | Inserted_in_new_node of 'ptr
+    Inserted_in_current_node | Inserted_in_new_node of 'ptr
 
+(** The interface exposed by the persistent chunked list, a single
+   [insert] function. *)
 type ('e,'ptr,'t) pcl_ops = {
   insert:'e -> ('ptr inserted_type,'t) m
 }
 
-
+(** Function to construct a persistent chunked list. Parameters:
+- [list_ops] The underlying persistent list operations.
+- [repr_ops] The marshalling functionality.
+- [pcl_state_ref] The internal state of the pcl.
+*)
 let make_persistent_chunked_list 
     ~monad_ops
     ~list_ops 
@@ -104,7 +116,7 @@ let _ :
 (* debugging -------------------------------------------------------- *)
 
 (* we use the plist debug code, but map usign repr_to_list *)
-
+(** Abstract view of the persistent chunked list. *)
 let pclist_to_nodes 
     ~(repr_to_list:'repr -> 'e list) 
     ~(plist_to_nodes : ptr:'ptr -> 't -> ('ptr * ('ptr,'repr)list_node)list)

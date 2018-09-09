@@ -13,16 +13,17 @@
 <link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
 <link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
 <link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
-<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_chunked_list.Test</title>
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html">
+<link title="Tjr_pcache_doc" rel="Chapter" href="Tjr_pcache_doc.html"><title>Persistent_chunked_list.Test</title>
 </head>
 <body>
 <div class="navbar">&nbsp;<a class="up" href="Persistent_chunked_list.html" title="Persistent_chunked_list">Up</a>
 &nbsp;</div>
 <h1>Module <a href="type_Persistent_chunked_list.Test.html">Persistent_chunked_list.Test</a></h1>
 
-<pre><span class="keyword">module</span> Test: <code class="code">sig</code> <a href="Persistent_chunked_list.Test.html">..</a> <code class="code">end</code></pre><hr width="100%">
+<pre><span id="MODULETest"><span class="keyword">module</span> Test</span>: <code class="code">sig</code> <a href="Persistent_chunked_list.Test.html">..</a> <code class="code">end</code></pre><hr width="100%">
 
-<pre><span class="keyword">module</span> <a href="Persistent_chunked_list.Test.Pl.html">Pl</a>: <code class="type"><a href="Persistent_list.html">Persistent_list</a></code></pre>
+<pre><span id="MODULEPl"><span class="keyword">module</span> <a href="Persistent_chunked_list.Test.Pl.html">Pl</a></span>: <code class="type"><a href="Persistent_list.html">Persistent_list</a></code></pre>
 <pre><code><span id="TYPEop"><span class="keyword">type</span> <code class="type">('k, 'v)</code> op</span> = </code></pre><table class="typetable">
 <tr>
 <td align="left" valign="top" >
@@ -43,7 +44,7 @@
 
 <pre><span id="VALop_to_yojson"><span class="keyword">val</span> op_to_yojson</span> : <code class="type">'k 'v.<br>         ('k -> Yojson.Safe.json) -><br>         ('v -> Yojson.Safe.json) -><br>         ('k, 'v) <a href="Persistent_chunked_list.Test.html#TYPEop">op</a> -> Yojson.Safe.json</code></pre>
 <pre><span id="VALop_of_yojson"><span class="keyword">val</span> op_of_yojson</span> : <code class="type">'k 'v.<br>         (Yojson.Safe.json -> 'k Ppx_deriving_yojson_runtime.error_or) -><br>         (Yojson.Safe.json -> 'v Ppx_deriving_yojson_runtime.error_or) -><br>         Yojson.Safe.json -><br>         ('k, 'v) <a href="Persistent_chunked_list.Test.html#TYPEop">op</a><br>         Ppx_deriving_yojson_runtime.error_or</code></pre>
-<pre><span class="keyword">module</span> <a href="Persistent_chunked_list.Test.Repr.html">Repr</a>: <code class="code">sig</code> <a href="Persistent_chunked_list.Test.Repr.html">..</a> <code class="code">end</code></pre>
+<pre><span id="MODULERepr"><span class="keyword">module</span> <a href="Persistent_chunked_list.Test.Repr.html">Repr</a></span>: <code class="code">sig</code> <a href="Persistent_chunked_list.Test.Repr.html">..</a> <code class="code">end</code></pre>
 <pre><span id="TYPEptr"><span class="keyword">type</span> <code class="type"></code>ptr</span> = <code class="type">int</code> </pre>
 
 

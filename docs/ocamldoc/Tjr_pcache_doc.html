@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link rel="previous" href="Persistent_log.html">
+<link rel="Up" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gom" rel="Chapter" href="Gom.html">
+<link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
+<link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
+<link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html">
+<link title="Tjr_pcache_doc" rel="Chapter" href="Tjr_pcache_doc.html"><link title="Introduction" rel="Section" href="#1_Introduction">
+<link title="Ancestor projects" rel="Section" href="#1_Ancestorprojects">
+<link title="Persistent list " rel="Section" href="#1_Persistentlist">
+<link title="Persistent chunked list" rel="Section" href="#1_Persistentchunkedlist">
+<link title="Persistent cache (log) " rel="Section" href="#1_Persistentcachelog">
+<link title="The GOM" rel="Section" href="#1_TheGOM">
+<title>Tjr_pcache_doc</title>
+</head>
+<body>
+<div class="navbar"><a class="pre" href="Persistent_log.html" title="Persistent_log">Previous</a>
+&nbsp;<a class="up" href="index.html" title="Index">Up</a>
+&nbsp;</div>
+<h1>Module <a href="type_Tjr_pcache_doc.html">Tjr_pcache_doc</a></h1>
+
+<pre><span id="MODULETjr_pcache_doc"><span class="keyword">module</span> Tjr_pcache_doc</span>: <code class="code">sig</code> <a href="Tjr_pcache_doc.html">..</a> <code class="code">end</code></pre><div class="info module top">
+<div class="info-desc">
+<p>Main documentation entry point for <code class="code">tjr_pcache</code></p>
+</div>
+</div>
+<hr width="100%">
+<h2 id="1_Introduction">Introduction</h2>
+<p>This library implements a persistent cache (pcache), i.e., an on-disk
+cache. This should be used with <code class="code">tjr_btree</code> to reduce the writes going
+to the B-tree.</p>
+
+<h2 id="1_Ancestorprojects">Ancestor projects</h2>
+<p>This library depends on <code class="code">tjr_btree</code> (the GOM -- module <a href="Gom.html"><code class="code">Gom</code></a> -- is
+built on top of the B-tree and the pcache).</p>
+
+<h2 id="1_Persistentlist">Persistent list </h2>
+<p>The module <a href="Persistent_list.html"><code class="code">Persistent_list</code></a> implements a persistent list. This is a
+singly-linked on-disk list. The main function is
+<a href="Persistent_list.html#VALmake_persistent_list"><code class="code">Persistent_list.make_persistent_list</code></a>.</p>
+
+<h2 id="1_Persistentchunkedlist">Persistent chunked list</h2>
+<p>The module <a href="Persistent_chunked_list.html"><code class="code">Persistent_chunked_list</code></a> refines persistent list, by
+exposing that multiple items may be stored in a single block.</p>
+
+<h2 id="1_Persistentcachelog">Persistent cache (log) </h2>
+<p>The module <a href="Persistent_log.html"><code class="code">Persistent_log</code></a> provides the functionality we need from
+the persistent cache, including the detach operation. The main
+function is <a href="Persistent_log.html#VALmake_plog_ops"><code class="code">Persistent_log.make_plog_ops</code></a>.</p>
+
+<h2 id="1_TheGOM">The GOM</h2>
+<p>The Global Object Map (GOM) is essentially a B-tree with a persistent
+cache (module <a href="Gom.html"><code class="code">Gom</code></a>).</p>
+</body></html>

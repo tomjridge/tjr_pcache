@@ -14,7 +14,8 @@
 <link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
 <link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
 <link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
-<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_log.Abstract_model_ops</title>
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html">
+<link title="Tjr_pcache_doc" rel="Chapter" href="Tjr_pcache_doc.html"><title>Persistent_log.Abstract_model_ops</title>
 </head>
 <body>
 <div class="navbar"><a class="pre" href="Persistent_log.Test.html" title="Persistent_log.Test">Previous</a>
@@ -22,7 +23,7 @@
 &nbsp;</div>
 <h1>Functor <a href="type_Persistent_log.Abstract_model_ops.html">Persistent_log.Abstract_model_ops</a></h1>
 
-<pre><span class="keyword">module</span> Abstract_model_ops: <div class="sig_block"><code class="code">functor (</code><code class="code">Ptr</code><code class="code"> : </code><code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Persistent_log.Abstract_model_ops.html">..</a> <code class="code">end</code></div></pre><table border="0" cellpadding="3" width="100%">
+<pre><span id="MODULEAbstract_model_ops"><span class="keyword">module</span> Abstract_model_ops</span>: <div class="sig_block"><code class="code">functor (</code><code class="code">Ptr</code><code class="code"> : </code><code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Persistent_log.Abstract_model_ops.html">..</a> <code class="code">end</code></div></pre><table border="0" cellpadding="3" width="100%">
 <tr>
 <td align="left" valign="top" width="1%%"><b>Parameters: </b></td>
 <td>
@@ -58,12 +59,14 @@
 
 
 <pre><span id="VALassoc_opt"><span class="keyword">val</span> assoc_opt</span> : <code class="type">'a -> ('a * 'b) list -> 'b option</code></pre>
-<pre><span class="keyword">module</span> <a href="Persistent_log.Abstract_model_ops.Kvop_list_as_kv_map.html">Kvop_list_as_kv_map</a>: <code class="code">sig</code> <a href="Persistent_log.Abstract_model_ops.Kvop_list_as_kv_map.html">..</a> <code class="code">end</code></pre>
+<pre><span id="MODULEKvop_list_as_kv_map"><span class="keyword">module</span> <a href="Persistent_log.Abstract_model_ops.Kvop_list_as_kv_map.html">Kvop_list_as_kv_map</a></span>: <code class="code">sig</code> <a href="Persistent_log.Abstract_model_ops.Kvop_list_as_kv_map.html">..</a> <code class="code">end</code></pre>
 <pre><span id="VALabstract_model_ops"><span class="keyword">val</span> abstract_model_ops</span> : <code class="type">monad_ops:'a Tjr_btree.Base_types.monad_ops -><br>       ops_per_block:int -><br>       mref:(('b, 'c) <a href="Persistent_log.Abstract_model_ops.html#TYPEstate">state</a>, 'a)<br>            Tjr_btree.Base_types.mref -><br>       ('b, 'c, ('b * ('b, 'c) <a href="Persistent_log.html#TYPEop">Persistent_log.op</a>) list, Ptr.t, 'a)<br>       <a href="Persistent_log.html#TYPEplog_ops">Persistent_log.plog_ops</a></code></pre><div class="info ">
-Parameters:<ul>
+<div class="info-desc">
+<p>Parameters:</p>
+<ul>
 <li><code class="code">mref</code> - the mref for the abstract state as a subpart of the global state</li>
 </ul>
-<br>
+</div>
 </div>
 
 <pre><span id="VALinit_state"><span class="keyword">val</span> init_state</span> : <code class="type">('a, 'b) <a href="Persistent_log.Abstract_model_ops.html#TYPEstate">state</a></code></pre></body></html>

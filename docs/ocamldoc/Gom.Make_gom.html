@@ -13,16 +13,17 @@
 <link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
 <link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
 <link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
-<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Gom.Make_gom</title>
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html">
+<link title="Tjr_pcache_doc" rel="Chapter" href="Tjr_pcache_doc.html"><title>Gom.Make_gom</title>
 </head>
 <body>
 <div class="navbar">&nbsp;<a class="up" href="Gom.html" title="Gom">Up</a>
 &nbsp;</div>
 <h1>Functor <a href="type_Gom.Make_gom.html">Gom.Make_gom</a></h1>
 
-<pre><span class="keyword">module</span> Make_gom: <div class="sig_block"><code class="code">functor (</code><code class="code">Gom_requires</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block">
-<pre><span class="keyword">module</span> <a href="Gom.Bt_blk_id.html">Bt_blk_id</a>: <code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="type"> </code></pre>
-<pre><span class="keyword">module</span> <a href="Gom.Pc_blk_id.html">Pc_blk_id</a>: <code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="type"> </code></pre></div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.html">..</a> <code class="code">end</code></div></pre><table border="0" cellpadding="3" width="100%">
+<pre><span id="MODULEMake_gom"><span class="keyword">module</span> Make_gom</span>: <div class="sig_block"><code class="code">functor (</code><code class="code">Gom_requires</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block">
+<pre><span id="MODULEBt_blk_id"><span class="keyword">module</span> <a href="Gom.Bt_blk_id.html">Bt_blk_id</a></span>: <code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="type"> </code></pre>
+<pre><span id="MODULEPc_blk_id"><span class="keyword">module</span> <a href="Gom.Pc_blk_id.html">Pc_blk_id</a></span>: <code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="type"> </code></pre></div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.html">..</a> <code class="code">end</code></div></pre><table border="0" cellpadding="3" width="100%">
 <tr>
 <td align="left" valign="top" width="1%%"><b>Parameters: </b></td>
 <td>
@@ -72,12 +73,14 @@
 }
 
 <div class="info ">
-The gom state.<ul>
+<div class="info-desc">
+<p>The gom state. Fields:</p>
+<ul>
 <li><code class="code">in_roll_up</code>: a flag covering the critical section when we are executing a roll up</li>
 <li><code class="code">pcache_root</code>: the root of the pcache</li>
 <li><code class="code">btree_root</code>: the root of the B-tree</li>
 </ul>
-<br>
+</div>
 </div>
 
 
@@ -86,8 +89,11 @@ The gom state.<ul>
 
 <pre><span id="TYPEgom_ops"><span class="keyword">type</span> <code class="type">('k, 'v, 't)</code> gom_ops</span> = <code class="type">('k, 'v, 't) Tjr_btree.Map_ops.map_ops</code> </pre>
 
-<br>
-Parameters:<ul>
+
+<pre><span id="VALmake_gom_ops"><span class="keyword">val</span> make_gom_ops</span> : <code class="type">monad_ops:'t Tjr_monad.Monad.monad_ops -><br>       btree_ops:('k, 'v, 't) Tjr_btree.Map_ops.map_ops -><br>       pcache_ops:('k, 'v, 'map, <a href="Gom.Make_gom.html#TYPEpc_blk_id">pc_blk_id</a>, 't) <a href="Persistent_log.html#TYPEplog_ops">Persistent_log.plog_ops</a> -><br>       pcache_blocks_limit:int -><br>       gom_mref_ops:(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 't) Tjr_monad.Mref_plus.mref -><br>       kvop_map_bindings:('map -> ('k, 'v) <a href="Persistent_log.html#TYPEop">Persistent_log.op</a> list) -><br>       bt_sync:(unit -> (<a href="Gom.Make_gom.html#TYPEbt_blk_id">bt_blk_id</a>, 't) Tjr_monad.Monad.m) -><br>       sync_gom_roots:(btree_root:<a href="Gom.Make_gom.html#TYPEbt_blk_id">bt_blk_id</a> -><br>                       pcache_root:<a href="Gom.Make_gom.html#TYPEpc_blk_id">pc_blk_id</a> -><br>                       (unit, 't) Tjr_monad.Monad.m) -><br>       ('k, 'v, 't) <a href="Gom.Make_gom.html#TYPEgom_ops">gom_ops</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Construct the GOM. Parameters:</p>
+<ul>
 <li><code class="code">monad_ops</code></li>
 <li><code class="code">btree_ops</code></li>
 <li><code class="code">pcache_ops</code></li>
@@ -97,7 +103,7 @@ Parameters:<ul>
 <li><code class="code">bt_sync</code>: at the end of the roll-up, we sync the B-tree itself to disk</li>
 <li><code class="code">sync_gom_roots</code>: called just before leaving the critical section, to record new roots for B-tree and pcache</li>
 </ul>
-<br>
+</div>
+</div>
 
-<pre><span id="VALmake_gom_ops"><span class="keyword">val</span> make_gom_ops</span> : <code class="type">monad_ops:'t Tjr_monad.Monad.monad_ops -><br>       btree_ops:('k, 'v, 't) Tjr_btree.Map_ops.map_ops -><br>       pcache_ops:('k, 'v, 'map, <a href="Gom.Make_gom.html#TYPEpc_blk_id">pc_blk_id</a>, 't) <a href="Persistent_log.html#TYPEplog_ops">Persistent_log.plog_ops</a> -><br>       pcache_blocks_limit:int -><br>       gom_mref_ops:(<a href="Gom.Make_gom.html#TYPEgom_state">gom_state</a>, 't) Tjr_monad.Mref_plus.mref -><br>       kvop_map_bindings:('map -> ('k, 'v) <a href="Persistent_log.html#TYPEop">Persistent_log.op</a> list) -><br>       bt_sync:(unit -> (<a href="Gom.Make_gom.html#TYPEbt_blk_id">bt_blk_id</a>, 't) Tjr_monad.Monad.m) -><br>       sync_gom_roots:(btree_root:<a href="Gom.Make_gom.html#TYPEbt_blk_id">bt_blk_id</a> -><br>                       pcache_root:<a href="Gom.Make_gom.html#TYPEpc_blk_id">pc_blk_id</a> -><br>                       (unit, 't) Tjr_monad.Monad.m) -><br>       ('k, 'v, 't) <a href="Gom.Make_gom.html#TYPEgom_ops">gom_ops</a></code></pre>
-<pre><span class="keyword">module</span> <a href="Gom.Make_gom.Test.html">Test</a>: <div class="sig_block"><code class="code">functor (</code><code class="code">*</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block"></div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.Test.html">..</a> <code class="code">end</code></div></pre></body></html>
+<pre><span id="MODULETest"><span class="keyword">module</span> <a href="Gom.Make_gom.Test.html">Test</a></span>: <div class="sig_block"><code class="code">functor (</code><code class="code">*</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block"></div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.Test.html">..</a> <code class="code">end</code></div></pre></body></html>

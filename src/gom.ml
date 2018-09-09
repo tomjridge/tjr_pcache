@@ -80,7 +80,7 @@ module Make_gom(Gom_requires : sig
   type bt_blk_id = Bt_blk_id.t
   type pc_blk_id = Pc_blk_id.t
 
-  (** The gom state.
+  (** The gom state. Fields:
 - [in_roll_up]: a flag covering the critical section when we are executing a roll up
 - [pcache_root]: the root of the pcache
 - [btree_root]: the root of the B-tree
@@ -104,8 +104,11 @@ module Make_gom(Gom_requires : sig
      B-tree, when the number of pcache blocks reaches
      pcache_blocks_limit *)
 
-  (** 
-Parameters:
+  (* NOTE when we detach, we should not alter the pcache root, but
+     later after the btree changes are synced, we can sync the new
+     pcache root; in memory we also store both roots (as the gom
+     state) in an mref *)
+  (** Construct the GOM. Parameters:
 - [monad_ops]
 - [btree_ops]
 - [pcache_ops]
@@ -115,11 +118,6 @@ Parameters:
 - [bt_sync]: at the end of the roll-up, we sync the B-tree itself to disk
 - [sync_gom_roots]: called just before leaving the critical section, to record new roots for B-tree and pcache
   *)
-
-  (* NOTE when we detach, we should not alter the pcache root, but
-     later after the btree changes are synced, we can sync the new
-     pcache root; in memory we also store both roots (as the gom
-     state) in an mref *)
   let make_gom_ops
       ~monad_ops ~btree_ops ~pcache_ops ~pcache_blocks_limit 
       ~gom_mref_ops ~kvop_map_bindings

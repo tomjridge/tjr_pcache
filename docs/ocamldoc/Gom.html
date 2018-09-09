@@ -14,7 +14,8 @@
 <link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
 <link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
 <link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
-<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Gom</title>
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html">
+<link title="Tjr_pcache_doc" rel="Chapter" href="Tjr_pcache_doc.html"><title>Gom</title>
 </head>
 <body>
 <div class="navbar">&nbsp;<a class="up" href="index.html" title="Index">Up</a>
@@ -22,35 +23,32 @@
 </div>
 <h1>Module <a href="type_Gom.html">Gom</a></h1>
 
-<pre><span class="keyword">module</span> Gom: <code class="code">sig</code> <a href="Gom.html">..</a> <code class="code">end</code></pre><div class="info module top">
-The Global Object Map (GOM).<br>
+<pre><span id="MODULEGom"><span class="keyword">module</span> Gom</span>: <code class="code">sig</code> <a href="Gom.html">..</a> <code class="code">end</code></pre><div class="info module top">
+<div class="info-desc">
+<p>The Global Object Map (GOM).</p>
+</div>
 </div>
 <hr width="100%">
-<br>
-At a high level, this is an int -&gt; int map, from object id to
-   block id (the root of the object on disk).
-<p>
+<p>At a high level, this is an int -&gt; int map, from object id to
+   block id (the root of the object on disk).</p>
 
-The in-memory map is maintained as in an LRU in memory. Thus, this
-   implementation only has to deal with persistent aspects.
-<p>
+<p>The in-memory map is maintained as in an LRU in memory. Thus, this
+   implementation only has to deal with persistent aspects.</p>
 
-When the LRU becomes full, or on sync of a particular object id, the
-   GOM receives a list of map operations.
-<p>
+<p>When the LRU becomes full, or on sync of a particular object id, the
+   GOM receives a list of map operations.</p>
 
-These are written straight to the pcache.
-<p>
+<p>These are written straight to the pcache.</p>
 
-At intervals, when the pcache becomes long, some initial prefix of the
+<p>At intervals, when the pcache becomes long, some initial prefix of the
    pcache is rolled into the B-tree. The root of the pcache is
    adjusted (the old blocks can be reclaimed), and the root is written
    to disk (but not necessarily synced). On crash, if the old root is
    used there is no problem - we just replay these modifications over
    the B-tree. We require that if the new pcache root hits disk, the
    B-tree is also on disk. One approach is to async (flush btree;
-   flush pcache root).<br>
+   flush pcache root).</p>
 
-<pre><span class="keyword">module</span> <a href="Gom.Make_gom.html">Make_gom</a>: <div class="sig_block"><code class="code">functor (</code><code class="code">Gom_requires</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block">
-<pre><span class="keyword">module</span> <a href="Gom.Bt_blk_id.html">Bt_blk_id</a>: <code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="type"> </code></pre>
-<pre><span class="keyword">module</span> <a href="Gom.Pc_blk_id.html">Pc_blk_id</a>: <code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="type"> </code></pre></div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.html">..</a> <code class="code">end</code></div></pre></body></html>
+<pre><span id="MODULEMake_gom"><span class="keyword">module</span> <a href="Gom.Make_gom.html">Make_gom</a></span>: <div class="sig_block"><code class="code">functor (</code><code class="code">Gom_requires</code><code class="code"> : </code><code class="code">sig</code></pre><div class="sig_block">
+<pre><span id="MODULEBt_blk_id"><span class="keyword">module</span> <a href="Gom.Bt_blk_id.html">Bt_blk_id</a></span>: <code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="type"> </code></pre>
+<pre><span id="MODULEPc_blk_id"><span class="keyword">module</span> <a href="Gom.Pc_blk_id.html">Pc_blk_id</a></span>: <code class="type">Tjr_int.TYPE_ISOMORPHIC_TO_INT</code><code class="type"> </code></pre></div><pre><code class="code">end</code><code class="code">) -&gt; </code><code class="code">sig</code> <a href="Gom.Make_gom.html">..</a> <code class="code">end</code></div></pre></body></html>

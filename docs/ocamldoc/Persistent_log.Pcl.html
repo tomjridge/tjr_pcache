@@ -15,7 +15,8 @@
 <link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
 <link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
 <link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
-<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_log.Pcl</title>
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html">
+<link title="Tjr_pcache_doc" rel="Chapter" href="Tjr_pcache_doc.html"><title>Persistent_log.Pcl</title>
 </head>
 <body>
 <div class="navbar"><a class="pre" href="Persistent_log.Pl.html" title="Persistent_log.Pl">Previous</a>
@@ -24,7 +25,7 @@
 </div>
 <h1>Module <a href="type_Persistent_log.Pcl.html">Persistent_log.Pcl</a></h1>
 
-<pre><span class="keyword">module</span> Pcl: <code class="type"><a href="Persistent_chunked_list.html">Persistent_chunked_list</a></code></pre><hr width="100%">
+<pre><span id="MODULEPcl"><span class="keyword">module</span> Pcl</span>: <code class="type"><a href="Persistent_chunked_list.html">Persistent_chunked_list</a></code></pre><hr width="100%">
 
 <pre><code><span id="TYPEpcl_state"><span class="keyword">type</span> <code class="type">('e, 'repr)</code> pcl_state</span> = {</code></pre><table class="typetable">
 <tr>
@@ -43,6 +44,11 @@
 </tr></table>
 }
 
+<div class="info ">
+<div class="info-desc">
+<p>The persistent chunked list (pcl) state.</p>
+</div>
+</div>
 
 
 <pre><code><span id="TYPErepr_ops"><span class="keyword">type</span> <code class="type">('e, 'repr)</code> repr_ops</span> = {</code></pre><table class="typetable">
@@ -69,6 +75,13 @@
 </tr></table>
 }
 
+<div class="info ">
+<div class="info-desc">
+<p>Routines for marshalling elements to disk. <code class="code">'repr</code> is the
+   underlying representation type; <code class="code">'e</code> is the element type. Note that
+   <code class="code">snoc</code> (join element at end of list) takes an element and the <em>   representation</em> of the current node.</p>
+</div>
+</div>
 
 
 <pre><code><span id="TYPEinserted_type"><span class="keyword">type</span> <code class="type">'ptr</code> inserted_type</span> = </code></pre><table class="typetable">
@@ -87,6 +100,12 @@
 
 </tr></table>
 
+<div class="info ">
+<div class="info-desc">
+<p>A type that records whether an element was inserted in the current
+   node, or whether a new node was allocated to hold the element.</p>
+</div>
+</div>
 
 
 <pre><code><span id="TYPEpcl_ops"><span class="keyword">type</span> <code class="type">('e, 'ptr, 't)</code> pcl_ops</span> = {</code></pre><table class="typetable">
@@ -99,8 +118,29 @@
 </tr></table>
 }
 
+<div class="info ">
+<div class="info-desc">
+<p>The interface exposed by the persistent chunked list, a single
+   <code class="code">insert</code> function.</p>
+</div>
+</div>
 
 
-<pre><span id="VALmake_persistent_chunked_list"><span class="keyword">val</span> make_persistent_chunked_list</span> : <code class="type">monad_ops:'t Tjr_monad.Monad.monad_ops -><br>       list_ops:('repr, 'ptr, 't) <a href="Persistent_list.html#TYPElist_ops">Persistent_list.list_ops</a> -><br>       repr_ops:('e, 'repr) <a href="Persistent_chunked_list.html#TYPErepr_ops">repr_ops</a> -><br>       pcl_state_ref:(('e, 'repr) <a href="Persistent_chunked_list.html#TYPEpcl_state">pcl_state</a>, 't)<br>                     Tjr_btree.Base_types.mref -><br>       ('e, 'ptr, 't) <a href="Persistent_chunked_list.html#TYPEpcl_ops">pcl_ops</a></code></pre>
-<pre><span id="VALpclist_to_nodes"><span class="keyword">val</span> pclist_to_nodes</span> : <code class="type">repr_to_list:('repr -> 'e list) -><br>       plist_to_nodes:(ptr:'ptr -><br>                       't -> ('ptr * ('ptr, 'repr) <a href="Persistent_list.html#TYPElist_node">Persistent_list.list_node</a>) list) -><br>       ptr:'ptr -> 't -> ('ptr * 'e list) list</code></pre>
-<pre><span class="keyword">module</span> <a href="Persistent_chunked_list.Test.html">Test</a>: <code class="code">sig</code> <a href="Persistent_chunked_list.Test.html">..</a> <code class="code">end</code></pre></body></html>
+<pre><span id="VALmake_persistent_chunked_list"><span class="keyword">val</span> make_persistent_chunked_list</span> : <code class="type">monad_ops:'t Tjr_monad.Monad.monad_ops -><br>       list_ops:('repr, 'ptr, 't) <a href="Persistent_list.html#TYPElist_ops">Persistent_list.list_ops</a> -><br>       repr_ops:('e, 'repr) <a href="Persistent_chunked_list.html#TYPErepr_ops">repr_ops</a> -><br>       pcl_state_ref:(('e, 'repr) <a href="Persistent_chunked_list.html#TYPEpcl_state">pcl_state</a>, 't)<br>                     Tjr_btree.Base_types.mref -><br>       ('e, 'ptr, 't) <a href="Persistent_chunked_list.html#TYPEpcl_ops">pcl_ops</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Function to construct a persistent chunked list. Parameters:</p>
+<ul>
+<li><code class="code">list_ops</code> The underlying persistent list operations.</li>
+<li><code class="code">repr_ops</code> The marshalling functionality.</li>
+<li><code class="code">pcl_state_ref</code> The internal state of the pcl.</li>
+</ul>
+</div>
+</div>
+
+<pre><span id="VALpclist_to_nodes"><span class="keyword">val</span> pclist_to_nodes</span> : <code class="type">repr_to_list:('repr -> 'e list) -><br>       plist_to_nodes:(ptr:'ptr -><br>                       't -> ('ptr * ('ptr, 'repr) <a href="Persistent_list.html#TYPElist_node">Persistent_list.list_node</a>) list) -><br>       ptr:'ptr -> 't -> ('ptr * 'e list) list</code></pre><div class="info ">
+<div class="info-desc">
+<p>Abstract view of the persistent chunked list.</p>
+</div>
+</div>
+
+<pre><span id="MODULETest"><span class="keyword">module</span> <a href="Persistent_chunked_list.Test.html">Test</a></span>: <code class="code">sig</code> <a href="Persistent_chunked_list.Test.html">..</a> <code class="code">end</code></pre></body></html>

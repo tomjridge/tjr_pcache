@@ -1,5 +1,6 @@
-(** A persistent log, used to reduce traffic via the B-tree. NOTE
-    append-only logs are quickest when data must be stored persistently *)
+(** A persistent cache, used to reduce traffic via the B-tree. NOTE
+   append-only logs are quickest when data must be stored persistently
+   *)
 
 (*
 
@@ -10,8 +11,7 @@ TODO:
 - need API functions to query the union of the current and past maps,
   and to get the past map as a list
 
-
-
+- rename to persistent cache
 *)
 
 
@@ -49,11 +49,16 @@ open Pcl
    work with bytes? *)
 
 (* FIXME need insert_many *)
+
+(** An op is either insert or delete. These are the entries that get
+   written to disk. *)
 type ('k,'v) op = ('k,'v) Pcl.Test.op = Insert of 'k * 'v | Delete of 'k
 
+(**/**)
 let op2k = function
   | Insert (k,v) -> k
   | Delete k -> k
+(**/**)
 
 
 (* we have to decide what information we need to keep for the "current
@@ -71,10 +76,16 @@ type ('k,'v,'repr) chunk_state = (('k,'v)op,'repr) pcl_state = {
 (* FIXME needed? type ('k,'v,'repr) chunk_state = (('k,'v)op,'repr) pcl_state *)
 
 
-(* in-mem map; NOTE 'v is ('k,'v)op  *)
+(** The type for the abstract view of the persistent cache. NOTE the
+   values are ('k,'v)op, not 'v. *)
 type ('k,'v,'map) kvop_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
 
-
+(** The pcache ops, [find], [add], [detach] and
+   [get_block_list_length]. [detach] indicates that we should start a
+   new cache from the current block. The return result is the ptr and
+   map corresponding to the contents of everything up to the current
+   block, and the ptr and map for the current block. The intention is
+   that the detached part is then rolled into the B-tree. *)
 type ('k,'v,'map,'ptr,'t) plog_ops = {
   find: 'k -> (('k,'v) op option,'t) m;  
   (* should execute in mem but to control concurrency we put in the
@@ -86,17 +97,14 @@ type ('k,'v,'map,'ptr,'t) plog_ops = {
 
   get_block_list_length: unit -> (int,'t) m;
 }
-(** detach returns: 'ptr to first block in list; map upto current node; 'ptr to current node; map for current node *)
+(** NOTE detach returns: 'ptr to first block in list; map upto current node; 'ptr to current node; map for current node *)
 
 
 (** The state of the persistent cache. Parameters are:
 
 - [start_block] is the root of the log
-
 - [current_block] is the current block being written to
-
 - [map_past] is the map from root to just before [current_block]
-
 - [map_current] is the map for the current block
 
 *)
@@ -108,14 +116,15 @@ type ('map,'ptr) plog_state = {
   map_current: 'map;
 }
 
-
-(* a map built from two other maps; prefer m2 *)
+(**/**)
+(** A map built from two other maps; prefer m2 *)
 let map_find_union ~map_ops ~m1 ~m2 k = 
   let open Tjr_map in
   map_ops.map_find k m2 |> function
   | Some _ as x -> x
   | None -> 
     map_ops.map_find k m1
+(**/**)
 
 (* FIXME what about initialization? *)
 
@@ -184,8 +193,9 @@ let _ = make_plog_ops
 
 (* FIXME we probably want a common instantiation here, so we can get a
    pcache without constructing the intermediate layers explicitly *)
-
+(** The abstract view of the pcache *)
 let plog_to_map ~map_union s = map_union s.map_past s.map_current
+
 
 (* debug ------------------------------------------------------------ *)
 

@@ -102,7 +102,7 @@ EOF
 # doc ----------------------------------------------------
 
 function mk_doc() {
-    ocamlfind ocamldoc $PKGS $WARN -html *.ml
+    ocamlfind ocamldoc $PKGS $WARN -html -intro intro.odoc *.ml
     mv *.html ../docs/ocamldoc
     rm *.css
 # odoc -----------------------------------------------------------------

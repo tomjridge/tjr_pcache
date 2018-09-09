@@ -14,7 +14,8 @@
 <link title="Pcache_debug" rel="Chapter" href="Pcache_debug.html">
 <link title="Persistent_chunked_list" rel="Chapter" href="Persistent_chunked_list.html">
 <link title="Persistent_list" rel="Chapter" href="Persistent_list.html">
-<link title="Persistent_log" rel="Chapter" href="Persistent_log.html"><title>Persistent_chunked_list.Test.Pl</title>
+<link title="Persistent_log" rel="Chapter" href="Persistent_log.html">
+<link title="Tjr_pcache_doc" rel="Chapter" href="Tjr_pcache_doc.html"><title>Persistent_chunked_list.Test.Pl</title>
 </head>
 <body>
 <div class="navbar">&nbsp;<a class="up" href="Persistent_chunked_list.Test.html" title="Persistent_chunked_list.Test">Up</a>
@@ -22,7 +23,7 @@
 </div>
 <h1>Module <a href="type_Persistent_chunked_list.Test.Pl.html">Persistent_chunked_list.Test.Pl</a></h1>
 
-<pre><span class="keyword">module</span> Pl: <code class="type"><a href="Persistent_list.html">Persistent_list</a></code></pre><hr width="100%">
+<pre><span id="MODULEPl"><span class="keyword">module</span> Pl</span>: <code class="type"><a href="Persistent_list.html">Persistent_list</a></code></pre><hr width="100%">
 
 <pre><code><span id="TYPElist_node"><span class="keyword">type</span> <code class="type">('ptr, 'a)</code> list_node</span> = {</code></pre><table class="typetable">
 <tr>
@@ -41,6 +42,11 @@
 </tr></table>
 }
 
+<div class="info ">
+<div class="info-desc">
+<p>The type of persistent list nodes, a singly-linked list.</p>
+</div>
+</div>
 
 
 <pre><code><span id="TYPEplist_state"><span class="keyword">type</span> <code class="type">('ptr, 'a)</code> plist_state</span> = {</code></pre><table class="typetable">
@@ -60,6 +66,11 @@
 </tr></table>
 }
 
+<div class="info ">
+<div class="info-desc">
+<p>The persistent list state. Consists of <code class="code">current_ptr</code>, a pointer to a block that is currently being written, and <code class="code">current_node</code>, the abstract representation of the contents of the node.</p>
+</div>
+</div>
 
 
 <pre><code><span id="TYPElist_ops"><span class="keyword">type</span> <code class="type">('a, 'ptr, 't)</code> list_ops</span> = {</code></pre><table class="typetable">
@@ -79,9 +90,36 @@
 </tr></table>
 }
 
+<div class="info ">
+<div class="info-desc">
+<p>The operations provided by the persistent list. <code class="code">replace_last</code> replaces the contents of the last element of the list. <code class="code">new_node</code> allocates a new node at the end of the list and makes it the "current" node.</p>
+</div>
+</div>
 
 
-<pre><span id="VALmake_persistent_list"><span class="keyword">val</span> make_persistent_list</span> : <code class="type">monad_ops:'t Tjr_monad.Monad.monad_ops -><br>       write_node:('ptr -><br>                   ('ptr, 'a) <a href="Persistent_list.html#TYPElist_node">list_node</a> -><br>                   (unit, 't) Tjr_monad.Monad.m) -><br>       plist_state_ref:(('ptr, 'a) <a href="Persistent_list.html#TYPEplist_state">plist_state</a>, 't)<br>                       Tjr_btree.Base_types.mref -><br>       alloc:(unit -> ('ptr, 't) Tjr_monad.Monad.m) -><br>       ('a, 'ptr, 't) <a href="Persistent_list.html#TYPElist_ops">list_ops</a></code></pre>
-<pre><span id="VALplist_to_nodes"><span class="keyword">val</span> plist_to_nodes</span> : <code class="type">read_node:('ptr -> 't -> ('ptr, 'a) <a href="Persistent_list.html#TYPElist_node">list_node</a>) -><br>       ptr:'ptr -> 't -> ('ptr * ('ptr, 'a) <a href="Persistent_list.html#TYPElist_node">list_node</a>) list</code></pre>
-<pre><span id="VALplist_to_list"><span class="keyword">val</span> plist_to_list</span> : <code class="type">read_node:('a -> 'b -> ('a, 'c) <a href="Persistent_list.html#TYPElist_node">list_node</a>) -><br>       ptr:'a -> 'b -> 'c list</code></pre>
-<pre><span class="keyword">module</span> <a href="Persistent_list.Test.html">Test</a>: <code class="code">sig</code> <a href="Persistent_list.Test.html">..</a> <code class="code">end</code></pre></body></html>
+<pre><span id="VALmake_persistent_list"><span class="keyword">val</span> make_persistent_list</span> : <code class="type">monad_ops:'t Tjr_monad.Monad.monad_ops -><br>       write_node:('ptr -><br>                   ('ptr, 'a) <a href="Persistent_list.html#TYPElist_node">list_node</a> -><br>                   (unit, 't) Tjr_monad.Monad.m) -><br>       plist_state_ref:(('ptr, 'a) <a href="Persistent_list.html#TYPEplist_state">plist_state</a>, 't)<br>                       Tjr_btree.Base_types.mref -><br>       alloc:(unit -> ('ptr, 't) Tjr_monad.Monad.m) -><br>       ('a, 'ptr, 't) <a href="Persistent_list.html#TYPElist_ops">list_ops</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Make a persistent list. Parameters:</p>
+<ul>
+<li><code class="code">write_node</code> Write a node to disk, given a <code class="code">ptr</code> to the block and the <code class="code">list_node</code></li>
+<li><code class="code">alloc</code> Allocate a new block</li>
+</ul>
+</div>
+</div>
+
+<pre><span id="VALplist_to_nodes"><span class="keyword">val</span> plist_to_nodes</span> : <code class="type">read_node:('ptr -> 't -> ('ptr, 'a) <a href="Persistent_list.html#TYPElist_node">list_node</a>) -><br>       ptr:'ptr -> 't -> ('ptr * ('ptr, 'a) <a href="Persistent_list.html#TYPElist_node">list_node</a>) list</code></pre><div class="info ">
+<div class="info-desc">
+<p>The abstract view of the persistent list. Parameters:</p>
+<ul>
+<li><code class="code">ptr</code> The root of the list.</li>
+</ul>
+</div>
+</div>
+
+<pre><span id="VALplist_to_list"><span class="keyword">val</span> plist_to_list</span> : <code class="type">read_node:('a -> 'b -> ('a, 'c) <a href="Persistent_list.html#TYPElist_node">list_node</a>) -><br>       ptr:'a -> 'b -> 'c list</code></pre><div class="info ">
+<div class="info-desc">
+<p>The abstract view of the persistent list, without any pointer info.</p>
+</div>
+</div>
+
+<pre><span id="MODULETest"><span class="keyword">module</span> <a href="Persistent_list.Test.html">Test</a></span>: <code class="code">sig</code> <a href="Persistent_list.Test.html">..</a> <code class="code">end</code></pre></body></html>
