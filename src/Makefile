@@ -8,12 +8,13 @@ libname:=$(shell source bash_env.sh && echo $${libname})#
 
 # ----------------------------------------
 
-all: 
+build: 
 	$$ocamlc -c $$mls
 	$$ocamlopt -c $$mls
 	mk_cma
 	mk_cmxa
-	$(MAKE) install
+
+#	$(MAKE) install
 
 install:
 	mk_meta
