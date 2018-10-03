@@ -1,5 +1,6 @@
 build:
 	$(MAKE) -C src build
+	$(MAKE) -C bin build
 
 install:
 	$(MAKE) -C src install
