@@ -1,5 +1,11 @@
+SHELL:=bash
+
 build:
 	$(MAKE) -C src build
+
+
+# NOTE must install before building bin
+build_bin:
 	$(MAKE) -C bin build
 
 install:
