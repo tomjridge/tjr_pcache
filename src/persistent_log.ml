@@ -81,7 +81,9 @@ type ('k,'v,'repr) chunk_state = (('k,'v)op,'repr) pcl_state = {
 type ('k,'v,'map) kvop_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
 
 (** The pcache ops, [find], [add], [detach] and
-   [get_block_list_length]. [detach] indicates that we should start a
+   [get_block_list_length]. 
+
+    [detach] indicates that we should start a
    new cache from the current block. The return result is the ptr and
    map corresponding to the contents of everything up to the current
    block, and the ptr and map for the current block. The intention is
