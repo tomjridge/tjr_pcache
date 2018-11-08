@@ -9,6 +9,11 @@ maintainer: "Tom Ridge <tom.j.ridge@googlemail.com>"
 # ----------------------------------------------------------------------
 
 depends: [
+  "yojson"
+  "ppx_deriving_yojson"
+  "tjr_lib"
+  "tjr_fs_shared"
+  "tjr_monad"
   "tjr_btree"
 ]
 

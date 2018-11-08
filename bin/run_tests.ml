@@ -3,7 +3,7 @@ open Tjr_pcache
 let _ =
   Pervasives.at_exit @@ fun () -> 
   print_endline (__LOC__ ^ ": running exit hooks");
-  Tjr_fs_shared.Log.log_ops.Tjr_log.print_last_n ()
+  Tjr_fs_shared.Fs_log.log_ops.Tjr_log.print_last_n ()
 
 
 (* default is to run all tests; turn tests off individually by giving their names on the cl *)

@@ -28,8 +28,8 @@ open Imp_fs;;
 
 open Tjr_map
 
-open Tjr_monad.Monad
-open Tjr_btree.Block
+(* open Tjr_monad.Monad *)
+(* open Tjr_btree.Block *)
 open Tjr_btree.Base_types  (* mref *)
 
 (* we construct on top of a persistent_chunked_list *)
@@ -56,7 +56,7 @@ type ('k,'v) op = ('k,'v) Pcl.Test.op = Insert of 'k * 'v | Delete of 'k
 
 (**/**)
 let op2k = function
-  | Insert (k,v) -> k
+  | Insert (k,_v) -> k
   | Delete k -> k
 (**/**)
 
@@ -146,7 +146,7 @@ let make_plog_ops
   =
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in  
-  let { map_find; map_add; map_empty } = map_ops in
+  let { map_find; map_add; map_empty; _ } = map_ops in
   let map_union m1 m2 = Tjr_map.map_union ~map_ops ~m1 ~m2 in
   (* NOTE get and set are for the plog_state component of the state *)
   let {get;set} = plog_state_ref in

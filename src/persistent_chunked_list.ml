@@ -72,10 +72,10 @@ let make_persistent_chunked_list
   let return = monad_ops.return in
   let read_state,write_state = pcl_state_ref.get, pcl_state_ref.set in
   let { replace_last; new_node } = list_ops in
-  let { nil; snoc } = repr_ops in
+  let { nil; snoc; _ } = repr_ops in
   let insert (e:'e) = 
     read_state () >>= fun s ->
-    let { elts; elts_repr } = s in
+    let { elts=_; elts_repr } = s in
     snoc e elts_repr |> function
     | `Ok new_elts_repr -> 
       let s = { elts=s.elts@[e]; elts_repr = new_elts_repr } in
@@ -124,7 +124,7 @@ let pclist_to_nodes
     s 
   : ('ptr * 'e list) list 
   =
-  plist_to_nodes ptr s
+  plist_to_nodes ~ptr s
   |> List.map (fun (ptr,n) -> (ptr,n.contents |> repr_to_list))
 
 let _ = pclist_to_nodes
@@ -140,7 +140,8 @@ module Test = struct
 
   module Pl = Persistent_list
 
-  type ('k,'v) op = Insert of 'k * 'v | Delete of 'k  [@@deriving yojson]
+  [@@@ocaml.warning "-39"]
+  type ('k,'v) op = Insert of 'k * 'v | Delete of 'k [@@deriving yojson]
 
   (* on-disk representation ----------------------------------------- *)
   (* we have to fix on a representation for the list of ops; for the

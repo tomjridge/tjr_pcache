@@ -1,22 +1,29 @@
-SHELL:=bash
+DUNE:=opam exec dune
 
 build:
-	$(MAKE) -C src build
-
-
-# NOTE must install before building bin
-build_bin:
-	$(MAKE) -C bin build
+	$(DUNE) build @install
+#	$(DUNE) build test/test_main.exe
 
 install:
-	$(MAKE) -C src install
-
-uninstall:
-	$(MAKE) -C src uninstall
+	$(DUNE) install
 
 clean:
-	$(MAKE) -C src clean
-	$(MAKE) -C bin clean
+	$(DUNE) clean
 
-check:
-	$(MAKE) -C bin
+
+doc: FORCE
+	$(DUNE) build @doc
+
+view_doc:
+	google-chrome  _build/default/_doc/_html/index.html
+
+
+# run_tests:
+# 	$(DUNE) exec test/test_main.exe 1 5
+# 
+# run_more_tests:
+# 	$(DUNE) exec test/test_main.exe 1 10
+
+
+
+FORCE:

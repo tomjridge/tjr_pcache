@@ -1,4 +1,4 @@
-SHELL:=/bin/bash
+bin/SHELL:=/bin/bash
 BASH_ENV=bash_env.sh
 export BASH_ENV
 

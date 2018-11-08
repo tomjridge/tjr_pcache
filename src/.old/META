@@ -1,0 +1,6 @@
+name="tjr_pcache"
+description="tjr_pcache, a persistent cache (part of ImpFS)."
+version="??"
+requires="tjr_btree,tjr_lib_core"
+archive(byte)="tjr_pcache.cma"
+archive(native)="tjr_pcache.cmxa"

@@ -1,0 +1,7 @@
+(library
+  (name tjr_pcache)
+  (public_name tjr_pcache)
+  (preprocess (pps ppx_deriving_yojson))
+  (flags (:standard "-w" "-27-39"))  ; -27 is unused var, -39 is unused rec flag
+  (libraries tjr_lib tjr_fs_shared tjr_monad tjr_btree yojson ppx_deriving_yojson)
+)
