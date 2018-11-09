@@ -14,8 +14,9 @@ depends: [
   "tjr_lib"
   "tjr_fs_shared"
   "tjr_monad"
-  "tjr_btree"
 ]
+
+#   "tjr_btree"
 
 # ----------------------------------------------------------------------
 

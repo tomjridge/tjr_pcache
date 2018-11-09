@@ -30,7 +30,9 @@ open Tjr_map
 
 (* open Tjr_monad.Monad *)
 (* open Tjr_btree.Block *)
-open Tjr_btree.Base_types  (* mref *)
+(* open Tjr_btree.Base_types  (\* mref *\) *)
+open Tjr_monad.Types
+open Tjr_monad.Mref
 
 (* we construct on top of a persistent_chunked_list *)
 
@@ -267,7 +269,7 @@ type ('k,'v) dbg = {
 
   type tmp = Yojson.Safe.json option [@@deriving yojson]
 
-  let with_world = Tjr_monad.State_passing_instance.with_world
+  let with_world = Tjr_monad.State_passing.with_world
 
 
   (* take an existing plog ops, and add testing code based on the dbg state *)
@@ -352,11 +354,11 @@ module Test : sig val test : depth:int -> unit end = struct
   end
 
 
-  open Tjr_monad
-  open Tjr_monad.Monad
+  open Tjr_monad.Types
+  open Tjr_monad.State_passing
 
   let monad_ops : ('k,'v,'map,'dbg) state state_passing monad_ops = 
-    Tjr_monad.State_passing_instance.monad_ops ()
+    Tjr_monad.State_passing.monad_ops ()
   
 
   (* NOTE FIXME copied from pcl *)
@@ -496,7 +498,7 @@ module Test : sig val test : depth:int -> unit end = struct
     (* we exhaustively test these operations up to a maximum depth;
        the test state is a decreasing count paired with the system
        state *)
-    let run = State_passing_instance.run in
+    let run = Tjr_monad.State_passing.run in
     let rec step (count,s) =
       let f op = 
         num_tests:=!num_tests+1;

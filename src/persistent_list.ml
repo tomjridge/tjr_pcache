@@ -8,8 +8,8 @@
 *)
 
 (* FIXME mref should be in tjr_monad *)
-open Tjr_btree.Base_types  (* mref *)
-open Tjr_monad.Monad
+open Tjr_monad.Types
+open Tjr_monad.Mref
 
 (* nodes in the list have an optional next pointer, and contents *)
 (* FIXME rename to plist_node *)
@@ -125,8 +125,8 @@ let _ = plist_to_list
 
 module Test = struct 
 
-  open Tjr_monad
-  open Tjr_monad.Monad
+  open Tjr_monad.Types
+  open Tjr_monad.State_passing
 
   (* the state of the whole system; 'a is the type of  *)
   type ('ptr,'a) state = {
@@ -136,12 +136,12 @@ module Test = struct
   }
 
   let monad_ops : ('ptr,'a) state state_passing monad_ops = 
-    Tjr_monad.State_passing_instance.monad_ops ()
+    Tjr_monad.State_passing.monad_ops ()
 
   let ( >>= ) = monad_ops.bind 
   let return = monad_ops.return
 
-  let with_world = Tjr_monad.State_passing_instance.with_world
+  let with_world = Tjr_monad.State_passing.with_world
 
   let read_node ptr s = List.assoc ptr s.map
 
@@ -235,7 +235,7 @@ module Test = struct
       get_state () >>= fun s ->
       return (plist_to_list ~read_node ~ptr:0 s)
     in
-    State_passing_instance.run ~init_state cmds |> fun (xs,s) ->
+    Tjr_monad.State_passing.run ~init_state cmds |> fun (xs,s) ->
     assert(xs = ["New start";"second node";"alternative third node"]);
     xs |> Tjr_string.concat_strings ~sep:";" |> fun str ->
     print_endline str;

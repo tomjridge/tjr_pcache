@@ -17,8 +17,8 @@
 
 *)
 
-open Tjr_btree.Base_types (* mref *)
-open Tjr_monad.Monad
+open Tjr_monad.Types
+open Tjr_monad.Mref
 open Persistent_list
 
 
@@ -206,16 +206,16 @@ module Test = struct
   
   (* monad ops ------------------------------------------------------ *)
 
-  open Tjr_monad
-  open Tjr_monad.Monad
+  open Tjr_monad.Types
+  open Tjr_monad.State_passing
 
   let monad_ops : ('k,'v) state state_passing monad_ops = 
-    Tjr_monad.State_passing_instance.monad_ops ()
+    Tjr_monad.State_passing.monad_ops ()
 
   let ( >>= ) = monad_ops.bind 
   let return = monad_ops.return
 
-  let with_world = Tjr_monad.State_passing_instance.with_world
+  let with_world = Tjr_monad.State_passing.with_world
   
 
 
@@ -272,7 +272,7 @@ module Test = struct
       in
       f xs
     in  
-    State_passing_instance.run ~init_state cmds |> fun (x,s) -> 
+    Tjr_monad.State_passing.run ~init_state cmds |> fun (x,s) -> 
     assert(x=());
     Printf.printf "%s: ...tests finished\n" __FILE__;
     s
