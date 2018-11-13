@@ -1,3 +1,4 @@
+open Ins_del_op_type
 open Pcl_types
 open Dcl_types
 

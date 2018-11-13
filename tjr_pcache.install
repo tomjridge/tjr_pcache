@@ -5,6 +5,7 @@ lib: [
   "_build/install/default/lib/tjr_pcache/dcl_test.mli" {"dcl_test.mli"}
   "_build/install/default/lib/tjr_pcache/dcl_types.ml" {"dcl_types.ml"}
   "_build/install/default/lib/tjr_pcache/detachable_chunked_list.ml" {"detachable_chunked_list.ml"}
+  "_build/install/default/lib/tjr_pcache/ins_del_op_type.ml" {"ins_del_op_type.ml"}
   "_build/install/default/lib/tjr_pcache/opam" {"opam"}
   "_build/install/default/lib/tjr_pcache/pcache_debug.ml" {"pcache_debug.ml"}
   "_build/install/default/lib/tjr_pcache/pcl_test.ml" {"pcl_test.ml"}
@@ -35,6 +36,9 @@ lib: [
   "_build/install/default/lib/tjr_pcache/tjr_pcache__Detachable_chunked_list.cmi" {"tjr_pcache__Detachable_chunked_list.cmi"}
   "_build/install/default/lib/tjr_pcache/tjr_pcache__Detachable_chunked_list.cmt" {"tjr_pcache__Detachable_chunked_list.cmt"}
   "_build/install/default/lib/tjr_pcache/tjr_pcache__Detachable_chunked_list.cmx" {"tjr_pcache__Detachable_chunked_list.cmx"}
+  "_build/install/default/lib/tjr_pcache/tjr_pcache__Ins_del_op_type.cmi" {"tjr_pcache__Ins_del_op_type.cmi"}
+  "_build/install/default/lib/tjr_pcache/tjr_pcache__Ins_del_op_type.cmt" {"tjr_pcache__Ins_del_op_type.cmt"}
+  "_build/install/default/lib/tjr_pcache/tjr_pcache__Ins_del_op_type.cmx" {"tjr_pcache__Ins_del_op_type.cmx"}
   "_build/install/default/lib/tjr_pcache/tjr_pcache__Pcache_debug.cmi" {"tjr_pcache__Pcache_debug.cmi"}
   "_build/install/default/lib/tjr_pcache/tjr_pcache__Pcache_debug.cmt" {"tjr_pcache__Pcache_debug.cmt"}
   "_build/install/default/lib/tjr_pcache/tjr_pcache__Pcache_debug.cmx" {"tjr_pcache__Pcache_debug.cmx"}

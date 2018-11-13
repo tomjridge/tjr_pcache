@@ -1,6 +1,7 @@
 (** Debug support for DCL *)
 
 open Tjr_monad.Types
+open Ins_del_op_type
 open Detachable_chunked_list
 
 (* use the pclist_to_nodes debug function *)

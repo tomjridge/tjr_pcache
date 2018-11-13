@@ -15,26 +15,14 @@ TODO:
 *)
 
 
-(*
-
-Interactive:
-
-#thread;;
-#require "imp_fs";;
-
-open Imp_fs;;
-
-*)
-
 open Tjr_map
 
-(* open Tjr_monad.Monad *)
-(* open Tjr_btree.Block *)
-(* open Tjr_btree.Base_types  (\* mref *\) *)
 open Tjr_monad.Types
 open Tjr_monad.Mref
 
 (* we construct on top of a persistent_chunked_list *)
+
+open Ins_del_op_type
 
 module Pl = Persistent_list
 module Pcl = Persistent_chunked_list
@@ -121,6 +109,3 @@ let _ = make_plog_ops
    pcache without constructing the intermediate layers explicitly *)
 (** The abstract view of the pcache *)
 let plog_to_map ~map_union s = map_union s.map_past s.map_current
-
-
-

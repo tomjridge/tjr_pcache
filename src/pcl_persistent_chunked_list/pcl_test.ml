@@ -4,10 +4,8 @@
    persistent_list *)
 open Pl_types
 open Pcl_types
+open Ins_del_op_type
 
-
-[@@@ocaml.warning "-39"]
-type ('k,'v) op = Insert of 'k * 'v | Delete of 'k [@@deriving yojson]
 
 (* on-disk representation ----------------------------------------- *)
 (* we have to fix on a representation for the list of ops; for the

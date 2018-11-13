@@ -11,15 +11,7 @@ open Tjr_monad.Types
 
 (* FIXME need insert_many *)
 
-(** An op is either insert or delete. These are the entries that get
-   written to disk. *)
-type ('k,'v) op = ('k,'v) Pcl_test.op = Insert of 'k * 'v | Delete of 'k
-
-(**/**)
-let op2k = function
-  | Insert (k,_v) -> k
-  | Delete k -> k
-(**/**)
+open Ins_del_op_type
 
 
 (* we have to decide what information we need to keep for the "current
