@@ -47,21 +47,21 @@ let map_find_union ~map_ops ~m1 ~m2 k =
 - [monad_ops], the monadic operations
 - [map_ops], the in-memory cache of (k -> (k,v)op) map
 - [insert], the chunked list insert operation
-- [plog_state_ref], the ref to the persistent log state
+- [dcl_state_ref], the ref to the persistent log state
 *)
-let make_plog_ops
+let make_dcl_ops
     ~monad_ops
     ~(map_ops:('k,'v,'map)kvop_map_ops)
     ~insert
-    ~plog_state_ref
-  : ('k,'v,'map,'ptr,'t) plog_ops 
+    ~dcl_state_ref
+  : ('k,'v,'map,'ptr,'t) dcl_ops 
   =
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in  
   let { map_find; map_add; map_empty; _ } = map_ops in
   let map_union m1 m2 = Tjr_map.map_union ~map_ops ~m1 ~m2 in
-  (* NOTE get and set are for the plog_state component of the state *)
-  let {get;set} = plog_state_ref in
+  (* NOTE get and set are for the dcl_state component of the state *)
+  let {get;set} = dcl_state_ref in
   (* ASSUME start_block is initialized and consistent with pcl_state *)
   let find k : (('k,'v) op option,'t) m =
     get () >>= fun s ->
@@ -90,7 +90,12 @@ let make_plog_ops
      non-atomicity *)
   let detach () =  
     get () >>= fun s ->
-    let r = (s.start_block,s.map_past,s.current_block,s.map_current) in
+    let r = {
+      old_ptr=s.start_block;
+      old_map=s.map_past;
+      new_ptr=s.current_block;
+      new_map=s.map_current}
+    in
     (* we need to adjust the start block and the map_past - we are
        forgetting everything in previous blocks *)
     set { s with start_block=s.current_block; block_list_length=1; map_past=map_empty } >>= fun () ->
@@ -102,10 +107,10 @@ let make_plog_ops
   { find; add; detach; get_block_list_length }  
 
 
-let _ = make_plog_ops
+let _ = make_dcl_ops
 
 
 (* FIXME we probably want a common instantiation here, so we can get a
    pcache without constructing the intermediate layers explicitly *)
 (** The abstract view of the pcache *)
-let plog_to_map ~map_union s = map_union s.map_past s.map_current
+let dcl_to_map ~map_union s = map_union s.map_past s.map_current

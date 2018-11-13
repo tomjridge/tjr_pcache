@@ -33,6 +33,17 @@ type ('k,'v,'repr) chunk_state = (('k,'v)op,'repr) pcl_state = {
    values are ('k,'v)op, not 'v. *)
 type ('k,'v,'map) kvop_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
 
+
+
+type ('ptr,'map) detach_result = {
+  old_ptr:'ptr;
+  old_map:'map;
+  new_ptr:'ptr;
+  new_map:'map;
+}
+
+
+
 (** The pcache ops, [find], [add], [detach] and
    [get_block_list_length]. 
 
@@ -41,14 +52,14 @@ type ('k,'v,'map) kvop_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
    map corresponding to the contents of everything up to the current
    block, and the ptr and map for the current block. The intention is
    that the detached part is then rolled into the B-tree. *)
-type ('k,'v,'map,'ptr,'t) plog_ops = {
+type ('k,'v,'map,'ptr,'t) dcl_ops = {
   find: 'k -> (('k,'v) op option,'t) m;  
   (* should execute in mem but to control concurrency we put in the
      monad FIXME? something better can be done? *)
 
   add: ('k,'v)op -> (unit,'t) m;  (* add rather than insert, to avoid confusion *)
   
-  detach: unit -> ('ptr * 'map * 'ptr * 'map, 't) m;
+  detach: unit -> (('ptr,'map)detach_result, 't) m;
 
   get_block_list_length: unit -> (int,'t) m;
 }
@@ -63,7 +74,7 @@ type ('k,'v,'map,'ptr,'t) plog_ops = {
 - [map_current] is the map for the current block
 
 *)
-type ('map,'ptr) plog_state = {
+type ('map,'ptr) dcl_state = {
   start_block: 'ptr;  
   current_block: 'ptr;
   block_list_length: int;

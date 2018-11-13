@@ -44,7 +44,6 @@ type ('k,'v) state = {
   map: (ptr * ('k,'v)list_node) list;  (* association list *)
   free: int;  (* iso to ptr *)
 
-  (* plog_state: ('k,'v) plog_state *)
   plist_state: (int,('k,'v)repr) plist_state;
   pclist_state: (('k,'v)op,('k,'v)repr) pcl_state
 }

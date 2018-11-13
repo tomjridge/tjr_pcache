@@ -1,6 +1,18 @@
+(** Test all the layers, pl, pcl and dcl.
+
+This code uses [Dcl_dbg] to construct a "debug" or spec state for an
+   [int -> int] map.
+
+Then the 3 layers are constructed, and wrapped with code to check (via
+   dcl_dbg) that the abstract view tracks the spec (this is in
+   [checked_dcl]).
+
+*)
+
 open Ins_del_op_type
 open Pcl_types
 open Dcl_types
+
 
 (* test  ---------------------------------------------------------- *)
 
@@ -20,7 +32,7 @@ include struct
 
     plist_state: (int,('k,'v)repr) plist_state;
     pclist_state: (('k,'v)op,('k,'v)repr) pcl_state;
-    plog_state: ('map,ptr) plog_state;
+    dcl_state: ('map,ptr) dcl_state;
     dbg: 'dbg; (* debug state *)
   }
 end
@@ -61,21 +73,21 @@ let chunked_list () =
 
 let _ = chunked_list
 
-let plog ~map_ops = 
+let dcl ~map_ops = 
   chunked_list () |> fun { insert } -> 
-  Detachable_chunked_list.make_plog_ops
+  Detachable_chunked_list.make_dcl_ops
     ~monad_ops
     ~map_ops
     ~insert
-    ~plog_state_ref:{
-      get=(fun () -> with_world (fun s -> (s.plog_state,s)));
-      set=(fun plog_state -> with_world (fun s -> ((),{s with plog_state})))
+    ~dcl_state_ref:{
+      get=(fun () -> with_world (fun s -> (s.dcl_state,s)));
+      set=(fun dcl_state -> with_world (fun s -> ((),{s with dcl_state})))
     }
 
 let _ : 
   map_ops:('k, ('k, 'v) op, 'map) Tjr_map.map_ops -> 
-  ('k, 'v, 'map, ptr, ('k, 'v, 'map,'dbg) state state_passing) plog_ops 
-  = plog
+  ('k, 'v, 'map, ptr, ('k, 'v, 'map,'dbg) state state_passing) dcl_ops 
+  = dcl
 
 
 (* fix types of 'k 'v and 'map *)
@@ -87,17 +99,17 @@ module Map_ = Tjr_map.Make(Int_ord)
 
 let map_ops = Map_.map_ops
 
-let plog () = plog ~map_ops
+let dcl () = dcl ~map_ops
 
 
 let _ : unit ->
   (ptr, 'a, (ptr, 'a) op Map_int.t, ptr,
    (ptr, 'a, (ptr, 'a) op Map_int.t,'dbg) state state_passing)
-    plog_ops
-  = plog
+    dcl_ops
+  = 
+  dcl
 
-
-let checked_plog () : ('k,'v,'map,'ptr,'t) plog_ops = 
+let checked_dcl () : ('k,'v,'map,'ptr,'t) dcl_ops = 
   let read_node ptr s = List.assoc ptr s.map in
   let plist_to_nodes ~(ptr:ptr) (s:('k,'v,'map,'dbg)state) = 
     Persistent_list.plist_to_nodes ~read_node ~ptr s 
@@ -107,26 +119,24 @@ let checked_plog () : ('k,'v,'map,'ptr,'t) plog_ops =
     Persistent_chunked_list.pclist_to_nodes ~repr_to_list ~plist_to_nodes ~ptr s
   in
   let _ = pclist_to_nodes in
-  let plog_to_dbg s = 
-    plog_to_dbg
+  let dcl_to_dbg s = 
+    dcl_to_dbg
       ~pclist_to_nodes
-      ~get_plog_state:(fun s -> s.plog_state)
+      ~get_dcl_state:(fun s -> s.dcl_state)
       s
   in
-  let plog_ops = plog () in
+  let dcl_ops = dcl () in
   let set_dbg = fun dbg s -> {s with dbg} in
   let get_dbg = fun s -> s.dbg in
-  make_checked_plog_ops
+  make_checked_dcl_ops
     ~monad_ops
-    ~plog_ops
-    ~plog_to_dbg
+    ~dcl_ops
+    ~dcl_to_dbg
     ~set_dbg
     ~get_dbg
 
-
-
-let _ : (int,'v,'map,ptr,(int,'v,'map,'dbg)state state_passing)plog_ops = 
-  checked_plog ()
+let _ : (int,'v,'map,ptr,(int,'v,'map,'dbg)state state_passing)dcl_ops = 
+  checked_dcl ()
 
 
 (* testing ------------------------------------------------------ *)
@@ -141,7 +151,7 @@ let init_state =
     free=i.free;
     plist_state=i.plist_state;
     pclist_state=i.pclist_state;
-    plog_state={
+    dcl_state={
       start_block;
       current_block=start_block;
       block_list_length=1;
@@ -153,10 +163,11 @@ let init_state =
 [@@ocaml.warning "-40"]
 
 
+(* FIXME use exhaustive testing? no need to wrap in checked_dcl *)
 let test ~depth = 
   let num_tests = ref 0 in
-  let plog_ops = checked_plog () in
-  (* let plog_ops = plog () in *)
+  let dcl_ops = checked_dcl () in
+  (* let dcl_ops = dcl () in *)
   (* the operations are: find k; add op; detach 
 
      given some finite range for k, we want to attempt each
@@ -177,16 +188,16 @@ let test ~depth =
       match op with
       | `Detach -> 
         Pcache_debug.log "detach";
-        run ~init_state:s (plog_ops.detach ()) |> fun (_,s') -> s'
+        run ~init_state:s (dcl_ops.detach ()) |> fun (_,s') -> s'
       | `Delete k -> 
         Printf.sprintf "delete(%d)" k |> Pcache_debug.log;
-        run ~init_state:s (plog_ops.add (Delete(k))) |> fun (_,s') -> s'
+        run ~init_state:s (dcl_ops.add (Delete(k))) |> fun (_,s') -> s'
       | `Find k ->
         Printf.sprintf "find(%d)" k |> Pcache_debug.log;
-        run ~init_state:s (plog_ops.find k) |> fun (_,s') -> s'
+        run ~init_state:s (dcl_ops.find k) |> fun (_,s') -> s'
       | `Insert(k,v) -> 
         Printf.sprintf "insert(%d,%d)" k v |> Pcache_debug.log;
-        run ~init_state:s (plog_ops.add (Insert(k,v))) |> fun (_,s') -> s'
+        run ~init_state:s (dcl_ops.add (Insert(k,v))) |> fun (_,s') -> s'
     in
     let f op = 
       f op |> fun s' ->        
@@ -206,8 +217,10 @@ let test ~depth =
 
 
 
+(* old??? ----------------------------------------------------------- *)
 
 (* FIXME what is this module for? *)
+(* FIXME isn't this just repeating what is in Dcl_dbg? yes, but possibly more general *)
 module Abstract_model_ops(Ptr:Tjr_int.TYPE_ISOMORPHIC_TO_INT) = struct
 
   (* FIXME we may want the state to be a map rather than an assoc
@@ -227,6 +240,7 @@ module Abstract_model_ops(Ptr:Tjr_int.TYPE_ISOMORPHIC_TO_INT) = struct
 
 
   (* FIXME work with just a list; move this module out of here; then make a version which works with the model state *)
+  (* FIXME used? doesn't seem to be *)
   module Kvop_list_as_kv_map = struct
 
     let map_empty = { kvs=[]; ptr_ref=Ptr.int2t 0 }
@@ -286,11 +300,16 @@ module Abstract_model_ops(Ptr:Tjr_int.TYPE_ISOMORPHIC_TO_INT) = struct
       let remaining = Tjr_list.take n_remaining s.kvs in
       let dropped = Tjr_list.drop n_remaining s.kvs in
       match n = n_remaining with
-      | true -> return (s.ptr_ref,[],s.ptr_ref,s.kvs)
+      | true -> return {
+          old_ptr=s.ptr_ref;old_map=[];new_ptr=s.ptr_ref;new_map=s.kvs}
       | false -> 
         let ptr' = s.ptr_ref |> Ptr.t2int |> fun x -> x+1 |> Ptr.int2t in
         mref.set { kvs=remaining; ptr_ref=ptr' } >>= fun () ->
-        return (s.ptr_ref,dropped,ptr',remaining)
+        return {
+          old_ptr=s.ptr_ref;
+          old_map=dropped;
+          new_ptr=ptr';
+          new_map=remaining}
     in
     let get_block_list_length () = 
       mref.get () >>= fun s ->
