@@ -5,3 +5,5 @@
   (flags (:standard "-w" "-27-39"))  ; -27 is unused var, -39 is unused rec flag
   (libraries tjr_lib tjr_fs_shared tjr_monad yojson ppx_deriving_yojson)
 )
+
+(include_subdirs unqualified)

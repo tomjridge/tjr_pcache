@@ -11,7 +11,7 @@ let args = Array.to_list Sys.argv
 
 let _ = 
   if List.mem "pl" args then () else
-  ignore(Persistent_list.Test.main());
-  ignore(Persistent_chunked_list.Test.main());
-  Detachable_chunked_list.Test.test ~depth:6
+  ignore(Pl_test.main());
+  ignore(Pcl_test.main());
+  Dcl_test.test ~depth:6
 
