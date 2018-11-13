@@ -61,7 +61,7 @@ type ('k,'v,'map,'ptr,'t) dcl_ops = {
   
   detach: unit -> (('ptr,'map)detach_result, 't) m;
 
-  get_block_list_length: unit -> (int,'t) m;
+  undetached_block_count: unit -> (int,'t) m;
 }
 (** NOTE detach returns: 'ptr to first block in list; map upto current node; 'ptr to current node; map for current node *)
 

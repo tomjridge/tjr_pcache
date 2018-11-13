@@ -101,10 +101,10 @@ let make_dcl_ops
     set { s with start_block=s.current_block; block_list_length=1; map_past=map_empty } >>= fun () ->
     return r
   in
-  let get_block_list_length () = get () >>= fun s ->
+  let undetached_block_count () = get () >>= fun s ->
     return s.block_list_length
   in
-  { find; add; detach; get_block_list_length }  
+  { find; add; detach; undetached_block_count }  
 
 
 let _ = make_dcl_ops

@@ -2,3 +2,5 @@
 /src/*.odoc
 /dune-project
 /src/.merlin
+/bin/.merlin
+/tjr_pcache.install

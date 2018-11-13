@@ -147,8 +147,8 @@ let make_checked_dcl_ops ~monad_ops ~dcl_ops ~dcl_to_dbg ~set_dbg ~get_dbg
     set_state s' >>= fun () ->
     return r
   in  
-  let get_block_list_length = dcl_ops.get_block_list_length in
-  { find; add; detach; get_block_list_length }
+  let undetached_block_count = dcl_ops.undetached_block_count in
+  { find; add; detach; undetached_block_count }
 
 
 let _ = make_checked_dcl_ops

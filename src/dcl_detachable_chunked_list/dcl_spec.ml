@@ -1,4 +1,6 @@
-(** A simple implementation of a DCL *)
+(** NOTE DEPRECATED A simple implementation of a DCL *)
+
+(*
 open Tjr_monad.Types
 open Ins_del_op_type
 open Dcl_types
@@ -78,3 +80,4 @@ let make_dcl_spec_ops ~monad_ops ~with_dcl_spec ~block_list_length ~new_ptr
   in
   let get_block_list_length = fun () -> return block_list_length in
   { find; add; detach; get_block_list_length }
+*)
