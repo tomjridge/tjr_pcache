@@ -61,7 +61,10 @@ type ('k,'v,'map,'ptr,'t) dcl_ops = {
   
   detach: unit -> (('ptr,'map)detach_result, 't) m;
 
-  undetached_block_count: unit -> (int,'t) m;
+  block_list_length: unit -> (int,'t) m;
+  (** NOTE this is the number of blocks from the underlying chunked
+     list, used to store the ops (not the representation of the map!
+     since there may be two ops -- ins and del -- with the same key) *)
 }
 (** NOTE detach returns: 'ptr to first block in list; map upto current node; 'ptr to current node; map for current node *)
 

@@ -88,6 +88,9 @@ let make_dcl_ops
      even if it is in the monad FIXME perhaps we prefer a "single
      step" detach without the use of bind, which introduces
      non-atomicity *)
+  (* FIXME NOTE that even if the current block is full, detach should
+     detach UPTO the current block, given that the dcl only knows the
+     current block pointer *)
   let detach () =  
     get () >>= fun s ->
     let r = {
@@ -101,10 +104,10 @@ let make_dcl_ops
     set { s with start_block=s.current_block; block_list_length=1; map_past=map_empty } >>= fun () ->
     return r
   in
-  let undetached_block_count () = get () >>= fun s ->
+  let block_list_length () = get () >>= fun s ->
     return s.block_list_length
   in
-  { find; add; detach; undetached_block_count }  
+  { find; add; detach; block_list_length }  
 
 
 let _ = make_dcl_ops

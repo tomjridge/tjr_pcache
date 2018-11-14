@@ -1,7 +1,19 @@
-(* FIXME is this better than dcl_spec? probably yes *)
+(** An executable spec for the DCL. Note that [block_list_length] is
+   not part of the spec, since it ties us to a fixed number of ops per
+   block. However, in order to implement detach, we have to assume
+   that there is a fixed number of ops per block.
+
+    One thing that could be part of the spec is the size of the map
+   domain, for maps current and past.  
+
+    The alternative spec, in {! Dcl_spec}, just executably checks that
+   detach does the right thing, which is more sensible.
+
+    So really this should be considered a dummy implementation.
+
+*)
 
 (* NOTE this is used in tjr_kv.sync_store, for testing *)
-
 open Tjr_monad.Types
 open Ins_del_op_type
 
@@ -26,12 +38,13 @@ type ('spec,'t) with_spec = {
 
 
 let make_spec_ops ~monad_ops ~ops_per_block ~new_ptr ~with_spec =
-  
+
   (* without the monad *)
   let kvs2assoc = fun kvs -> List.map (fun op -> op2k,op) kvs in
   let find k t = List.assoc_opt k (kvs2assoc t.kvs) in
   let add op t = { t with kvs=op::t.kvs } in
   let detach t = 
+    (* FIXME the problem here is that detach assumes a fixed number of ops per block *)
     let n = List.length t.kvs in
     let n_remaining = n mod ops_per_block in
     let remaining = Tjr_list.take n_remaining t.kvs in
@@ -72,8 +85,15 @@ let make_spec_ops ~monad_ops ~ops_per_block ~new_ptr ~with_spec =
         set_spec spec >>= fun () ->
         return r)
   in
-  let undetached_block_count () = with_spec (fun ~spec ~set_spec ->
+  let block_list_length () = with_spec (fun ~spec ~set_spec ->
+      (* NOTE this should match the length returned by the dcl
+         implementation, which in turn tracks the chunked list block
+         allocation FIXME check this and put calculation here FIXME or
+         perhaps this is just a performance-related metric, and isn't
+         actually part of the spec, since this ties the to a fixed
+         number of ops per block calculated by mod... but there is no
+         reason to make this so precise. *)
       return (1+ (List.length spec.kvs / ops_per_block)))
   in
   let open Dcl_types in
-  {find;add;detach;undetached_block_count}
+  {find;add;detach;block_list_length}

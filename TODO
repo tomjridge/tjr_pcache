@@ -3,3 +3,7 @@
 - remove dep on tjr_btree (and j.st. core) by moving required defns to
   tjr_fs_shared (monad, basic types? perhaps block type has to come
   from isa_btree?)
+
+- add block_list_length to test ops (find add detach...)
+  - but on reflection, this is ideally not part of the spec, since it
+    ties us to a fixed number of ops per block
