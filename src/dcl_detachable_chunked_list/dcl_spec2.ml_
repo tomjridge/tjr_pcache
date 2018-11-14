@@ -1,3 +1,4 @@
+(*
 (** An executable spec for the DCL. Note that [block_list_length] is
    not part of the spec, since it ties us to a fixed number of ops per
    block. However, in order to implement detach, we have to assume
@@ -97,3 +98,4 @@ let make_spec_ops ~monad_ops ~ops_per_block ~new_ptr ~with_spec =
   in
   let open Dcl_types in
   {find;add;detach;block_list_length}
+*)

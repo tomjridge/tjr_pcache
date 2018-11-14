@@ -1,5 +1,8 @@
 (** A persistent cache, used to reduce traffic via the B-tree. NOTE
    append-only logs are quickest when data must be stored persistently
+
+    NOTE this code is not concurrent safe. Access must be serialized.
+
    *)
 
 (*
@@ -9,9 +12,10 @@ TODO:
 - need an in-memory map of current and past operations
 
 - need API functions to query the union of the current and past maps,
-  and to get the past map as a list
+  and to get the past map as a list?
 
-- rename to persistent cache
+- prefer with_dcl_state rather than get and set
+
 *)
 
 
@@ -48,6 +52,9 @@ let map_find_union ~map_ops ~m1 ~m2 k =
 - [map_ops], the in-memory cache of (k -> (k,v)op) map
 - [insert], the chunked list insert operation
 - [dcl_state_ref], the ref to the persistent log state
+
+NOTE that insert is monadic. For correctness we (probably) assume that insert alters state that is NOT part of the DCL state.
+
 *)
 let make_dcl_ops
     ~monad_ops
@@ -70,12 +77,14 @@ let make_dcl_ops
     return r
   in    
   let add op =
+    (* FIXME are we sure about this use of s and s'? *)
     get () >>= fun s ->
     insert op >>= function
     | Inserted_in_current_node ->
       get () >>= fun s' ->
       set { s' with map_current=map_ops.map_add (op2k op) op s'.map_current } 
     | Inserted_in_new_node ptr ->
+      (* FIXME this code isn't concurrent safe *)
       get () >>= fun s' ->
       set { s' with 
             current_block=ptr;
@@ -101,7 +110,11 @@ let make_dcl_ops
     in
     (* we need to adjust the start block and the map_past - we are
        forgetting everything in previous blocks *)
-    set { s with start_block=s.current_block; block_list_length=1; map_past=map_empty } >>= fun () ->
+    set { s with 
+          start_block=s.current_block; 
+          block_list_length=1;  (* NOTE current block may be empty,
+                                   but still allocated *)
+          map_past=map_empty } >>= fun () ->
     return r
   in
   let block_list_length () = get () >>= fun s ->
