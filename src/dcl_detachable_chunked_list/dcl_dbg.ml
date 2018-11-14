@@ -1,12 +1,14 @@
 (** Debug support for DCL.  The spec is expressed as an abstraction
-   from the impl, with wf checks for transitions. Provide code to wrap an
-   existing dcl and check that the state changes conform to the
-   spec. 
+   from the impl, with wf checks for transitions. Provide code to wrap
+   an existing dcl and check that the state changes conform to the
+   spec.
 
-    An alternative (executable spec) is in {! Dcl_spec}. 
+    An alternative (executable spec) is not possible because eg we
+   don't necessarily assume a fixed number of ops per block. (Perhaps
+   we should... this makes the spec more restrictive, but allows for
+   an executable spec)
+
 *)
-
-(* FIXME merge this with dcl_spec *)
 
 open Tjr_monad.Types
 open Ins_del_op_type
