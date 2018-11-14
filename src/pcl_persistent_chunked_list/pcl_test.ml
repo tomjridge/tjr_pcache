@@ -8,6 +8,7 @@ open Ins_del_op_type
 
 
 (* on-disk representation ----------------------------------------- *)
+
 (* we have to fix on a representation for the list of ops; for the
    time being, let's just keep this abstract; eventually it will be
    bytes *)
@@ -36,35 +37,25 @@ open Repr
    and the pclist state. *)
 
 type ptr = int
-type ('k,'v) list_node = (ptr,('k,'v)repr) Pl_types.list_node
+type ('k,'v) pl_node' = (ptr,('k,'v)repr) pl_node
 
 
-(* system state *)
-type ('k,'v) state = {
-  map: (ptr * ('k,'v)list_node) list;  (* association list *)
-  free: int;  (* iso to ptr *)
+(* pcl state *)
+type ('k,'v) pcl_state' = 
+  ( ('k,'v)op,  (* elements *)
+    ('k,'v)repr) (* representation *)
+    pcl_state
 
-  plist_state: (int,('k,'v)repr) plist_state;
-  pclist_state: (('k,'v)op,('k,'v)repr) pcl_state
-}
+
+type ('ptr,'k,'v) state = 
+  ('ptr, ('k,'v)op, ('k,'v) pcl_state') Pl_test.state
+
 
 let init_state ~repr_ops = 
-  let start_block = Pl_test.start_block in
-  (* NOTE we can't reuse Pl.Test.init_state because the values on
-     disk are of a different type *)
-  (* let i = Persistent_list.Test.init_state in *)
   let elts = [] in
   let elts_repr = repr_ops.nil in
-  let current_node= { next=None; contents=elts_repr } in
-  {    
-    map=[(start_block,current_node)]; 
-    free=(start_block+1);
-    plist_state={
-      current_ptr=start_block;
-      current_node
-    }; 
-    pclist_state={ elts; elts_repr };
-  }
+  let pcl_state= { elts; elts_repr } in
+  { Pl_test.init_state with pcl_state }
 
 
 (* monad ops ------------------------------------------------------ *)
@@ -72,7 +63,7 @@ let init_state ~repr_ops =
 open Tjr_monad.Types
 open Tjr_monad.State_passing
 
-let monad_ops : ('k,'v) state state_passing monad_ops = 
+let monad_ops : ('ptr,'k,'v) state state_passing monad_ops = 
   Tjr_monad.State_passing.monad_ops ()
 
 let ( >>= ) = monad_ops.bind 
@@ -82,21 +73,11 @@ let with_world = Tjr_monad.State_passing.with_world
 
 
 
-(* list ops ------------------------------------------------------- *)
+(* pl ops ------------------------------------------------------- *)
 
-let list_ops () : (('k, 'v) repr, 'ptr, ('k, 'v) state state_passing) Pl_types.list_ops = 
-  Persistent_list.make_persistent_list
-    ~monad_ops
-    ~write_node:(fun ptr node -> 
-        with_world (fun s -> ((),{ s with map=(ptr,node)::s.map })))
-    ~plist_state_ref:{
-      get=(fun () -> with_world (fun s -> (s.plist_state,s)));
-      set=(fun plist_state -> with_world (fun s -> ((),{s with plist_state})))
-    }
-    ~alloc:(fun () -> with_world (fun s -> (s.free,{ s with free=s.free+1 })))
+let pl_ops = Pl_test.pl_ops ()
 
-let _ = list_ops
-
+let _ = pl_ops
 
 (* chunked list ops ----------------------------------------------- *)
 
@@ -104,7 +85,7 @@ let _ = list_ops
 let chunked_list ~repr_ops =
   Persistent_chunked_list.make_persistent_chunked_list
     ~monad_ops
-    ~list_ops:(list_ops ())
+    ~pl_ops
     ~repr_ops
     ~pcl_state_ref:{
       get=(fun () -> with_world (fun s -> (s.pclist_state,s)));

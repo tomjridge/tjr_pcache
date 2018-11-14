@@ -9,22 +9,23 @@ Then the 3 layers are constructed, and wrapped with code to check (via
 
 *)
 
+open Tjr_monad
+open Tjr_monad.Types
+open Tjr_monad.State_passing
+
 open Ins_del_op_type
 open Pcl_types
 open Dcl_types
-
-
-(* test  ---------------------------------------------------------- *)
-
-
 open Dcl_dbg
+
+(* state type for state passing ------------------------------------ *)
 
 include struct
   type ptr = int
   open Pl_types
   open Pcl_test.Repr
 
-  type ('k,'v) list_node = (ptr,('k,'v)repr) Pl_types.list_node  
+  type ('k,'v) list_node = (ptr,('k,'v)repr) Pl_types.pl_node  
 
   type ('k,'v,'map,'dbg) state = {
     map: (ptr * ('k,'v)list_node) list;  (* association list *)
@@ -37,29 +38,18 @@ include struct
   }
 end
 
-open Tjr_monad
-open Tjr_monad.Types
-open Tjr_monad.State_passing
 
-(* extract the dcl part of the state *)
-let with_dcl f = 
-  State_passing.with_state
-    ~get:(fun t -> t.dcl_state)
-    ~set:(fun dcl_state t -> { t with dcl_state})
-    ~f
-
-let with_dcl = {
-  with_state=with_dcl
-}
-
-let _ = with_dcl
+(* monad ops -------------------------------------------------------- *)
 
 let monad_ops : ('k,'v,'map,'dbg) state state_passing monad_ops = 
   Tjr_monad.State_passing.monad_ops ()
 
 
+(* persistent list -------------------------------------------------- *)
+
 (* NOTE FIXME copied from pcl *)
-let list_ops () = Persistent_list.make_persistent_list
+let list_ops () = 
+  Persistent_list.make_persistent_list
     ~monad_ops
     ~write_node:(fun ptr node -> with_world (fun s -> ((),{ s with map=(ptr,node)::s.map })))
     ~plist_state_ref:{
@@ -69,6 +59,9 @@ let list_ops () = Persistent_list.make_persistent_list
     ~alloc:(fun () -> with_world (fun s -> (s.free,{ s with free=s.free+1 })))
 
 let _ = list_ops
+
+
+(* chunked list ----------------------------------------------------- *)
 
 (* this should ensure no more than 2 items in each block FIXME but
    it seems that this is not enforced BUG *)
@@ -86,6 +79,23 @@ let chunked_list () =
 
 let _ = chunked_list
 
+
+(* DCL -------------------------------------------------------------- *)
+
+
+(* extract the dcl part of the state *)
+let with_dcl f = 
+  State_passing.with_state
+    ~get:(fun t -> t.dcl_state)
+    ~set:(fun dcl_state t -> { t with dcl_state})
+    ~f
+
+let with_dcl = {
+  with_state=with_dcl
+}
+
+let _ = with_dcl
+
 let dcl ~map_ops = 
   chunked_list () |> fun { insert } -> 
   Detachable_chunked_list.make_dcl_ops
@@ -100,6 +110,9 @@ let _ :
   = dcl
 
 
+
+(* test with int -> int --------------------------------------------- *)
+
 (* fix types of 'k 'v and 'map *)
 (* test with an int -> int map *)
 
@@ -110,7 +123,6 @@ module Map_ = Tjr_map.Make(Int_ord)
 let map_ops = Map_.map_ops
 
 let dcl () = dcl ~map_ops
-
 
 let _ : unit ->
   (ptr, 'a, (ptr, 'a) op Map_int.t, ptr,
@@ -150,8 +162,6 @@ let _ : (int,'v,'map,ptr,(int,'v,'map,'dbg)state state_passing)dcl_ops =
 
 
 (* testing ------------------------------------------------------ *)
-
-
 
 let init_state = 
   let start_block = Pl_test.start_block in

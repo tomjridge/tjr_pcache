@@ -7,3 +7,5 @@
 - use with_state rather than refs, for code which is serialized (which
   is all this code!)
 
+
+- more testing of pl and pcl
