@@ -12,9 +12,8 @@ TODO
 open Ins_del_op_type
 
 
-(** The type for the abstract view of the DCL. NOTE the values are
-   ('k,'v)op, not 'v. *)
-(* FIXME used? *)
+(** The type for the abstract view of the DCL. Also required by the
+   make_dcl_ops function. NOTE the values are ('k,'v)op, not 'v. *)
 type ('k,'v,'map) kvop_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
 
 

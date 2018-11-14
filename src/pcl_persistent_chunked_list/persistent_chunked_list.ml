@@ -14,6 +14,7 @@
    and write operations into these blocks consecutively. But this is a
    bit horrible.
 
+NOTE not concurrent safe; access must be serialized.
 
 *)
 

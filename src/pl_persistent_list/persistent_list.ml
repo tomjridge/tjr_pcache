@@ -1,5 +1,8 @@
 (* A persistent list of values, implemented as a persistent
-   singly-linked list. *)
+   singly-linked list.
+
+NOTE not concurrent safe; access must be serialized.
+ *)
 
 open Tjr_monad.Types
 open Tjr_monad.Mref
@@ -15,7 +18,7 @@ let make_persistent_list
     ~(write_node : 'ptr -> ('ptr,'a) list_node -> (unit,'t) m) 
     ~(plist_state_ref : (('ptr,'a) plist_state,'t) mref)
     ~(alloc : unit -> ('ptr,'t) m)
-    : ('a,'ptr,'t) list_ops
+  : ('a,'ptr,'t) list_ops
   =
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in
@@ -36,6 +39,8 @@ let make_persistent_list
     (* construct new node *)
     { next=None; contents } |> fun new_node ->
     write_node new_ptr new_node >>= fun () ->
+    (* NOTE this cannot be concurrent safe, given that it discards the
+       "current" state and just writes a completely new state *)
     { current_ptr=new_ptr; current_node=new_node } |> fun s ->
     write_state s >>= fun () ->
     return new_ptr

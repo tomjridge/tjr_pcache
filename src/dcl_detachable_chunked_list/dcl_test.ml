@@ -24,7 +24,7 @@ include struct
   open Pl_types
   open Pcl_test.Repr
 
-  type ('k,'v) list_node = (ptr,('k,'v)repr) Pl_types.list_node
+  type ('k,'v) list_node = (ptr,('k,'v)repr) Pl_types.list_node  
 
   type ('k,'v,'map,'dbg) state = {
     map: (ptr * ('k,'v)list_node) list;  (* association list *)
@@ -37,9 +37,22 @@ include struct
   }
 end
 
-
+open Tjr_monad
 open Tjr_monad.Types
 open Tjr_monad.State_passing
+
+(* extract the dcl part of the state *)
+let with_dcl f = 
+  State_passing.with_state
+    ~get:(fun t -> t.dcl_state)
+    ~set:(fun dcl_state t -> { t with dcl_state})
+    ~f
+
+let with_dcl = {
+  with_state=with_dcl
+}
+
+let _ = with_dcl
 
 let monad_ops : ('k,'v,'map,'dbg) state state_passing monad_ops = 
   Tjr_monad.State_passing.monad_ops ()
@@ -79,10 +92,7 @@ let dcl ~map_ops =
     ~monad_ops
     ~map_ops
     ~insert
-    ~dcl_state_ref:{
-      get=(fun () -> with_world (fun s -> (s.dcl_state,s)));
-      set=(fun dcl_state -> with_world (fun s -> ((),{s with dcl_state})))
-    }
+    ~with_dcl
 
 let _ : 
   map_ops:('k, ('k, 'v) op, 'map) Tjr_map.map_ops -> 
