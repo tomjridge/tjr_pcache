@@ -8,9 +8,10 @@ Then the 3 layers are constructed, and wrapped with code to check (via
    dcl_dbg) that the abstract view tracks the spec (this is in
    [checked_dcl]).
 
+See notes in ../TESTING.org
+
 *)
 
-(* open Tjr_monad *)
 open Tjr_monad.Types
 open Tjr_monad.State_passing
 
@@ -20,7 +21,9 @@ open Dcl_types
 open Dcl_dbg
 open Pcl_test.Repr
 
-let mk_ref,set,get = Tjr_store.(mk_ref,set,get)
+let set,get = Tjr_store.(set,get)
+
+let mk_ref' = Pl_test.mk_ref'
 
 module Make(S:sig 
     type ptr=int 
@@ -38,9 +41,9 @@ end) = struct
     type v = S.v
     let repr_ops = repr_ops
   end
-  module B = Pcl_test.Make(A)
-  open B.A
-  open B
+  module Pcl_test' = Pcl_test.Make(A)
+  open Pcl_test'.Pl_test'
+  open Pcl_test'
 
   type map = (k,(k,v)op) Tjr_polymap.t      
   let empty_map : map = Tjr_polymap.empty Pervasives.compare
@@ -62,15 +65,13 @@ end) = struct
 
   (* dcl_ref -------------------------------------------------------- *)
 
-  let store,dcl_ref = mk_ref {
+  let dcl_ref = mk_ref' {
       start_block=0;
       current_block=0;
       block_list_length=1;
       map_past=empty_map;
       map_current=empty_map
-    } (!Pl_test.test_store)
-
-  let _ = Pl_test.test_store := store
+    } 
 
   let with_dcl f = with_ref dcl_ref f
 
@@ -94,7 +95,8 @@ end) = struct
     let dcl = get dcl_ref store in
     let pcl_to_list = 
       fun ~start_block ~blks ->
-        Persistent_chunked_list.pcl_to_list ~repr_ops ~read_node ~ptr:start_block ~blks
+        Persistent_chunked_list.pcl_to_list
+          ~repr_ops ~read_node ~ptr:start_block ~blks
     in
     dcl_to_dbg ~pcl_to_list ~blks ~dcl
       
@@ -124,10 +126,22 @@ module A = struct
   type v = int
   let repr_ops = Pcl_test.Repr.make_repr_ops 2
 end
-module B = Make(A)
-(* open B.A *)
-open B  
+module Dcl_test' = Make(A)
 
+
+open Dcl_test'.Pcl_test'.Pl_test'
+open Dcl_test'.Pcl_test'
+open Dcl_test'
+
+
+let _ = 
+  Printf.printf "Free: %d\n%!" (!Pl_test.test_store).free;
+  Printf.printf "Refs: %d %d %d %d %d\n%!"
+    (blks_ref |> Tjr_store.Refs.to_int)
+    (free_ref |> Tjr_store.Refs.to_int)
+    (pl_ref |> Tjr_store.Refs.to_int)
+    (pcl_ref |> Tjr_store.Refs.to_int)
+    (dcl_ref |> Tjr_store.Refs.to_int)
 
 (* FIXME use exhaustive testing? no need to wrap in checked_dcl *)
 let test ~depth = 
@@ -141,7 +155,8 @@ let test ~depth =
   let ks = [1;2;3] in
   let ops = 
     `Detach :: 
-    (ks |> List.map (fun k -> [`Find(k);`Insert(k,2*k);`Delete(k)]) |> List.concat) 
+    (ks |> List.map (fun k -> [`Find(k);`Insert(k,2*k);`Delete(k)]) 
+     |> List.concat) 
   in
   (* we exhaustively test these operations up to a maximum depth;
      the test state is a decreasing count paired with the system

@@ -14,7 +14,10 @@ open Tjr_monad.Types
 open Ins_del_op_type
 open Detachable_chunked_list
 
-let mk_ref,set,get = Tjr_store.(mk_ref,set,get)
+let set,get = Tjr_store.(set,get)
+
+let mk_ref' = Pl_test.mk_ref'
+
 
 (* fiddle with op type ---------------------------------------------- *)
 
@@ -107,20 +110,8 @@ blks:'blks -> dcl:('map, 'ptr) dcl_state -> dbg
   = dcl_to_dbg
 
 
-(* dbg_ref ---------------------------------------------------------- *)
-
 (** NOTE the dbg state is derived from the dcl state; we don't need to
    explicitly store it *)
-
-(*
-(* FIXME note we must initialize this at some point *)
-let store,dbg_ref = 
-  (* Tjr_store.Unsafe.mk_uref "dbg_ref" (!Pl_test.test_store) *)
-  mk_ref init_dbg (!Pl_test.test_store)
-
-let _ = Pl_test.test_store:=store
-*)
-
 
 (* wrap existing DCL with check ops --------------------------------- *)
 

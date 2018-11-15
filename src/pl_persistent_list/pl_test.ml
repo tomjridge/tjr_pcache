@@ -13,9 +13,16 @@ open Persistent_list
 
 module Blks = Tjr_polymap
 
-let mk_ref,set,get,initial_store = Tjr_store.(mk_ref,set,get,initial_store)
+let set,get = Tjr_store.(set,get)
 
-let test_store = ref initial_store
+let test_store = ref Tjr_store.initial_store
+
+let mk_ref' v = 
+  !test_store |> fun t ->
+  Tjr_store.mk_ref v t |> fun (t,r) ->
+  test_store:=t;
+  r
+  
 
 module Make(S: sig
 
@@ -39,18 +46,22 @@ end) = struct
   let return = monad_ops.return
 
 
+  let init_node = {next=None;contents=init_contents}
+
   type blks = (ptr,(ptr,node_contents)pl_node) Blks.t
-  let store,blks_ref = mk_ref (Blks.empty Pervasives.compare) !test_store
+  (* NOTE we need to ensure that the blks contain a binding at least for the current_ptr as in pl_ref below *)
+  let blks_ref =
+    let blks = Blks.empty Pervasives.compare |> Blks.add 0 init_node in
+    mk_ref' blks
 
   (* model the free list via an incrementing counter *)
   type free = ptr
-  let store,free_ref = mk_ref 1 store
+  let free_ref = mk_ref' 1 
 
-  let store,pl_ref = 
-    mk_ref 
+  let pl_ref = 
+    mk_ref'
       { current_ptr=0; 
-        current_node={next=None;contents=init_contents} } 
-      store
+        current_node=init_node } 
 
 
   let with_ref r f = Tjr_monad.State_passing.with_state
@@ -86,31 +97,12 @@ end) = struct
 
   let _ = alloc
 
-  (* FIXME note eta expansion; can we avoid? *)
-  (* NOTE to avoid the tyvar in the sig, we add a unit arg; but any use
-     will still be typed with weak polymorphic var *)
   let pl_ops = 
     make_persistent_list 
       ~monad_ops
       ~write_node 
       ~alloc 
       ~with_pl:{with_state=with_pl}
-
-(*
-  let start_block = 0
-
-  let init_state ~init_contents = 
-    let store = 
-      set pl_ref 
-        { current_ptr=0; current_node={ next=None; contents=init_contents } } 
-        store 
-    in
-    store
-*)   
-
-  (* make sure to update store -------------------------------------- *)
-
-  let _ = test_store := store
 
 end
 
@@ -138,7 +130,7 @@ let main () =
     with_blks (fun ~state:blks ~set_state ->
         return (plist_to_list ~read_node ~ptr:0 ~blks))
   in
-  let init_state = A.store in
+  let init_state = !test_store in
   Tjr_monad.State_passing.run ~init_state  cmds |> fun (xs,s) ->
   assert(xs = ["New start";"second node";"alternative third node"]);
   xs |> Tjr_string.concat_strings ~sep:";" |> fun str ->

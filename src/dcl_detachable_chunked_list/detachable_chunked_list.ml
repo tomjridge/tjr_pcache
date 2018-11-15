@@ -69,7 +69,8 @@ let make_dcl_ops
   (* ASSUME start_block is initialized and consistent with pcl_state *)
   let find k : (('k,'v) op option,'t) m =
     with_dcl (fun ~state:s ~set_state -> 
-        let map_find = map_find_union ~map_ops ~m1:s.map_past ~m2:s.map_current in    
+        let map_find = 
+          map_find_union ~map_ops ~m1:s.map_past ~m2:s.map_current in    
         let r = map_find k in
         return r)
   in    

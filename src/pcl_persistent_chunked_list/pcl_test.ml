@@ -5,7 +5,9 @@
 open Pcl_types
 open Ins_del_op_type
 
-let mk_ref,set,get = Tjr_store.(mk_ref,set,get)
+let set,get = Tjr_store.(set,get)
+let mk_ref' = Pl_test.mk_ref'
+
 
 (* on-disk representation ----------------------------------------- *)
 
@@ -56,17 +58,16 @@ end) = struct
     let init_contents = repr_ops.nil  (* must agree with thet pcl_state below? *)
   end
 
-  module A = Pl_test.Make(A')
-  open A
+  module Pl_test' = Pl_test.Make(A')
+  open Pl_test'
 
   (* init state *)
-  let store,pcl_ref = 
+  let pcl_ref = 
     let elts = [] in
     let elts_repr = repr_ops.nil in
     let pcl_state= { elts; elts_repr } in
-    mk_ref pcl_state (!Pl_test.test_store)
+    mk_ref' pcl_state
 
-  let _ = Pl_test.test_store := store
 
   (* with_pcl ------------------------------------------------------- *)
 
@@ -105,9 +106,9 @@ module B' = struct
     type v=int 
     let repr_ops = repr_ops
 end
-module B = Make(B')
-open B.A
-open B
+module Pcl_test' = Make(B')
+open Pcl_test'.Pl_test'
+open Pcl_test'
 
 (* run some tests *)
 let main () = 
@@ -123,7 +124,8 @@ let main () =
     in
     f xs
   in  
-  Tjr_monad.State_passing.run ~init_state:B.store cmds |> fun (x,s) -> 
+  Tjr_monad.State_passing.run ~init_state:(!Pl_test.test_store) cmds 
+  |> fun (x,s) -> 
   assert(x=());
   Printf.printf "%s: ...tests finished\n" __FILE__;
   s
