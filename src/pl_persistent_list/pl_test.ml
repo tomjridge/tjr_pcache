@@ -19,7 +19,6 @@ module Make(S: sig
 
     type ptr = int
     type node_contents
-    type pcl_state
 
     val init_contents : node_contents
 end) = struct
@@ -95,6 +94,7 @@ end) = struct
       ~alloc 
       ~with_pl:{with_state=with_pl}
 
+(*
   let start_block = 0
 
   let init_state ~init_contents = 
@@ -104,13 +104,12 @@ end) = struct
         store 
     in
     store
-   
+*)   
 end
 
 module A = Make(struct 
     type ptr = int 
     type node_contents=string 
-    type pcl_state=unit 
     let init_contents = "Start"
 end)
 open A
@@ -132,7 +131,7 @@ let main () =
     with_blks (fun ~state:blks ~set_state ->
         return (plist_to_list ~read_node ~ptr:0 blks))
   in
-  let init_state = init_state ~init_contents:"Start" in
+  let init_state = A.store in
   Tjr_monad.State_passing.run ~init_state  cmds |> fun (xs,s) ->
   assert(xs = ["New start";"second node";"alternative third node"]);
   xs |> Tjr_string.concat_strings ~sep:";" |> fun str ->

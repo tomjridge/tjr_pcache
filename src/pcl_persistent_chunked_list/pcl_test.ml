@@ -1,11 +1,11 @@
-(*
+(** Test PCL, building on tests for PL *)
+
 (* test  ---------------------------------------------------------- *)
 
-(* now we want to use the Persistent_chunked_list, which rests on
-   persistent_list *)
-open Pl_types
 open Pcl_types
 open Ins_del_op_type
+
+let mk_ref,set,get = Tjr_store.(mk_ref,set,get)
 
 
 (* on-disk representation ----------------------------------------- *)
@@ -16,10 +16,10 @@ open Ins_del_op_type
 
 module Repr : sig 
   type ('k,'v) repr
-  val repr_ops : int -> ( ('k,'v)op, ('k,'v)repr) repr_ops
+  val make_repr_ops : int -> ( ('k,'v)op, ('k,'v)repr) repr_ops
 end = struct
   type ('k,'v) repr = ('k,'v) op  list
-  let repr_ops n = 
+  let make_repr_ops n = 
     {
       nil=[];
       snoc=(fun e es -> 
@@ -33,44 +33,39 @@ open Repr
 
 
 
-module Make(S:sig type ptr=int type k type v val init_contents: (k,v)repr end) = struct
+module Make(S:sig 
+    type ptr=int 
+    type k 
+    type v 
+    val repr_ops: ((k,v)op, (k,v)repr) repr_ops
+end) = struct
   open S
 
-  (** A node contains a repr (of a list of kv op *)
-  type ('k,'v) pl_node' = (ptr,('k,'v)repr) pl_node
-
-
   (** PCL state. Each node contains a list of kv op, represented by kv repr. *)
-  type ('k,'v) pcl_state' = 
-    ( ('k,'v)op,  (* elements *)
-      ('k,'v)repr) (* representation *)
+  type (* ('k,'v) *) pcl_state' = 
+    ( (k,v)op,  (* elements *)
+      (k,v)repr) (* representation *)
       pcl_state
+
 
   (* instantiate pl_test ---------------------------------------------- *)
 
+  (** NOTE the initial contents is just the representation of the empty list of ops *)
   module A_arg = struct 
     type ptr = S.ptr
     type node_contents=(k,v)repr  
-    (* NOTE node_contents has no tyvar args, so we can't make
-       node_contents = ('k,'v) repr *)
-    type pcl_state=(k,v)pcl_state'
-    let init_contents = init_contents
+    let init_contents = repr_ops.nil  (* must agree with thet pcl_state below? *)
   end
 
   module A = Pl_test.Make(A_arg)
   open A
 
-  (** The test state is as {!Pl_test}, but the PCL component is of type
-      [pcl_state'] *)
-  type (* ('ptr,'k,'v) *) state = 
-    (* ('ptr, ('k,'v)op, ('k,'v) pcl_state') *) A.state
-
-
-  let init_state ~repr_ops = 
+  (* init state *)
+  let store,pcl_ref = 
     let elts = [] in
     let elts_repr = repr_ops.nil in
     let pcl_state= { elts; elts_repr } in
-    init_state ~pcl_state
+    mk_ref pcl_state store     
 
 
   (* monad ops ------------------------------------------------------ *)
@@ -84,19 +79,9 @@ module Make(S:sig type ptr=int type k type v val init_contents: (k,v)repr end) =
   let ( >>= ) = monad_ops.bind 
   let return = monad_ops.return
 
-  let with_pcl f = 
-    (* let open Pl_test in *)
-    Tjr_monad.State_passing.with_state
-      ~get:(fun x -> x.pcl_state) 
-      ~set:(fun s t -> {t with pcl_state=s})
-      ~f
+  let with_pcl f = with_ref pcl_ref f
 
   let _ = with_pcl
-
-
-  (* pl ops ------------------------------------------------------- *)
-
-  (* NOTE pl_ops are from A *)
 
 
   (* chunked list ops ----------------------------------------------- *)
@@ -120,14 +105,20 @@ end
 
 (* main ----------------------------------------------------------- *)
 
-module B = Make(struct type ptr = int type k=int type v=int end)
+let repr_ops = make_repr_ops 2
+
+module B' = struct
+    type ptr = int 
+    type k=int 
+    type v=int 
+    let repr_ops = repr_ops
+end
+module B = Make(B')
 open B
 
 (* run some tests *)
 let main () = 
   Printf.printf "%s: tests starting...\n%!" __FILE__;
-  let repr_ops = repr_ops 2 in
-  let init_state = init_state ~repr_ops ~init_contents:repr_ops.nil in
   chunked_list ~repr_ops |> function { insert } ->
     let cmds = 
       Tjr_list.from_to 0 20 |> List.map (fun x -> (x,2*x)) |> fun xs ->
@@ -140,7 +131,7 @@ let main () =
       in
       f xs
     in  
-    Tjr_monad.State_passing.run ~init_state cmds |> fun (x,s) -> 
+    Tjr_monad.State_passing.run ~init_state:B.store cmds |> fun (x,s) -> 
     assert(x=());
     Printf.printf "%s: ...tests finished\n" __FILE__;
     s
@@ -201,4 +192,3 @@ let main () =
 
 
 
-*)
