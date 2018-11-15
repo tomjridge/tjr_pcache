@@ -30,7 +30,7 @@ include Pcl_types
 - [repr_ops] The marshalling functionality.
 - [pcl_state_ref] The internal state of the pcl.
 *)
-let make_persistent_chunked_list 
+let make_pcl_ops
     ~monad_ops
     ~pl_ops 
     ~(repr_ops:('e,'repr) repr_ops)
@@ -77,7 +77,7 @@ let _ :
   with_pcl:'with_pcl
   -> ('e,'ptr,'t) pcl_ops
   = 
-  make_persistent_chunked_list
+  make_pcl_ops
 
 
 
@@ -86,16 +86,24 @@ let _ :
 
 (* we use the plist debug code, but map usign repr_to_list *)
 (** Abstract view of the persistent chunked list. *)
-let pclist_to_nodes 
-    ~(repr_to_list:'repr -> 'e list) 
-    ~(plist_to_nodes : ptr:'ptr -> 't -> ('ptr * ('ptr,'repr)pl_node)list)
+let pcl_to_nodes 
+    ~(repr_ops:('e,'repr)repr_ops)
+    ~read_node
     ~(ptr:'ptr) 
-    s 
+    ~blks
   : ('ptr * 'e list) list 
   =
-  plist_to_nodes ~ptr s
-  |> List.map (fun (ptr,n) -> (ptr,n.contents |> repr_to_list))
+  Persistent_list.plist_to_nodes ~read_node ~ptr ~blks
+  |> List.map (fun (ptr,n) -> (ptr,n.contents |> repr_ops.repr_to_list))
 
-let _ = pclist_to_nodes
+let pcl_to_list
+    ~(repr_ops:('e,'repr)repr_ops)
+    ~(read_node:'ptr -> 'blks -> ('ptr, 'repr) pl_node)
+    ~(ptr:'ptr) 
+    ~(blks:'blks)
+  : ('e list) list 
+  =
+  pcl_to_nodes ~repr_ops ~read_node ~ptr ~blks 
+  |> List.map (fun (ptr,es) -> es)
 
-
+let _ = pcl_to_list

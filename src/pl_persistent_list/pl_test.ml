@@ -15,6 +15,8 @@ module Blks = Tjr_polymap
 
 let mk_ref,set,get,initial_store = Tjr_store.(mk_ref,set,get,initial_store)
 
+let test_store = ref initial_store
+
 module Make(S: sig
 
     type ptr = int
@@ -38,7 +40,7 @@ end) = struct
 
 
   type blks = (ptr,(ptr,node_contents)pl_node) Blks.t
-  let store,blks_ref = mk_ref (Blks.empty Pervasives.compare) initial_store
+  let store,blks_ref = mk_ref (Blks.empty Pervasives.compare) !test_store
 
   (* model the free list via an incrementing counter *)
   type free = ptr
@@ -105,6 +107,11 @@ end) = struct
     in
     store
 *)   
+
+  (* make sure to update store -------------------------------------- *)
+
+  let _ = test_store := store
+
 end
 
 module A = Make(struct 
@@ -129,7 +136,7 @@ let main () =
     ops.new_node "third node" >>= fun _ ->
     ops.replace_last "alternative third node" >>= fun () ->
     with_blks (fun ~state:blks ~set_state ->
-        return (plist_to_list ~read_node ~ptr:0 blks))
+        return (plist_to_list ~read_node ~ptr:0 ~blks))
   in
   let init_state = A.store in
   Tjr_monad.State_passing.run ~init_state  cmds |> fun (xs,s) ->

@@ -7,7 +7,6 @@ open Ins_del_op_type
 
 let mk_ref,set,get = Tjr_store.(mk_ref,set,get)
 
-
 (* on-disk representation ----------------------------------------- *)
 
 (* we have to fix on a representation for the list of ops; for the
@@ -51,13 +50,13 @@ end) = struct
   (* instantiate pl_test ---------------------------------------------- *)
 
   (** NOTE the initial contents is just the representation of the empty list of ops *)
-  module A_arg = struct 
+  module A' = struct 
     type ptr = S.ptr
     type node_contents=(k,v)repr  
     let init_contents = repr_ops.nil  (* must agree with thet pcl_state below? *)
   end
 
-  module A = Pl_test.Make(A_arg)
+  module A = Pl_test.Make(A')
   open A
 
   (* init state *)
@@ -65,43 +64,36 @@ end) = struct
     let elts = [] in
     let elts_repr = repr_ops.nil in
     let pcl_state= { elts; elts_repr } in
-    mk_ref pcl_state store     
+    mk_ref pcl_state (!Pl_test.test_store)
 
+  let _ = Pl_test.test_store := store
 
-  (* monad ops ------------------------------------------------------ *)
-
-  open Tjr_monad.Types
-  open Tjr_monad.State_passing.State_passing_type
-
-  let monad_ops : (* ('ptr,'k,'v) *) state state_passing monad_ops = 
-    Tjr_monad.State_passing.monad_ops'
-
-  let ( >>= ) = monad_ops.bind 
-  let return = monad_ops.return
+  (* with_pcl ------------------------------------------------------- *)
 
   let with_pcl f = with_ref pcl_ref f
 
   let _ = with_pcl
 
 
-  (* chunked list ops ----------------------------------------------- *)
+  (* pcl ops ----------------------------------------------- *)
 
-  let chunked_list ~repr_ops =
-    Persistent_chunked_list.make_persistent_chunked_list
+  let pcl_ops =
+    Persistent_chunked_list.make_pcl_ops
       ~monad_ops
       ~pl_ops
       ~repr_ops
       ~with_pcl:{with_state=with_pcl}
 
-  let _ : repr_ops:('e,'repr)repr_ops -> ('e,'ptr,'t) pcl_ops
-    = chunked_list
+  let _ : ('e,'ptr,'t) pcl_ops
+    = pcl_ops
 
-  let _ : repr_ops:((k, v) op, A_arg.node_contents) repr_ops ->
+  let _ : 
     ((k, v) op, ptr, state Tjr_monad.State_passing.state_passing) pcl_ops
-      = chunked_list
+      = pcl_ops
 
 
 end
+
 
 (* main ----------------------------------------------------------- *)
 
@@ -114,27 +106,27 @@ module B' = struct
     let repr_ops = repr_ops
 end
 module B = Make(B')
+open B.A
 open B
 
 (* run some tests *)
 let main () = 
   Printf.printf "%s: tests starting...\n%!" __FILE__;
-  chunked_list ~repr_ops |> function { insert } ->
-    let cmds = 
-      Tjr_list.from_to 0 20 |> List.map (fun x -> (x,2*x)) |> fun xs ->
-      let rec f xs = 
-        match xs with 
-        | [] -> return ()
-        | (k,v)::xs -> 
-          insert (Insert(k,v)) >>= fun _ ->
-          f xs
-      in
-      f xs
-    in  
-    Tjr_monad.State_passing.run ~init_state:B.store cmds |> fun (x,s) -> 
-    assert(x=());
-    Printf.printf "%s: ...tests finished\n" __FILE__;
-    s
+  let cmds = 
+    Tjr_list.from_to 0 20 |> List.map (fun x -> (x,2*x)) |> fun xs ->
+    let rec f xs = 
+      match xs with 
+      | [] -> return ()
+      | (k,v)::xs -> 
+        pcl_ops.insert (Insert(k,v)) >>= fun _ ->
+        f xs
+    in
+    f xs
+  in  
+  Tjr_monad.State_passing.run ~init_state:B.store cmds |> fun (x,s) -> 
+  assert(x=());
+  Printf.printf "%s: ...tests finished\n" __FILE__;
+  s
 
 
 (* to test interactively:

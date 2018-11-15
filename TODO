@@ -9,3 +9,5 @@
 
 
 - more testing of pl and pcl
+
+- prefer tjr exhaustive testing to make_checked_dcl_ops

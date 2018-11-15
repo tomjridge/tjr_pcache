@@ -1,0 +1,57 @@
+Some notes on the test code
+
+
+There are multiple layers in operation:
+
+| Level            | Layer state type                                                       |
+|------------------+------------------------------------------------------------------------|
+| Block device     | blks  (a map)                                                          |
+| Free list (blks) | free  (just an int)                                                    |
+| PL               | { next: ptr option; contents }  for the current node                   |
+| PCL              | { elts; elts_repr } for the current node                               |
+| DCL              | { start_block; current_block; map_past; map_current; block_list_length |
+| Dcl_dbg          | { current:op list; past: op list }                                     |
+|                  |                                                                        |
+
+- PL testing: we just try updating the node, and moving to a new node
+
+- PCL testing: fix a number of ops per block; then try executing lots
+  of insert operations, and check that the state looks reasonable
+
+- DCL testing: we can abstract to a list of blocks (ignore the next
+  pointers); then to a list of op list
+  - the dbg state represents this abstraction
+  - the asbtraction requires the blks state as well as the DCL state
+
+
+
+Constructing the layers:
+
+- We use refs, and a generic store
+
+
+| Level   | Parameters                                                          |
+|---------+---------------------------------------------------------------------|
+| PL      | write_node, alloc, with_pl                                          |
+| PCL     | pl_ops, repr_ops (for marshalling), with_pcl                        |
+| DCL     | map_ops (for working with the map_past and map_current)             |
+|         | pcl_ops                                                             |
+|         | with_dcl                                                            |
+| Dcl_dbg | make_checked_dcl_ops: dcl_ops, get_dbg  (return dbg state in monad) |
+|         |                                                                     |
+
+
+
+Abstracting from the store:
+
+- There are a few auxiliaries to abstract from the block device
+
+
+| Level | Abstraction function                        |
+|-------+---------------------------------------------|
+| PL    | plist_to_nodes ~read_node ~ptr ~blks        |
+|       | plist_to_list ~read_node ~ptr ~blks         |
+|       |                                             |
+| PCL   | pcl_to_nodes                                |
+|       | pcl_to_list ~repr_ops ~read_node ~ptr ~blks |
+|       |                                             |

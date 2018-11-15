@@ -50,16 +50,14 @@ let map_find_union ~map_ops ~m1 ~m2 k =
 
 - [monad_ops], the monadic operations
 - [map_ops], the in-memory cache of (k -> (k,v)op) map
-- [insert], the chunked list insert operation
+- [pcl_ops], the persistent chunked list ops
 - [dcl_state_ref], the ref to the persistent log state
-
-NOTE that insert is monadic. For correctness we (probably) assume that insert alters state that is NOT part of the DCL state.
 
 *)
 let make_dcl_ops
     ~monad_ops
     ~(map_ops:('k,'v,'map)kvop_map_ops)
-    ~insert
+    ~pcl_ops
     ~(with_dcl:('dcl_state,'t)with_state)
   : ('k,'v,'map,'ptr,'t) dcl_ops 
   =
@@ -70,26 +68,24 @@ let make_dcl_ops
   let with_dcl = with_dcl.with_state in
   (* ASSUME start_block is initialized and consistent with pcl_state *)
   let find k : (('k,'v) op option,'t) m =
-    with_dcl (fun ~state ~set_state -> 
-        let s = state in
+    with_dcl (fun ~state:s ~set_state -> 
         let map_find = map_find_union ~map_ops ~m1:s.map_past ~m2:s.map_current in    
         let r = map_find k in
         return r)
   in    
   let add op =
-    with_dcl (fun ~state ~set_state -> 
-        let s = state in
-        insert op >>= function
+    with_dcl (fun ~state:s ~set_state -> 
+        pcl_ops.insert op >>= function
         | Inserted_in_current_node ->
           set_state { s with 
                       map_current=map_ops.map_add (op2k op) op s.map_current } 
-    | Inserted_in_new_node ptr ->
-      (* NOTE this code isn't concurrent safe *)
-      set_state { s with 
-            current_block=ptr;
-            block_list_length=s.block_list_length+1;
-            map_past=map_union s.map_past s.map_current;
-            map_current=map_ops.map_add (op2k op) op map_empty })
+        | Inserted_in_new_node ptr ->
+          (* NOTE this code isn't concurrent safe *)
+          set_state { s with 
+                      current_block=ptr;
+                      block_list_length=s.block_list_length+1;
+                      map_past=map_union s.map_past s.map_current;
+                      map_current=map_ops.map_add (op2k op) op map_empty })
   in
   (* FIXME be clear about concurrency here: detach happens in memory,
      almost instantly, but other operations cannot interleave with it
@@ -100,8 +96,7 @@ let make_dcl_ops
      detach UPTO the current block, given that the dcl only knows the
      current block pointer *)
   let detach () =  
-    with_dcl (fun ~state ~set_state -> 
-        let s = state in
+    with_dcl (fun ~state:s ~set_state -> 
         let r = {
           old_ptr=s.start_block;
           old_map=s.map_past;
@@ -112,8 +107,9 @@ let make_dcl_ops
            forgetting everything in previous blocks *)
         set_state { s with 
                     start_block=s.current_block; 
-                    block_list_length=1;  (* NOTE current block may be empty,
-                                             but still allocated *)
+                    block_list_length=1;  (* NOTE current block may be
+                                             empty, but still
+                                             allocated *)
                     map_past=map_empty } >>= fun () ->
         return r)
   in

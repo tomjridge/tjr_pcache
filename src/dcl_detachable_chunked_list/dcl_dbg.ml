@@ -14,6 +14,8 @@ open Tjr_monad.Types
 open Ins_del_op_type
 open Detachable_chunked_list
 
+let mk_ref,set,get = Tjr_store.(mk_ref,set,get)
+
 (* fiddle with op type ---------------------------------------------- *)
 
 (* specialize for yojson *)
@@ -29,11 +31,14 @@ type find_result = (int,int) op option [@@deriving yojson]
 (* dbg state -------------------------------------------------------- *)
 
 (* FIXME note that this is specialized to int -> int; generalize? *)
+
 (** The abstract representation for the DCL spec. Essentially it is the
    list divided into the "current" block and the previous blocks (and
    each block corresponds to a list of operations).
 
 FIXME order of lists? reversed (most recent first) - assoc lists
+
+NOTE specialized to [int -> int]
 
  *)
 type dbg = {
@@ -75,13 +80,18 @@ let find k dbg =
 
 (* note this has a separate ptr FIXME needed? *)
 (** Map the DCL state to a [dbg] state *)
-let dcl_to_dbg ~pclist_to_nodes ~get_dcl_state (s:'t) : (* ('k,'v) *) dbg =
-  let dcl_state = s|>get_dcl_state in
-  pclist_to_nodes ~ptr:dcl_state.start_block s
-  |> List.map (fun (ptr,es) -> es)
-  |> fun ess ->
-  match dcl_state.start_block = dcl_state.current_block with
+let dcl_to_dbg 
+    ~pcl_to_list
+    ~(blks:'blks) 
+    ~(dcl:('map,'ptr)dcl_state) 
+  : dbg 
+  =
+  pcl_to_list ~start_block:dcl.start_block ~blks 
+  (* |> List.map (fun (ptr,es) -> es)  (\* FIXME or assume pclist_to_nodes does this? *\) *)
+  |> fun (ess:(int,int)op list list) ->
+  match dcl.start_block = dcl.current_block with
   | true -> 
+    (* NOTE only one block *)
     assert(List.length ess=1); (* ptr is s.start_block *)
     let dbg_current=List.concat ess in
     (* FIXME are we sure dbg_current is wellformed? *)
@@ -91,28 +101,45 @@ let dcl_to_dbg ~pclist_to_nodes ~get_dcl_state (s:'t) : (* ('k,'v) *) dbg =
     { dbg_past=(Tjr_list.butlast ess |> List.concat); 
       dbg_current=(Tjr_list.last ess) }
 
-let _ = dcl_to_dbg
+let _ : 
+pcl_to_list:(start_block:'ptr -> blks:'blks -> (int, int) op list list) ->
+blks:'blks -> dcl:('map, 'ptr) dcl_state -> dbg
+  = dcl_to_dbg
 
 
+(* dbg_ref ---------------------------------------------------------- *)
+
+(** NOTE the dbg state is derived from the dcl state; we don't need to
+   explicitly store it *)
+
+(*
+(* FIXME note we must initialize this at some point *)
+let store,dbg_ref = 
+  (* Tjr_store.Unsafe.mk_uref "dbg_ref" (!Pl_test.test_store) *)
+  mk_ref init_dbg (!Pl_test.test_store)
+
+let _ = Pl_test.test_store:=store
+*)
 
 
 (* wrap existing DCL with check ops --------------------------------- *)
 
-(* type tmp = Yojson.Safe.json option [@@deriving yojson] *)
+(** Take an existing [dcl_ops], and add testing code based on the dbg state 
 
-let with_world = Tjr_monad.State_passing.with_world
-
-(* take an existing dcl ops, and add testing code based on the dbg state *)
-let make_checked_dcl_ops ~monad_ops ~dcl_ops ~dcl_to_dbg ~set_dbg ~get_dbg 
+FIXME maybe prefer exhaustive testing rather than wrapping the monadic ops
+*)
+let make_checked_dcl_ops 
+    ~monad_ops 
+    ~dcl_ops 
+    ~get_dbg
   : ('k,'v,'map,'ptr,'t) dcl_ops
   = 
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in  
-  let get_state () = with_world (fun s -> (s,s)) in
-  let set_state s' = with_world (fun s -> ((),s')) in
+  (* let with_dbg = with_dbg.with_state in *)
   let find k = 
-    get_state () >>= fun s ->
-    let expected = find k (get_dbg s) in
+    get_dbg () >>= fun dbg -> 
+    let expected = find k dbg in
     dcl_ops.find k >>= fun v ->
     Pcache_debug.log_lazy (fun () ->
         expected |> find_result_to_yojson |> fun expected ->
@@ -125,33 +152,26 @@ let make_checked_dcl_ops ~monad_ops ~dcl_ops ~dcl_to_dbg ~set_dbg ~get_dbg
     return v
   in
   let add op = 
-    get_state () >>= fun s ->
+    get_dbg () >>= fun dbg ->
     dcl_ops.add op >>= fun () ->
-    get_state () >>= fun s' ->
-    get_dbg s |> fun dbg ->
-    dcl_to_dbg (* ~ptr:(s'|>start_block) *) s' |> fun dbg' ->
+    get_dbg () >>= fun dbg' ->
     Pcache_debug.log_lazy (fun () ->
         Printf.sprintf "%s: %s %s"
           "make_checked_dcl_ops.add"
           (dbg_to_yojson dbg |> Yojson.Safe.pretty_to_string)
           (dbg_to_yojson dbg' |> Yojson.Safe.pretty_to_string));
     assert(dbg2list dbg' = (op::(dbg2list dbg)));
-    (* now need to update the dbg state *)
-    set_state (s' |> set_dbg dbg') >>= fun () ->
     return ()
+    (* FIXME do we need the dbg state? *)
   in
   let detach () = 
+    get_dbg () >>= fun dbg ->
     dcl_ops.detach () >>= fun r ->
-    get_state () >>= fun s' ->
-    (* set dbg state *)
-    dcl_to_dbg (* ~ptr:(s'|>start_block) *) s' |> fun dbg' ->
-    set_dbg dbg' s' |> fun s' ->
-    set_state s' >>= fun () ->
+    get_dbg () >>= fun dbg' ->
+    (* check that the transition looks reasonable FIXME *)
     return r
   in  
   let block_list_length = dcl_ops.block_list_length in
   { find; add; detach; block_list_length }
 
-
-let _ = make_checked_dcl_ops
 

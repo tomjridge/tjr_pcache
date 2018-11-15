@@ -60,30 +60,33 @@ let _ = make_persistent_list
 
 (** The abstract view of the persistent list. Parameters:
 - [ptr] The root of the list.
+
+
+NOTE in the return type, the first ptr is the pointer to the
+node; the snd is the optional link in the list_node
+
 *)
 let plist_to_nodes 
-    ~(read_node:'ptr -> 't -> ('ptr,'a)pl_node) 
+    ~(read_node:'ptr -> 'blks -> ('ptr,'contents)pl_node) 
     ~(ptr:'ptr)
-    s 
-  : ('ptr * ('ptr,'a)pl_node) list 
-  (* NOTE in the return type, the first ptr is the pointer to the
-     node; the snd is the optional link in the list_node *)
+    ~(blks:'blks)
+  : ('ptr * ('ptr,'contents)pl_node) list 
+
   =
   let rec loop ptr = 
-    read_node ptr s |> fun node ->
+    read_node ptr blks |> fun node ->
     match node.next with 
     | None -> [(ptr,node)]
     | Some ptr' -> (ptr,node)::(loop ptr')
   in
   loop ptr
 
-let _ = plist_to_nodes
 
 (** The abstract view of the persistent list, without any pointer info. *)
-let plist_to_list ~read_node ~ptr s = 
-  plist_to_nodes ~read_node ~ptr s |> List.map (fun (_,n) -> n.contents)
+let plist_to_list ~read_node ~ptr ~blks : 'contents list = 
+  plist_to_nodes ~read_node ~ptr ~blks |> List.map (fun (_,n) -> n.contents)
 
-
+let _ = plist_to_list
 
     
 
