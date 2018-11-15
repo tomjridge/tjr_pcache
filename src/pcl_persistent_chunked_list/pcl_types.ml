@@ -5,7 +5,10 @@ open Tjr_monad.Types
 (* pcl_state -------------------------------------------------------- *)
 
 (* state we maintain; this is for the current chunk *)
-(** The persistent chunked list (pcl) state. *)
+(** The persistent chunked list (pcl) state. 
+
+NOTE that ['repr] is the type for the representation of a list of elements.
+*)
 type ('e,'repr) pcl_state = {
   elts: 'e list;
   elts_repr: 'repr

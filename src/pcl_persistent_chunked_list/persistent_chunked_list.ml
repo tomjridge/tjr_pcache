@@ -33,7 +33,7 @@ include Pcl_types
 let make_persistent_chunked_list 
     ~monad_ops
     ~pl_ops 
-    ~repr_ops 
+    ~(repr_ops:('e,'repr) repr_ops)
     ~with_pcl
     : ('e,'ptr,'t) pcl_ops
   =

@@ -1,3 +1,4 @@
+(*
 (** Test all the layers, pl, pcl and dcl.
 
 This code uses [Dcl_dbg] to construct a "debug" or spec state for an
@@ -237,3 +238,4 @@ let test ~depth =
 
 
 
+*)

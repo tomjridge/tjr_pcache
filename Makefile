@@ -2,7 +2,7 @@ DUNE:=opam exec dune
 
 build:
 	$(DUNE) build @install
-	$(DUNE) build bin/run_tests.exe
+#	$(DUNE) build bin/run_tests.exe
 
 install:
 	$(DUNE) install
