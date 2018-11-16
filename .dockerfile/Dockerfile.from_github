@@ -1,9 +1,13 @@
 FROM impfs_base_docker_image 
 
-RUN echo build from here ........
+RUN echo build from here .........
 
 RUN git clone https://github.com/tomjridge/tjr_lib.git 
 RUN eval `opam config env` && make -C tjr_lib build && make -C tjr_lib install
+
+RUN git clone https://github.com/tomjridge/tjr_polymap.git 
+RUN eval `opam config env` && make -C tjr_polymap build && make -C tjr_polymap install
+
 
 RUN git clone https://github.com/tomjridge/isa_btree.git 
 RUN eval `opam config env` && make -C isa_btree build && make -C isa_btree install
