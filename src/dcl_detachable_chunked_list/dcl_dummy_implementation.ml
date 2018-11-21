@@ -48,7 +48,7 @@ let make_ops ~monad_ops ~ops_per_block ~new_ptr ~with_state =
         { old_ptr=t.ptr;old_map=[];new_ptr=t.ptr;new_map=t.kv_ops }
     | false -> 
       let ptr = new_ptr t.ptrs in
-      let spec' = { t with ptrs=ptr::t.ptrs; ptr } in
+      let t' = { ptrs=ptr::t.ptrs; ptr; kv_ops=remaining } in
       let open Dcl_types in
       let result = {
         old_ptr=t.ptr;
@@ -56,7 +56,7 @@ let make_ops ~monad_ops ~ops_per_block ~new_ptr ~with_state =
         new_ptr=ptr;
         new_map=remaining}
       in
-      `Changed(spec',result)
+      `Changed(t',result)
   in
 
   (* with the monad *)
