@@ -110,7 +110,7 @@ end) = struct
             (fun s -> (s |> store_to_dbg,s)))
       
   let _ : 
-    (int, int, (int, (int, int) op) PMap.t, int, state state_passing)
+    (int, int, (int, (int, int) op) Tjr_polymap.t, int, state state_passing)
       dcl_ops
     =
     checked_dcl_ops
