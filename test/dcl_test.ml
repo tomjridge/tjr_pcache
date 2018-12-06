@@ -1,4 +1,3 @@
-
 (** Test all the layers, pl, pcl and dcl.
 
 This code uses [Dcl_dbg] to construct a "debug" or spec state for an
@@ -15,17 +14,16 @@ See notes in ../TESTING.org
 open Tjr_monad.Types
 open Tjr_monad.State_passing
 
+open Tjr_pcache
 open Ins_del_op_type
 open Pcl_types
 open Dcl_types
 open Dcl_dbg
 open Pcl_test.Repr
+open Test_store
 
 module Logger = Tjr_fs_shared.Logger
 
-let set,get = Tjr_store.(set,get)
-
-let mk_ref' = Pl_test.mk_ref'
 
 module Make(S:sig 
     type ptr=int 
@@ -137,7 +135,7 @@ open Dcl_test'
 
 
 let _ = 
-  Printf.printf "Free: %d\n%!" (!Pl_test.test_store).free;
+  Printf.printf "Free: %d\n%!" (!Test_store.test_store).free;
   Printf.printf "Refs: %d %d %d %d %d\n%!"
     (blks_ref |> Tjr_store.Refs.to_int)
     (free_ref |> Tjr_store.Refs.to_int)
@@ -192,7 +190,7 @@ let test ~depth =
     if count <= 0 then () else ops |> List.iter f
   in
   Printf.printf "%s: tests starting...\n%!" __FILE__;
-  step (depth,!Pl_test.test_store);
+  step (depth,!Test_store.test_store);
   Printf.printf "%s: ...tests finished\n%!" __FILE__;
   Printf.printf "%s: %d tests executed in total\n%!" __FILE__ !num_tests
 [@@ocaml.warning "-8"]

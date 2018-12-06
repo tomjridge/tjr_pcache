@@ -2,12 +2,10 @@
 
 (* test  ---------------------------------------------------------- *)
 
+open Tjr_pcache
 open Pcl_types
 open Ins_del_op_type
-
-let set,get = Tjr_store.(set,get)
-let mk_ref' = Pl_test.mk_ref'
-
+open Test_store
 
 (* on-disk representation ----------------------------------------- *)
 
@@ -124,7 +122,7 @@ let main () =
     in
     f xs
   in  
-  Tjr_monad.State_passing.run ~init_state:(!Pl_test.test_store) cmds 
+  Tjr_monad.State_passing.run ~init_state:(!Test_store.test_store) cmds 
   |> fun (x,s) -> 
   assert(x=());
   Printf.printf "%s: ...tests finished\n" __FILE__;

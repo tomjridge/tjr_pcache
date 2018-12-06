@@ -9,19 +9,11 @@ open Tjr_monad.Types
 open Tjr_monad.State_passing
 (* open Tjr_monad.Mref *)
 open Tjr_monad.With_state
+open Tjr_pcache
 open Persistent_list
 
+open Test_store
 module Blks = Tjr_polymap
-
-let set,get = Tjr_store.(set,get)
-
-let test_store = ref Tjr_store.initial_store
-
-let mk_ref' v = 
-  !test_store |> fun t ->
-  Tjr_store.mk_ref v t |> fun (t,r) ->
-  test_store:=t;
-  r
   
 
 module Make(S: sig

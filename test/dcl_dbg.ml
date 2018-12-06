@@ -11,24 +11,21 @@
 *)
 
 open Tjr_monad.Types
-open Ins_del_op_type
-open Detachable_chunked_list
+open Tjr_pcache.Ins_del_op_type
+open Tjr_pcache.Detachable_chunked_list
+(* open Test_store *)
 
 module Logger = Tjr_fs_shared.Logger
-
-let set,get = Tjr_store.(set,get)
-
-let mk_ref' = Pl_test.mk_ref'
 
 
 (* fiddle with op type ---------------------------------------------- *)
 
 (* specialize for yojson *)
-let op_to_yojson a b op : Yojson.Safe.json = match op with
+let op_to_yojson _a _b op : Yojson.Safe.json = match op with
     Insert(k,v) -> `String (Printf.sprintf "Insert(%d,%d)" k v)
   | Delete k -> `String (Printf.sprintf "Delete(%d)" k)
 
-let op_of_yojson a b op = failwith __LOC__
+let op_of_yojson _a _b _op = failwith __LOC__
 
 type find_result = (int,int) op option [@@deriving yojson]
 
