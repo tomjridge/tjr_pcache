@@ -5,3 +5,4 @@
 /bin/.merlin
 /tjr_pcache.install
 _build/
+/test/.merlin

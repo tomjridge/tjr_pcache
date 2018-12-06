@@ -189,10 +189,10 @@ let test ~depth =
     in
     if count <= 0 then () else ops |> List.iter f
   in
-  Printf.printf "%s: tests starting...\n%!" __FILE__;
+  Printf.printf "%s: tests starting...\n%!" __MODULE__;
   step (depth,!Test_store.test_store);
-  Printf.printf "%s: ...tests finished\n%!" __FILE__;
-  Printf.printf "%s: %d tests executed in total\n%!" __FILE__ !num_tests
+  Printf.printf "%s: ...tests finished\n%!" __MODULE__;
+  Printf.printf "%s: %d tests executed in total\n%!" __MODULE__ !num_tests
 [@@ocaml.warning "-8"]
 
 

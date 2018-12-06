@@ -110,7 +110,7 @@ open Pcl_test'
 
 (* run some tests *)
 let main () = 
-  Printf.printf "%s: tests starting...\n%!" __FILE__;
+  Printf.printf "%s: tests starting...\n%!" __MODULE__;
   let cmds = 
     Tjr_list.from_to 0 20 |> List.map (fun x -> (x,2*x)) |> fun xs ->
     let rec f xs = 
@@ -125,7 +125,7 @@ let main () =
   Tjr_monad.State_passing.run ~init_state:(!Test_store.test_store) cmds 
   |> fun (x,s) -> 
   assert(x=());
-  Printf.printf "%s: ...tests finished\n" __FILE__;
+  Printf.printf "%s: ...tests finished\n" __MODULE__;
   s
 
 

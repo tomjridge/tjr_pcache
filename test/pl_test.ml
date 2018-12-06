@@ -107,7 +107,7 @@ open A
 
 (* Write some new nodes, update some, and finally print out the list *)
 let main () = 
-  Printf.printf "%s: tests starting...\n%!" __FILE__;
+  Printf.printf "%s: tests starting...\n%!" __MODULE__;
   let ops = make_persistent_list 
       ~monad_ops
       ~write_node 
@@ -127,5 +127,5 @@ let main () =
   assert(xs = ["New start";"second node";"alternative third node"]);
   xs |> Tjr_string.concat_strings ~sep:";" |> fun str ->
   print_endline str;
-  Printf.printf "%s: ...tests finished\n" __FILE__;
+  Printf.printf "%s: ...tests finished\n" __MODULE__;
   s  (* actually return the state *)
