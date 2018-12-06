@@ -9,7 +9,7 @@ install:
 
 clean:
 	$(DUNE) clean
-
+	rm -f dune-project tjr_pcache.install # FIXME?
 
 doc: FORCE
 	$(DUNE) build @doc

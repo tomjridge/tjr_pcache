@@ -1,0 +1,24 @@
+-*- org -*- 
+
+* ~tjr_pcache~
+
+This is a persistent cache, part of ImpFS. It maintains a persistent
+list of map operations, which avoids actually executing these
+operations against the B-tree.
+
+* Documentation
+
+See https://tomjridge.github.io/tjr_imp_build_script/
+
+* Dependencies
+
+opam:
+| yojson              | debug output |
+| ppx_deriving_yojson | debug output |
+
+
+other:
+| tjr_lib       |
+| tjr_fs_shared |
+| tjr_monad     |
+| tjr_polymap   |

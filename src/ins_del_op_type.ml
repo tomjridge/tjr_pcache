@@ -3,6 +3,8 @@
 (** An op is either insert or delete. These are the entries that get
    written to disk. *)
 
+(* FIXME now in fs_shared? *)
+
 [@@@ocaml.warning "-39"]
 type ('k,'v) op = Insert of 'k * 'v | Delete of 'k [@@deriving yojson]
 
