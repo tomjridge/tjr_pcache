@@ -14,6 +14,8 @@ open Tjr_monad.Types
 open Ins_del_op_type
 open Detachable_chunked_list
 
+module Logger = Tjr_fs_shared.Logger
+
 let set,get = Tjr_store.(set,get)
 
 let mk_ref' = Pl_test.mk_ref'
@@ -132,7 +134,7 @@ let make_checked_dcl_ops
     get_dbg () >>= fun dbg -> 
     let expected = find k dbg in
     dcl_ops.find k >>= fun v ->
-    Pcache_debug.log_lazy (fun () ->
+    Logger.logl (fun () ->
         expected |> find_result_to_yojson |> fun expected ->
         v |> find_result_to_yojson |> fun v ->
         Printf.sprintf "%s:\n    expected(%s)\n    actual(%s)"
@@ -146,7 +148,7 @@ let make_checked_dcl_ops
     get_dbg () >>= fun dbg ->
     dcl_ops.add op >>= fun () ->
     get_dbg () >>= fun dbg' ->
-    Pcache_debug.log_lazy (fun () ->
+    Logger.logl (fun () ->
         Printf.sprintf "%s: %s %s"
           "make_checked_dcl_ops.add"
           (dbg_to_yojson dbg |> Yojson.Safe.pretty_to_string)

@@ -21,6 +21,8 @@ open Dcl_types
 open Dcl_dbg
 open Pcl_test.Repr
 
+module Logger = Tjr_fs_shared.Logger
+
 let set,get = Tjr_store.(set,get)
 
 let mk_ref' = Pl_test.mk_ref'
@@ -167,21 +169,21 @@ let test ~depth =
       num_tests:=!num_tests+1;
       match op with
       | `Detach -> 
-        Pcache_debug.log "detach";
+        Logger.log "detach";
         run ~init_state:s (dcl_ops.detach ()) |> fun (_,s') -> s'
       | `Delete k -> 
-        Printf.sprintf "delete(%d)" k |> Pcache_debug.log;
+        Printf.sprintf "delete(%d)" k |> Logger.log;
         run ~init_state:s (dcl_ops.add (Delete(k))) |> fun (_,s') -> s'
       | `Find k ->
-        Printf.sprintf "find(%d)" k |> Pcache_debug.log;
+        Printf.sprintf "find(%d)" k |> Logger.log;
         run ~init_state:s (dcl_ops.find k) |> fun (_,s') -> s'
       | `Insert(k,v) -> 
-        Printf.sprintf "insert(%d,%d)" k v |> Pcache_debug.log;
+        Printf.sprintf "insert(%d,%d)" k v |> Logger.log;
         run ~init_state:s (dcl_ops.add (Insert(k,v))) |> fun (_,s') -> s'
     in
     let f op = 
       f op |> fun s' ->        
-      Pcache_debug.log_lazy (fun () ->
+      Logger.logl (fun () ->
           Printf.sprintf "%s: %s"
             "test, post op"
             (dbg_to_yojson (store_to_dbg s') |> Yojson.Safe.pretty_to_string));
