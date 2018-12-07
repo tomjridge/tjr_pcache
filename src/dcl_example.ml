@@ -20,7 +20,7 @@ type ('k,'v,'bytes) repr' = {
   repr_bytes:'bytes; (* padded? *)
 }
 
-module Internal = struct
+module Internal1 = struct
 
   let repr_ops () : (('k,'v) op,  ('k,'v,'bytes) repr') repr_ops = {
     nil={ repr_ops=[];
@@ -85,4 +85,80 @@ let make_dcl_ops'  :
     with_dcl:((('k, ('k, 'v) op) Tjr_polymap.t, 'ptr) Dcl_types.dcl_state, 't)
       Tjr_monad.With_state.with_state ->
     ('k, 'v, ('k, ('k, 'v) op) Tjr_polymap.t, 'ptr, 't) Dcl_types.dcl_ops
-  = Internal.make_dcl_ops'
+  = Internal1.make_dcl_ops'
+
+module Internal2 = struct
+  open Tjr_store
+  open Tjr_monad.With_state
+  (* open Tjr_monad.State_passing *)
+  open Store_passing
+
+  (* assume monad is a tjr_store-passing monad *)
+      
+
+  type ptr = int
+
+  (** Construct dcl ops on top of a functional store. *)
+  let make_dcl_ops_with_fun_store : 
+    write_node:('ptr ->
+                ('ptr, ('k, 'v, string) repr') Pl_types.pl_node ->
+                (unit, 't) Tjr_monad.Monad_ops.m) ->
+    store:Tjr_store.t ->
+    Tjr_store.t * 
+    ('k, 'v, 
+     ('k, ('k, 'v) op) Tjr_polymap.t, 
+     'ptr, 
+     't) Dcl_types.dcl_ops
+    = 
+    fun ~write_node ~store ->
+      let repr_ops = Internal1.repr_ops () in
+      (* get some refs *)
+      mk_ref (0:ptr) store |> fun (s,free_ref) ->
+      let with_free f = with_ref free_ref f in
+
+      let init_contents=repr_ops.nil in
+      let init_node = Pl_types.{next=None;contents=init_contents} in
+      let pl_state = Pl_types.{ current_ptr=0; current_node=init_node } in
+      mk_ref pl_state s |> fun (s,pl_ref) ->
+      let with_pl f = with_ref pl_ref f in
+
+      let elts = [] in
+      let elts_repr = repr_ops.nil in
+      let pcl_state = Pcl_types.{ elts; elts_repr } in
+      mk_ref pcl_state s |> fun (s,pcl_ref) ->
+      let with_pcl f = with_ref pcl_ref f in
+
+      let kvop_map_ops = Ins_del_op_type.default_kvop_map_ops () in
+      let empty_map = kvop_map_ops.map_empty in
+      let dcl_state = Dcl_types.{
+        start_block=0;
+        current_block=0;
+        block_list_length=1;
+        map_past=empty_map;
+        map_current=empty_map
+      } 
+      in
+      mk_ref dcl_state s |> fun (s,dcl_ref) ->
+      let with_dcl f = with_ref dcl_ref f in
+
+      let alloc () = with_free (fun ~state:free ~set_state -> 
+          let free = free+1 in
+          set_state free >>= fun () ->
+          return (free-1))
+      in
+      mk_ref dcl_state s |> fun (s,dcl_ref) ->
+      let dcl_ops = 
+        make_dcl_ops'
+          ~monad_ops
+          ~write_node
+          ~alloc
+          ~with_pl:{with_state=with_pl}
+          ~with_pcl:{with_state=with_pcl}
+          ~with_dcl:{with_state=with_dcl}
+      in
+      s,dcl_ops
+
+    
+
+end 
+      
