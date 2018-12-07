@@ -7,7 +7,7 @@ Then the 3 layers are constructed, and wrapped with code to check (via
    dcl_dbg) that the abstract view tracks the spec (this is in
    [checked_dcl]).
 
-See notes in ../TESTING.org
+See notes in TESTING
 
 *)
 
@@ -47,15 +47,7 @@ end) = struct
 
   type map = (k,(k,v)op) Tjr_polymap.t      
   let empty_map : map = Tjr_polymap.empty Pervasives.compare
-  let map_ops = 
-    let open Tjr_polymap in
-    let open Tjr_map in
-    { map_empty=empty (Pervasives.compare);
-      map_is_empty=is_empty;
-      map_add=add;
-      map_remove=remove;
-      map_find=find_opt;
-      map_bindings=bindings}
+  (* let kvop_map_ops = Ins_del_op_type.default_kvop_map_ops () *)
 
   type 'dbg dcl_state' = {
     dcl_state: (map,ptr) dcl_state;
@@ -79,7 +71,7 @@ end) = struct
   let dcl_ops = 
     Detachable_chunked_list.make_dcl_ops
       ~monad_ops
-      ~map_ops
+      (* ~kvop_map_ops *)
       ~pcl_ops
       ~with_dcl:{with_state=with_dcl}
 
@@ -93,9 +85,8 @@ end) = struct
   let store_to_dbg store =
     let blks = get blks_ref store in
     let dcl = get dcl_ref store in
-    let pcl_to_list = 
-      fun ~start_block ~blks ->
-        Persistent_chunked_list.pcl_to_list
+    let pcl_to_list ~start_block ~blks : 'e list list = 
+        Persistent_chunked_list.pcl_to_elt_list_list
           ~repr_ops ~read_node ~ptr:start_block ~blks
     in
     dcl_to_dbg ~pcl_to_list ~blks ~dcl

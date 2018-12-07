@@ -56,21 +56,26 @@ let map_find_union ~map_ops ~m1 ~m2 k =
 *)
 let make_dcl_ops
     ~monad_ops
-    ~(map_ops:('k,'v,'map)kvop_map_ops)
+    (* ~(kvop_map_ops:('k,'v,'map)kvop_map_ops) *)
     ~pcl_ops
     ~(with_dcl:('dcl_state,'t)with_state)
   : ('k,'v,'map,'ptr,'t) dcl_ops 
   =
+  let kvop_map_ops = Ins_del_op_type.default_kvop_map_ops() in
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in  
-  let { map_find; map_add; map_empty; _ } = map_ops in
-  let map_union m1 m2 = Tjr_map.map_union ~map_ops ~m1 ~m2 in
+  let { map_find; map_add; map_empty; _ } = kvop_map_ops in
+  let map_union m1 m2 = Tjr_map.map_union ~map_ops:kvop_map_ops ~m1 ~m2 in
   let with_dcl = with_dcl.with_state in
   (* ASSUME start_block is initialized and consistent with pcl_state *)
   let find k : (('k,'v) op option,'t) m =
     with_dcl (fun ~state:s ~set_state -> 
         let map_find = 
-          map_find_union ~map_ops ~m1:s.map_past ~m2:s.map_current in    
+          map_find_union 
+            ~map_ops:kvop_map_ops 
+            ~m1:s.map_past 
+            ~m2:s.map_current 
+        in    
         let r = map_find k in
         return r)
   in    
@@ -79,14 +84,15 @@ let make_dcl_ops
         pcl_ops.insert op >>= function
         | Inserted_in_current_node ->
           set_state { s with 
-                      map_current=map_ops.map_add (op2k op) op s.map_current } 
+                      map_current=
+                        kvop_map_ops.map_add (op2k op) op s.map_current }
         | Inserted_in_new_node ptr ->
           (* NOTE this code isn't concurrent safe *)
           set_state { s with 
                       current_block=ptr;
                       block_list_length=s.block_list_length+1;
                       map_past=map_union s.map_past s.map_current;
-                      map_current=map_ops.map_add (op2k op) op map_empty })
+                      map_current=kvop_map_ops.map_add (op2k op) op map_empty })
   in
   (* FIXME be clear about concurrency here: detach happens in memory,
      almost instantly, but other operations cannot interleave with it

@@ -1,2 +1,4 @@
 yojson
 ppx_deriving_yojson
+core
+ppx_bin_prot

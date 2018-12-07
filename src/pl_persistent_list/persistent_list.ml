@@ -58,20 +58,13 @@ let make_persistent_list
 
 let _ = make_persistent_list
 
-(** The abstract view of the persistent list. Parameters:
-- [ptr] The root of the list.
 
-
-NOTE in the return type, the first ptr is the pointer to the
-node; the snd is the optional link in the list_node
-
-*)
-let plist_to_nodes 
-    ~(read_node:'ptr -> 'blks -> ('ptr,'contents)pl_node) 
-    ~(ptr:'ptr)
-    ~(blks:'blks)
+(** Unmarshal a persistent list to a list of nodes. *)
+let pl_to_nodes
+  ~(read_node:'ptr -> 'blks -> ('ptr,'contents)pl_node) 
+  ~(ptr:'ptr)
+  ~(blks:'blks)
   : ('ptr * ('ptr,'contents)pl_node) list 
-
   =
   let rec loop ptr = 
     read_node ptr blks |> fun node ->
@@ -82,29 +75,9 @@ let plist_to_nodes
   loop ptr
 
 
-(** The abstract view of the persistent list, without any pointer info. *)
-let plist_to_list ~read_node ~ptr ~blks : 'contents list = 
-  plist_to_nodes ~read_node ~ptr ~blks |> List.map (fun (_,n) -> n.contents)
+(** Convenience to unmarshal to a list of node contents *)
+let pl_to_list ~read_node ~(ptr:'ptr) ~(blks:'blks) =
+  pl_to_nodes ~read_node ~ptr ~blks 
+  |> List.map (fun (_,node) -> (node.contents:'node_contents))
 
-let _ = plist_to_list
-
-    
-
-(*
-let rec plist_to_list ~read_node ~ptr =
-  let acc = ref [] in
-  let rec loop ptr = 
-    read_node ptr >>= fun { next; contents } ->
-    acc:=contents::!acc;
-    match next with
-    | None -> return (List.rev !acc)
-    | Some ptr -> loop ptr
-  in
-  loop ptr
-
-
-
-let _ = plist_to_list
-*)
-
-
+let _ = pl_to_list

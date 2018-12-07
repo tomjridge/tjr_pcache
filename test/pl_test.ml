@@ -120,7 +120,7 @@ let main () =
     ops.new_node "third node" >>= fun _ ->
     ops.replace_last "alternative third node" >>= fun () ->
     with_blks (fun ~state:blks ~set_state ->
-        return (plist_to_list ~read_node ~ptr:0 ~blks))
+        return (pl_to_list ~read_node ~ptr:0 ~blks))
   in
   let init_state = !test_store in
   Tjr_monad.State_passing.run ~init_state  cmds |> fun (xs,s) ->

@@ -11,3 +11,5 @@
 - more testing of pl and pcl
 
 - prefer tjr exhaustive testing to make_checked_dcl_ops
+
+- at the moment pcl combines contents-as-list with marshalling; split?

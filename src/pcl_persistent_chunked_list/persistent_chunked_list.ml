@@ -80,30 +80,36 @@ let _ :
   make_pcl_ops
 
 
+(** This is just [pl_to_nodes] *)
+let pcl_to_nodes = Persistent_list.pl_to_nodes
 
-
-(* debugging -------------------------------------------------------- *)
-
-(* we use the plist debug code, but map usign repr_to_list *)
-(** Abstract view of the persistent chunked list. *)
-let pcl_to_nodes 
-    ~(repr_ops:('e,'repr)repr_ops)
-    ~read_node
-    ~(ptr:'ptr) 
-    ~blks
-  : ('ptr * 'e list) list 
-  =
-  Persistent_list.plist_to_nodes ~read_node ~ptr ~blks
-  |> List.map (fun (ptr,n) -> (ptr,n.contents |> repr_ops.repr_to_list))
-
-let pcl_to_list
-    ~(repr_ops:('e,'repr)repr_ops)
-    ~(read_node:'ptr -> 'blks -> ('ptr, 'repr) pl_node)
-    ~(ptr:'ptr) 
+(** As [pcl_to_nodes], but for each node we unmarshall the repr *)
+let pcl_to_es_node_list
+    ~(repr_ops:('e,'repr) repr_ops)
+    ~(read_node:'ptr -> 'blks -> ('ptr,'contents)pl_node) 
+    ~(ptr:'ptr)
     ~(blks:'blks)
-  : ('e list) list 
+  : ('ptr * ('ptr,'e list)pl_node) list 
   =
-  pcl_to_nodes ~repr_ops ~read_node ~ptr ~blks 
-  |> List.map (fun (ptr,es) -> es)
+  pcl_to_nodes ~read_node ~ptr ~blks
+  |> List.map (fun (ptr,{next;contents}) -> 
+      (ptr,{next;contents=repr_ops.repr_to_list contents}))
 
-let _ = pcl_to_list
+
+let _ = pcl_to_es_node_list
+
+
+(** Convenience to unmarshal to a list of elt lists *)
+let pcl_to_elt_list_list 
+  ~repr_ops
+  ~read_node 
+  ~ptr
+  ~blks
+  : 'e list list
+  =
+  pcl_to_es_node_list 
+    ~repr_ops
+    ~read_node 
+    ~ptr
+    ~blks
+  |> List.map (fun (ptr,n) -> n.contents)
