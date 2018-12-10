@@ -21,7 +21,7 @@ NOTE not concurrent safe; access must be serialized.
 open Tjr_monad.Types
 open Tjr_monad.With_state
 open Pl_types
-open Pcl_types
+include Pcl_types
 
 
 (** Function to construct a persistent chunked list. Parameters:
@@ -30,25 +30,25 @@ open Pcl_types
 *)
 let make_pcl_ops
     ~(monad_ops:'t monad_ops)
-    ~(pl_ops:('a,'ptr,'t)pl_ops)
-    ~(pcl_state_ops:('a,'e,'ptr,'i)pcl_state_ops)
+    ~(pl_ops:('pl_data,'ptr,'t)pl_ops)
+    ~(pcl_state_ops:('pl_data,'e,'i)pcl_state_ops)
     ~(with_pcl: ('i,'t)with_state)
   =
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in
   let with_pcl = with_pcl.with_state in
   let { replace_last; new_node } = pl_ops in
-  let { nil;snoc;data } = pcl_state_ops in
+  let { nil;snoc;pl_data } = pcl_state_ops in
   let insert (e:'e) = 
     with_pcl (fun ~state:s ~set_state ->         
         snoc s e |> function
         | `Ok s' -> 
-          replace_last (data s') >>= fun () ->
+          replace_last (pl_data s') >>= fun () ->
           set_state s' >>= fun () ->
           return Inserted_in_current_node
         | `Error_too_large ->
           (* we can't fit this new elt; so make a new node and try again *)
-          snoc nil e |> function 
+          snoc (nil()) e |> function 
           | `Error_too_large -> 
             (* FIXME ASSUMES we need to be sure that any singleton list
                [elt] can fit in a Persistent_list node *)
@@ -56,17 +56,18 @@ let make_pcl_ops
           | `Ok s' ->
             (* NOTE the following allocates a new node and updates the
                pointer in the old node *)
-            new_node (data s') >>= fun ptr ->            
+            new_node (pl_data s') >>= fun ptr ->            
             set_state s' >>= fun () ->
             return (Inserted_in_new_node ptr))
   in
   { insert }
 
 
+(* NOTE how 'pl_data and 'i disappear in result *)
 let _ : 
 monad_ops:'t monad_ops ->
-pl_ops:('a, 'ptr, 't) pl_ops ->
-pcl_state_ops:('a, 'e, 'ptr, 'i) pcl_state_ops ->
+pl_ops:('pl_data, 'ptr, 't) pl_ops ->
+pcl_state_ops:('pl_data, 'e, 'i) pcl_state_ops ->
 with_pcl:('i, 't) with_state -> 
 ('e, 'ptr, 't) pcl_ops
 =

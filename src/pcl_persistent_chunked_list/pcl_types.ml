@@ -2,10 +2,10 @@ open Tjr_monad.Types
 (* open Pl_types *)
 
 (** Pure interface for manipulating the [pcl_state] *)
-type ('a,'e,'ptr,'i) pcl_state_ops = {
-  nil:'i;
+type ('pl_data,'e,'i) pcl_state_ops = {
+  nil:unit -> 'i;
   snoc: 'i -> 'e -> [ `Error_too_large | `Ok of 'i ];
-  data:'i -> 'a
+  pl_data:'i -> 'pl_data
 }
 
 

@@ -49,15 +49,14 @@ let map_find_union ~map_ops ~m1 ~m2 k =
 (** Construct the persistent cache operations. Parameters:
 
 - [monad_ops], the monadic operations
-- [map_ops], the in-memory cache of (k -> (k,v)op) map
 - [pcl_ops], the persistent chunked list ops
-- [dcl_state_ref], the ref to the persistent log state
+- [with_dcl], access the dcl state
 
 *)
 let make_dcl_ops
     ~monad_ops
     (* ~(kvop_map_ops:('k,'v,'map)kvop_map_ops) *)
-    ~pcl_ops
+    ~(pcl_ops:(('k,'v)op,'ptr,'t)pcl_ops)
     ~(with_dcl:('dcl_state,'t)with_state)
   : ('k,'v,'map,'ptr,'t) dcl_ops 
   =

@@ -2,7 +2,8 @@ DUNE:=opam exec dune
 
 build:
 	$(DUNE) build @install
-	$(DUNE) build bin/run_tests.exe bin/test_dcl.exe
+	$(DUNE) build bin/test_dcl.exe
+#	$(DUNE) build bin/run_tests.exe bin/test_dcl.exe
 
 install:
 	$(DUNE) install

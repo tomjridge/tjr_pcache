@@ -1,7 +1,7 @@
 (** Another version, more abstract *)
 
 open Tjr_monad.Types
-open Pl_types
+include Pl_types
 
 let make_persistent_list 
     ~monad_ops
@@ -11,7 +11,7 @@ let make_persistent_list
     ~alloc
   =
   let ( >>= ) = monad_ops.bind in
-  (* let return = monad_ops.return in *)
+  let return = monad_ops.return in
   let {set_data;set_next;new_node} = pl_state_ops in
   let with_pl = with_pl.with_state in
   let replace_last (a:'a) =
@@ -31,9 +31,22 @@ let make_persistent_list
         new_node new_ptr a s' |> fun s' ->
         write_node s' >>= fun () ->
         update_old_node_with_ptr_to_new_node >>= fun () ->
-        set_state s')
+        set_state s' >>= fun () ->
+        return new_ptr)
   in
   Pl_types.{ replace_last; new_node }
+
+(* NOTE how the impl type 'i disappears in the following, except for
+   write_node *)
+let _ :
+monad_ops:'t monad_ops ->
+pl_state_ops:('a, 'ptr, 'i) pl_state_ops ->
+write_node:('i -> (unit, 't) m) ->
+with_pl:('i, 't) with_state ->
+alloc:(unit -> ('ptr, 't) m) -> 
+('a, 'ptr, 't) pl_ops
+= make_persistent_list
+
 
 
 (** Unmarshal a persistent list to a list of nodes. *)

@@ -9,7 +9,7 @@ type ('a,'ptr,'i) pl_state_ops = {
   set_data: 'a -> 'i -> 'i;
   set_next: 'ptr -> 'i -> 'i;
   (* get_data: 'i -> 'a; *)
-  new_node: 'ptr -> 'a -> 'i -> 'i;
+  new_node: 'ptr -> 'a -> 'i -> 'i;  (* ptr is typically stored as the "current" ptr in 'i *)
 }
 
 
