@@ -5,6 +5,30 @@ open Ins_del_op_type
 open Pcl_types
 (* open Dcl_types *)
 
+let blk_sz=4096  (* FIXME *)
+
+
+
+(* node as bytes *)
+
+module Internal0 = struct
+  open Bin_prot.Std
+
+  type node_as_bytes = 
+    { ptr_opt:int option; contents: string } [@@deriving bin_io]
+
+  let node_to_string n = 
+    Bin_prot.Common.create_buf blk_sz |> fun buf ->
+    bin_writer_node_as_bytes.write buf ~pos:0 n |> fun pos -> 
+    assert(pos <= blk_sz);
+    let s = String.init blk_sz 
+        (fun i -> if i < pos then Bigarray.Array1.get buf i else ' ')
+    in
+    s
+    
+end
+
+
 (* repr ------------------------------------------------------------ *)
 
 (** For this example, we use simple marshalling based on OCaml's
@@ -13,14 +37,18 @@ open Pcl_types
 (** Each node is stored in a block on disk. Each node contains a list
    of kv op. We handle marshalling in the write_node parameter *)
 
-let blk_sz=4096  (* FIXME *)
-
 type ('k,'v,'bytes) repr' = {
   repr_ops:('k,'v) op list;
   repr_bytes:'bytes; (* padded? *)
 }
 
 module Internal1 = struct
+
+  (* FIXME we may want marshaling to be aware of the next pointer in
+     pl nodes *)
+  let int_size_in_bytes = 8
+  let int_opt_size_int_bytes = 9
+  let pl_node_content_max_size = blk_sz - int_opt_size_int_bytes
 
   let repr_ops () : (('k,'v) op,  ('k,'v,'bytes) repr') repr_ops = {
     nil={ repr_ops=[];
@@ -35,7 +63,7 @@ module Internal1 = struct
           }
         in
         match String.length new_repr.repr_bytes with 
-        | x when x>blk_sz -> `Error_too_large
+        | x when x>pl_node_content_max_size -> `Error_too_large
         | _ -> `Ok new_repr);
     repr_to_list=(fun repr -> repr.repr_ops);
   }
@@ -112,13 +140,14 @@ module Internal2 = struct
     = 
     fun ~write_node ~store ->
       let repr_ops = Internal1.repr_ops () in
+      let ptr0 : ptr = 0 in
       (* get some refs *)
-      mk_ref (0:ptr) store |> fun (s,free_ref) ->
+      mk_ref ptr0 store |> fun (s,free_ref) ->
       let with_free f = with_ref free_ref f in
 
       let init_contents=repr_ops.nil in
       let init_node = Pl_types.{next=None;contents=init_contents} in
-      let pl_state = Pl_types.{ current_ptr=0; current_node=init_node } in
+      let pl_state = Pl_types.{ current_ptr=ptr0; current_node=init_node } in
       mk_ref pl_state s |> fun (s,pl_ref) ->
       let with_pl f = with_ref pl_ref f in
 
@@ -158,7 +187,52 @@ module Internal2 = struct
       in
       s,dcl_ops
 
+
+  (** Construct write_node on top of a blk_dev *)
+
+  open Blk_dev
+
+  open Internal0
+
+  let make_write_node ~blk_dev_ops ~dev = 
+    let write_node ~(ptr:'ptr) ~(pl_node:('ptr, 'repr) Pl_types.pl_node) =
+      let node_as_bytes = {ptr_opt=pl_node.next; contents=pl_node.contents.repr_bytes} in
+      node_to_string node_as_bytes |> fun s ->
+      (* pad to length *)
+      assert (String.length s <= blk_sz);
+      let s = s ^ (String.make (blk_sz - String.length s) ' ') in
+      blk_dev_ops.write ~dev ~blk_id:ptr ~blk:s
+    in
+    let write_node ptr pl_node = write_node ~ptr ~pl_node in
+    write_node
+
+  let _ = make_write_node
     
 
 end 
-      
+
+open Internal2      
+
+let make_dcl_ops_on_file ~monad_ops ~fn = 
+  let fd = Tjr_fs_shared.File_util.fd_from_file ~fn ~create:true ~init:true in
+  let blk_dev_ops = 
+    Blk_dev.Blk_dev_on_file.make_blk_dev_on_file ~monad_ops ~blk_sz in
+  let write_node = make_write_node ~blk_dev_ops ~dev:fd in
+  let store = Tjr_store.initial_store in
+  let store,dcl_ops = make_dcl_ops_with_fun_store ~write_node ~store in
+  fd,store,dcl_ops
+
+open Tjr_monad.Monad_ops
+open Tjr_monad.State_passing
+
+let test_dcl_ops_on_file ~fn ~count = 
+  let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () in
+  let fd,store,dcl_ops = make_dcl_ops_on_file ~monad_ops ~fn in
+  let s = ref store in
+  List.iter
+    (fun i -> 
+       run ~init_state:(!s) (dcl_ops.add (Insert(i,2*i)))
+       |> fun (_,s') -> s:=s')       
+    (Tjr_list.from_to 1 count)
+  
+  

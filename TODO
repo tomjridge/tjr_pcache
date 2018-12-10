@@ -13,3 +13,6 @@
 - prefer tjr exhaustive testing to make_checked_dcl_ops
 
 - at the moment pcl combines contents-as-list with marshalling; split?
+
+- dcl example uses repeated marshalling, likely giving poor
+  performance which can be improved

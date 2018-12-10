@@ -2,7 +2,7 @@ DUNE:=opam exec dune
 
 build:
 	$(DUNE) build @install
-	$(DUNE) build bin/run_tests.exe
+	$(DUNE) build bin/run_tests.exe bin/test_dcl.exe
 
 install:
 	$(DUNE) install
@@ -10,6 +10,7 @@ install:
 clean:
 	$(DUNE) clean
 	rm -f dune-project tjr_pcache.install # FIXME?
+	rm -f test_dcl_ops.store # test file
 
 doc: FORCE
 	$(DUNE) build @doc
@@ -20,6 +21,7 @@ view_doc:
 
 run_tests:
 	$(DUNE) exec bin/run_tests.exe
+	$(DUNE) exec bin/test_dcl.exe
 
 # 
 # run_more_tests:
