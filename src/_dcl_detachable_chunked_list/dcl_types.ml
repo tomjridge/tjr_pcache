@@ -60,6 +60,11 @@ NOTE detach returns: 'ptr to first block in list; map upto current
 - [map_past] is the map from root to just before [current_block]
 - [map_current] is the map for the current block
 
+NOTE unlike Pl and Pcl, we have a concrete type for the state, since
+we don't expect to have any extra info stored at this point. But
+perhaps we can avoid some of these extra type params if we keep dcl
+state abstract as ['dcl_state]. But this seems unlikely.
+
 *)
 type ('map,'ptr) dcl_state = {
   start_block: 'ptr;  

@@ -16,3 +16,5 @@
 
 - dcl example uses repeated marshalling, likely giving poor
   performance which can be improved
+
+- use binprot exclusively for dcl example (faster, more compact)

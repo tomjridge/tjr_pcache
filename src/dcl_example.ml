@@ -8,6 +8,20 @@ open Pcl_types
 let blk_sz=4096  (* FIXME *)
 
 
+(** Each node is stored in a block on disk. Each node contains a list
+   of kv op. We handle marshalling in the write_node parameter *)
+
+type ('k,'v,'bytes) repr' = {
+  repr_ops:('k,'v) op list;
+  repr_bytes:'bytes; (* padded? *)
+}
+(** If we use Bin_prot, then ['bytes] will be a buf, with a position;
+   to add an elt, we can simply write the elt at the pos, and update
+   the pos and the initial "length" int.
+
+    Alternatively we can write the elts then write a marker byte
+ *)
+
 
 (* node as bytes *)
 
@@ -31,16 +45,6 @@ end
 
 (* repr ------------------------------------------------------------ *)
 
-(** For this example, we use simple marshalling based on OCaml's
-   inbuilt module *)
-
-(** Each node is stored in a block on disk. Each node contains a list
-   of kv op. We handle marshalling in the write_node parameter *)
-
-type ('k,'v,'bytes) repr' = {
-  repr_ops:('k,'v) op list;
-  repr_bytes:'bytes; (* padded? *)
-}
 
 module Internal1 = struct
 
