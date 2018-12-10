@@ -6,3 +6,4 @@
 /tjr_pcache.install
 _build/
 /test/.merlin
+/test_dcl_ops.store
