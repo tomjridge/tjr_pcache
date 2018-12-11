@@ -37,10 +37,21 @@ end) = struct
   let ( >>= ) = monad_ops.bind 
   let return = monad_ops.return
 
+  type pl_node = { next:ptr option; contents:node_contents}
+  type pl_state = {current_ptr:ptr; current_node:pl_node}
+
+  let pl_state_ops = {
+    set_data=(fun contents i -> { i with current_node={i.current_node with contents }});
+    set_next=(fun next i -> { i with current_node={i.current_node with next=Some next }});
+    new_node=(fun ptr contents i -> 
+        let pl_node = {next=None; contents} in        
+        { current_ptr=ptr; current_node=pl_node})
+  }
+
 
   let init_node = {next=None;contents=init_contents}
 
-  type blks = (ptr,(ptr,node_contents)pl_node) Blks.t
+  type blks = (ptr,pl_node) Blks.t
   (* NOTE we need to ensure that the blks contain a binding at least for the current_ptr as in pl_ref below *)
   let blks_ref =
     let blks = Blks.empty Pervasives.compare |> Blks.add 0 init_node in
@@ -71,13 +82,17 @@ end) = struct
 
   (* write_node ------------------------------------------------------ *)
 
-  let write_node ptr n = with_blks (fun ~state:blks ~set_state -> 
-      set_state (Blks.add ptr n blks ))
+  let write_node i = with_blks (fun ~state:blks ~set_state -> 
+      set_state (Blks.add i.current_ptr i.current_node blks ))
 
 
   (* read_node (for abstraction) -------------------------------------- *)
 
-  let read_node ptr blks = Blks.find ptr blks
+  let read_node ptr blks = 
+    Blks.find ptr blks |> fun n ->
+    (n.contents,n.next)
+
+  let _ = read_node
 
 
   (* alloc ------------------------------------------------------------ *)
@@ -89,12 +104,14 @@ end) = struct
 
   let _ = alloc
 
-  let pl_ops = 
+(*
+  let pl_ops () = 
     make_persistent_list 
       ~monad_ops
       ~write_node 
       ~alloc 
       ~with_pl:{with_state=with_pl}
+*)
 
 end
 
@@ -108,8 +125,9 @@ open A
 (* Write some new nodes, update some, and finally print out the list *)
 let main () = 
   Printf.printf "%s: tests starting...\n%!" __MODULE__;
-  let ops = make_persistent_list 
+  let ops = make_persistent_list
       ~monad_ops
+      ~pl_state_ops
       ~write_node 
       ~alloc 
       ~with_pl:{with_state=with_pl}
