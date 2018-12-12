@@ -1,20 +1,9 @@
 -*- org -*-
 
-- add block_list_length to test ops (find add detach...)
-  - but on reflection, this is ideally not part of the spec, since it
-    ties us to a fixed number of ops per block
-
-- use with_state rather than refs, for code which is serialized (which
-  is all this code!)
-
-
-- more testing of pl and pcl
-
 - prefer tjr exhaustive testing to make_checked_dcl_ops
 
 - at the moment pcl combines contents-as-list with marshalling; split?
 
-- dcl example uses repeated marshalling, likely giving poor
-  performance which can be improved
-
-- use binprot exclusively for dcl example (faster, more compact)
+- change doc to emphasize that this is a general purpose way to
+  convert in-mem datastructures to hypbrid in-mem/on-disk
+  datastructures
