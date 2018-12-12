@@ -1,6 +1,4 @@
-(** Tests for persistent list
-
-*)
+(** Tests for persistent list *)
 
 open Tjr_monad.With_state
 open Tjr_pcache
