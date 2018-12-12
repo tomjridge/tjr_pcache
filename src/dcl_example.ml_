@@ -78,13 +78,17 @@ at the pcl level, again we can take
 *)
 
 
-type 'ptr pl_state = {
-  data: buf * int;
-  current: 'ptr;
-  next: 'ptr option
-}
+(* type 'ptr pl_state = {
+ *   data: buf * int;
+ *   current: 'ptr;
+ *   next: 'ptr option
+ * } *)
 
 open Blk_dev
+
+open Pl_simple_implementation  (* record aux fns *)
+type 'ptr pl_state = (buf*int,'ptr) Pl_simple_implementation.pl_state
+let pl_state_ops = Pl_simple_implementation.pl_state_ops
 
 let write_node ~config ~blk_dev_ops ~dev (pl_state: 'ptr pl_state) =
   let buf,pos = pl_state.data in
@@ -97,11 +101,11 @@ let write_node ~config ~blk_dev_ops ~dev (pl_state: 'ptr pl_state) =
 
 let _ = write_node
 
-let pl_state_ops = Pl_types.{
-  set_data=(fun data pl_state -> {pl_state with data});
-  set_next=(fun ptr pl_state -> {pl_state with next=(Some ptr)});
-  new_node=(fun current data pl_state -> { data; current; next=None })
-}  
+(* let pl_state_ops = Pl_types.{
+ *   set_data=(fun data pl_state -> {pl_state with data});
+ *   set_next=(fun ptr pl_state -> {pl_state with next=(Some ptr)});
+ *   new_node=(fun current data pl_state -> { data; current; next=None })
+ * }   *)
   
 
 

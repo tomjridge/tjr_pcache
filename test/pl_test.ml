@@ -1,149 +1,85 @@
 (** Tests for persistent list
 
-We work with a generic typed store {! Tjr_lib.Tjr_store}, so that we
-   can later extend the state with further fields
-
 *)
 
-open Tjr_monad.Types
-open Tjr_monad.State_passing
-(* open Tjr_monad.Mref *)
 open Tjr_monad.With_state
 open Tjr_pcache
-open Persistent_list
 
-open Test_store
+open Tjr_store
+open Store_passing
+
 module Blks = Tjr_polymap
-  
 
-module Make(S: sig
+(* a basic implementation of pl_state and pl_node ------------------- *)
 
-    type ptr = int
-    type node_contents
+open Pl_simple_implementation
 
-    val init_contents : node_contents
-end) = struct
-
-  open S
-
-  (** The state of the whole system (? should be part of sys?);
-     node_contents is the type of node contents *)
-  type state = Tjr_store.t
-
-
-  let monad_ops : state state_passing monad_ops = 
-    Tjr_monad.State_passing.monad_ops'
-
-  let ( >>= ) = monad_ops.bind 
-  let return = monad_ops.return
-
-  type pl_node = { next:ptr option; contents:node_contents}
-  type pl_state = {current_ptr:ptr; current_node:pl_node}
-
-  let pl_state_ops = {
-    set_data=(fun contents i -> { i with current_node={i.current_node with contents }});
-    set_next=(fun next i -> { i with current_node={i.current_node with next=Some next }});
-    new_node=(fun ptr contents i -> 
-        let pl_node = {next=None; contents} in        
-        { current_ptr=ptr; current_node=pl_node})
-  }
-
-
-  let init_node = {next=None;contents=init_contents}
-
-  type blks = (ptr,pl_node) Blks.t
-  (* NOTE we need to ensure that the blks contain a binding at least for the current_ptr as in pl_ref below *)
-  let blks_ref =
-    let blks = Blks.empty Pervasives.compare |> Blks.add 0 init_node in
-    mk_ref' blks
-
-  (* model the free list via an incrementing counter *)
-  type free = ptr
-  let free_ref = mk_ref' 1 
-
-  let pl_ref = 
-    mk_ref'
-      { current_ptr=0; 
-        current_node=init_node } 
-
-
-  let with_ref r f = Tjr_monad.State_passing.with_state
-      ~get:(fun x -> get r x) 
-      ~set:(fun s t -> set r s t)
-      ~f
-
-  let with_blks f = with_ref blks_ref f
-
-  let with_free f = with_ref free_ref f
-
-  let with_pl f = with_ref pl_ref f
-
-
-
-  (* write_node ------------------------------------------------------ *)
-
-  let write_node i = with_blks (fun ~state:blks ~set_state -> 
-      set_state (Blks.add i.current_ptr i.current_node blks ))
-
-
-  (* read_node (for abstraction) -------------------------------------- *)
-
-  let read_node ptr blks = 
-    Blks.find ptr blks |> fun n ->
-    (n.contents,n.next)
-
-  let _ = read_node
-
-
-  (* alloc ------------------------------------------------------------ *)
+let make_pl_test ~store ~data0 ~ptr0 ~next_free_ptr =
+  mk_ref ptr0 store |> fun (s,free_ref) ->
+  let with_free f = with_ref free_ref f in
 
   let alloc () = with_free (fun ~state:free ~set_state -> 
-      let free = free+1 in
-      set_state free >>= fun () ->
-      return (free-1))
+      let free' = next_free_ptr free in
+      set_state free' >>= fun () ->
+      return free)
+  in
+  
+  let pl_state = { data=data0; current=ptr0; next=None } in
+  mk_ref pl_state s |> fun (s,pl_ref) ->
+  let with_pl f = with_ref pl_ref f in
 
-  let _ = alloc
+  
+  let init_node = { contents=data0; next=None } in
+  let blks = Blks.empty Pervasives.compare |> Blks.add ptr0 init_node in
+  mk_ref blks s |> fun (s,blks_ref) ->
+  let with_blks f = with_ref blks_ref f in
 
-(*
-  let pl_ops () = 
-    make_persistent_list 
-      ~monad_ops
-      ~write_node 
-      ~alloc 
-      ~with_pl:{with_state=with_pl}
-*)
+  let _ = with_blks in
 
-end
+  let write_node = 
+    Pl_simple_implementation.Write_node.write_node { with_state=with_blks} in
 
-module A = Make(struct 
-    type ptr = int 
-    type node_contents=string 
-    let init_contents = "Start"
-end)
-open A
+  let _ = write_node in
+
+  let _read_node = Pl_simple_implementation.Write_node.read_node in
+
+  blks_ref,s,Persistent_list.make_persistent_list 
+    ~monad_ops 
+    ~pl_state_ops 
+    ~write_node 
+    ~with_pl:{with_state=with_pl} 
+    ~alloc
+
+let _ = make_pl_test
+
 
 (* Write some new nodes, update some, and finally print out the list *)
 let main () = 
   Printf.printf "%s: tests starting...\n%!" __MODULE__;
-  let ops = make_persistent_list
-      ~monad_ops
-      ~pl_state_ops
-      ~write_node 
-      ~alloc 
-      ~with_pl:{with_state=with_pl}
+  let ptr0 = 0 in
+  let blks_ref,s,ops = make_pl_test
+      ~store:Tjr_store.initial_store
+      ~data0:"Start"
+      ~ptr0
+      ~next_free_ptr:(fun x -> x+1)
   in
   let cmds = 
     ops.replace_last "New start" >>= fun () ->
     ops.new_node "second node" >>= fun _ ->
     ops.new_node "third node" >>= fun _ ->
-    ops.replace_last "alternative third node" >>= fun () ->
-    with_blks (fun ~state:blks ~set_state ->
-        return (pl_to_list ~read_node ~ptr:0 ~blks))
+    ops.replace_last "alternative third node" 
   in
-  let init_state = !test_store in
-  Tjr_monad.State_passing.run ~init_state  cmds |> fun (xs,s) ->
+  let init_state = s in
+  Tjr_monad.State_passing.run ~init_state  cmds |> fun ((),s) ->
+  (* check what is written *)
+  let xs = Persistent_list.pl_to_list 
+      ~read_node:Pl_simple_implementation.Write_node.read_node 
+      ~ptr:ptr0
+      ~blks:(Tjr_store.get blks_ref s)
+  in
   assert(xs = ["New start";"second node";"alternative third node"]);
   xs |> Tjr_string.concat_strings ~sep:";" |> fun str ->
   print_endline str;
   Printf.printf "%s: ...tests finished\n" __MODULE__;
-  s  (* actually return the state *)
+  s  (* actually return the state? *)
+
