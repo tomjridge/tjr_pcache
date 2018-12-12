@@ -2,7 +2,7 @@
 
 (* test  ---------------------------------------------------------- *)
 
-open Tjr_pcache
+(* open Tjr_pcache *)
 open Pcl_types
 
 open Tjr_store

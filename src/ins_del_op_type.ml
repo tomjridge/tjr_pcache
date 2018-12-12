@@ -17,6 +17,7 @@ let op2k = function
    make_dcl_ops function. NOTE the values are ('k,'v)op, not 'v. *)
 type ('k,'v,'map) kvop_map_ops = ('k,('k,'v)op,'map) Tjr_map.map_ops
 
+(* FIXME default kv map, not kvop *)
 let default_kvop_map_ops () = 
   let open Tjr_polymap in
   let open Tjr_map in
