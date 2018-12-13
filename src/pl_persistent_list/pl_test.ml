@@ -41,7 +41,7 @@ let make_pl_test ~store ~data0 ~ptr0 ~next_free_ptr =
 
   let _read_node = Pl_simple_implementation.Write_node.read_node in
 
-  blks_ref,s,Persistent_list.make_persistent_list 
+  (free_ref,pl_ref,blks_ref),s,Persistent_list.make_persistent_list 
     ~monad_ops 
     ~pl_state_ops 
     ~write_node 
@@ -55,7 +55,7 @@ let _ = make_pl_test
 let main () = 
   Printf.printf "%s: tests starting...\n%!" __MODULE__;
   let ptr0 = 0 in
-  let blks_ref,s,ops = make_pl_test
+  let (_,_,blks_ref),s,ops = make_pl_test
       ~store:Tjr_store.initial_store
       ~data0:"Start"
       ~ptr0

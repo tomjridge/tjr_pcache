@@ -15,7 +15,7 @@ let make_dmap_ops
     : ('ptr,'k,'v,'t) dmap_ops
   =
 
-  let map_ops = Ins_del_op_type.default_kvop_map_ops () in
+  let map_ops = Op_aux.default_kvop_map_ops () in
 
   let abs_ops = {
     empty=map_ops.map_empty;
@@ -37,7 +37,7 @@ let _ = make_dmap_ops
 let convert_dmap_ops_to_map_ops ~monad_ops ~dmap_ops =
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in
-  let map_ops = Ins_del_op_type.default_kvop_map_ops () in
+  let map_ops = Op_aux.default_kvop_map_ops () in
   let find k = 
     dmap_ops.peek () >>= fun dcl_state ->
     let map = Tjr_map.map_union ~map_ops ~m1:dcl_state.abs_past ~m2:dcl_state.abs_current in
