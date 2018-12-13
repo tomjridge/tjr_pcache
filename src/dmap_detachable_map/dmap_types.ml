@@ -29,15 +29,18 @@ type ('ptr,'k,'v,'t) dmap_ops =
    'ptr,
    't) dcl_ops
 
+type ('k,'v) dmap_as_map_detach_result = 
+  (('k,('k,'v)op)Tjr_polymap.t * 
+       ('k,('k,'v)op)Tjr_polymap.t)
+
 (** For the detach operation, we get the map upto the current node,
    and the map for the current node *)
 type ('k,'v,'t) dmap_as_map_ops = {
   find: 'k -> ('v option,'t) m;
   insert: 'k -> 'v -> (unit,'t) m;
   delete: 'k -> (unit,'t)m;
-  detach: unit -> 
-    (
-      (('k,('k,'v)op)Tjr_polymap.t * 
-       ('k,('k,'v)op)Tjr_polymap.t),
-      't) m;
+  detach: unit -> ( ('k,'v) dmap_as_map_detach_result, 't) m;
+  block_list_length: unit -> (int,'t)m;
 }
+
+

@@ -64,6 +64,9 @@ let convert_dmap_ops_to_map_ops ~monad_ops ~dmap_ops =
     dmap_ops.detach () >>= fun dcl_state ->
     return (dcl_state.abs_past,dcl_state.abs_current)
   in
-  Dmap_types.{find;insert;delete;detach}
+  let block_list_length () =
+    dmap_ops.block_list_length ()
+  in
+  Dmap_types.{find;insert;delete;detach;block_list_length}
     
       
