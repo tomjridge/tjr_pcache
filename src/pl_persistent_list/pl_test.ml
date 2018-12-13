@@ -13,7 +13,9 @@ module Blks = Tjr_polymap
 open Pl_simple_implementation
 
 let make_pl_test ~store ~data0 ~ptr0 ~next_free_ptr =
-  mk_ref ptr0 store |> fun (s,free_ref) ->
+  (* ptr0 will be used to store the init node *)
+  let free = next_free_ptr ptr0 in
+  mk_ref free store |> fun (s,free_ref) ->
   let with_free f = with_ref free_ref f in
 
   let alloc () = with_free (fun ~state:free ~set_state -> 

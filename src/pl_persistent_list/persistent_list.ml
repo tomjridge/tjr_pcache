@@ -60,7 +60,9 @@ let pl_to_nodes
     read_node ptr blks |> fun (a,next) ->
     match next with 
     | None -> [(ptr,(a,next))]
-    | Some ptr' -> (ptr,(a,next))::(loop ptr')
+    | Some ptr' -> 
+      assert(not(ptr' = ptr));  (* basic sanity check *)
+      (ptr,(a,next))::(loop ptr')
   in
   loop ptr
 

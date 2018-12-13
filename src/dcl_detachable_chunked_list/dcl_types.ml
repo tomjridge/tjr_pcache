@@ -73,20 +73,3 @@ type ('op,'abs,'ptr,'t) dcl_ops = {
 
 
 
-
-
-(* old
-(** The return type of the detach operation
-
-NOTE the type 'abs stands for "abstract ops", ie some abstraction from
-   the list of operations performed so far.
-
-*)
-type ('ptr,'abs) detach_result = {
-  old_ptr:'ptr;
-  old_abs:'abs;
-  new_ptr:'ptr;
-  new_abs:'abs;
-}
-*)
-
