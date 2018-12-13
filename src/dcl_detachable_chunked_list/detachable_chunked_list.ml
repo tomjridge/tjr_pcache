@@ -1,8 +1,6 @@
-(** A persistent cache, used to reduce traffic via the B-tree. NOTE
-   append-only logs are quickest when data must be stored persistently
+(** A "detachable list", with an operation [detach] to drop everything but the current node.
 
     NOTE this code is not concurrent safe. Access must be serialized.
-
 *)
 
 open Tjr_monad.Types
@@ -17,6 +15,7 @@ include Dcl_types
 - [monad_ops], the monadic operations
 - [pcl_ops], the persistent chunked list ops
 - [with_dcl], access the dcl state
+- [abs_ops], operations on the abstract data (see {!Detachable_map} for an example where the abstract data is a map)
 
 *)
 let make_dcl_ops

@@ -2,18 +2,6 @@
    {!Persistent_list}. Automatically create a new node when the
    current fills up.
 
-   We want to avoid repeated serialization. So the representation of
-   the kv is present already as a separate type. We need a function:
-
-   ['repr -> 'kv -> 'repr]
-
-   which extends the 'repr type with another 'kv; we also need a way
-   to check that 'repr fits in the block.
-
-   An alternative is just to allocate a range of blocks contiguously,
-   and write operations into these blocks consecutively. But this is a
-   bit horrible.
-
 NOTE not concurrent safe; access must be serialized.
 
 *)
@@ -26,7 +14,7 @@ include Pcl_types
 
 (** Function to construct a persistent chunked list. Parameters:
 - [pl_ops] The underlying persistent list operations.
-- [pcl_state_ops] The internal state of the pcl.
+- [pcl_state_ops, with_pcl] For the internal state of the pcl.
 *)
 let make_pcl_ops
     ~(monad_ops:'t monad_ops)
@@ -77,7 +65,7 @@ with_pcl:('i, 't) with_state ->
 (** This is just [pl_to_nodes] *)
 let pcl_to_nodes = Persistent_list.pl_to_nodes
 
-(** As [pcl_to_nodes], but for each node we unmarshall the repr *)
+(** As [pcl_to_nodes] *)
 let pcl_to_es_node_list
     ~(read_node:'ptr -> 'blks -> ('a list * 'ptr option))
     ~(ptr:'ptr)
@@ -91,7 +79,7 @@ let pcl_to_es_node_list
 let _ = pcl_to_es_node_list
 
 
-(** Convenience to unmarshal to a list of elt lists *)
+(** Drop pointers from [pcl_to_es_node_list] *)
 let pcl_to_elt_list_list 
   ~read_node 
   ~ptr

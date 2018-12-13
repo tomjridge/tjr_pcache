@@ -10,27 +10,15 @@ This library implements a persistent cache (pcache), i.e., an on-disk
 cache. This should be used with [tjr_btree] to reduce the writes going
 to the B-tree.
 
-{1 Ancestor projects}
-
-This library depends on [tjr_btree] (the GOM -- module {!Gom} -- is
-built on top of the B-tree and the pcache).
-
-{1 Persistent list }
-
-The module {!Persistent_list} implements a persistent list. This is a
-singly-linked on-disk list. The main function is
-{!Persistent_list.make_persistent_list}.
-
-{1 Persistent chunked list}
-
-The module {!Persistent_chunked_list} refines persistent list, by
-exposing that multiple items may be stored in a single block.
-
-{1 Detachable chunked list }
-
-The module {!Detachable_chunked_list} provides the functionality we need from
-the persistent cache, including the detach operation. The main
-function is {!Detachable_chunked_list.make_plog_ops}.
+The main modules are included below.
 
 *)
 
+
+include Persistent_list
+
+include Persistent_chunked_list
+
+include Detachable_chunked_list
+
+include Detachable_map

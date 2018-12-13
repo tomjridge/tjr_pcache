@@ -1,4 +1,4 @@
-(** Another version, more abstract *)
+(** A persistent-on-disk list *)
 
 open Tjr_monad.Types
 include Pl_types
