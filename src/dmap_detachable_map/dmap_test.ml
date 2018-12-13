@@ -91,16 +91,20 @@ let check_bindings bs sofar =
 open Dmap_types
 
 let calculate_bindings ~blks_ref (* ~pl_ref *) ~(dmap_ref:('ptr,'k,'v)dmap_state Tjr_store.Refs.r) ~store =
+  let dmap_state = Tjr_store.get dmap_ref store in
   let blks = Tjr_store.get blks_ref store in
   let read_node = Pl_simple_implementation.Write_node.read_node in
-  let ops_list = Persistent_list.pl_to_list ~read_node ~ptr:ptr0 ~blks in
+  let ops_list = 
+    (* we take the list from the start block, not ptr0 *)
+    let ptr = dmap_state.start_block in
+    Persistent_list.pl_to_list ~read_node ~ptr ~blks 
+  in
   let pl_butlast,pl_last = ops_list |> List.rev |> function
       | x::xs -> List.rev xs,x
       | _ -> failwith __LOC__
   in
   let pl_past = List.concat pl_butlast |> normalize_op_list in
   let pl_current = pl_last |> normalize_op_list in
-  let dmap_state = Tjr_store.get dmap_ref store in
   let dmap_past = dmap_state.abs_past |> Tjr_polymap.bindings in
   let dmap_current = dmap_state.abs_current |> Tjr_polymap.bindings in
   { pl_butlast; pl_last; pl_past; pl_current; dmap_past; dmap_current }
@@ -113,7 +117,7 @@ let exhaustive_check ~depth =
   let num_tests = ref 0 in
   let ks = [1;2;3] in
   (* FIXME could do better with ops *)
-  let ops = (*`Detach::*)
+  let ops = Detach::
             (ks 
              |> List.map (fun k -> [Find(k);Insert(k,2*k);Delete(k)])
              |> List.concat)

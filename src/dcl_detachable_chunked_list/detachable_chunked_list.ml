@@ -57,7 +57,7 @@ let make_dcl_ops
                                                    allocated *)
                           abs_past=abs_ops.empty }
         in
-        set_state new_state >>= fun () -> 
+        set_state new_state >>= fun () ->         
         return s)
   in
   let block_list_length () = 

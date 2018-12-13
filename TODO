@@ -7,3 +7,5 @@
 - change doc to emphasize that this is a general purpose way to
   convert in-mem datastructures to hypbrid in-mem/on-disk
   datastructures
+
+- check detach operation in dmap_tests
