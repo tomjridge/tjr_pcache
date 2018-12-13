@@ -38,6 +38,8 @@ let make_dmap_ops ~store =
 - pl: butlast and last of e list list, map_past and map_current, and their associated bindings
 - dmap: map_past and map_current, and their bindings
 
+We work with bindings so that we can easily compare for equality
+
 *)
 
 type ('k,'v) pl_and_dmap_bindings = {
@@ -63,8 +65,52 @@ let calculate_bindings ~blks_ref (* ~pl_ref *) ~dmap_ref ~store =
   let pl_current' = Op_aux.op_list_to_map last in
   let pl_current = Tjr_polymap.bindings pl_current' in
   let dmap_state = Tjr_store.get dmap_ref store in
-  let dmap_past = dmap_state.abs_past in
-  let dmap_current = dmap_state.abs_current in
+  let dmap_past = dmap_state.abs_past |> Tjr_polymap.bindings in
+  let dmap_current = dmap_state.abs_current |> Tjr_polymap.bindings in
   { pl_past; pl_current; dmap_past; dmap_current }
 
 let _ = calculate_bindings
+
+let run = Tjr_monad.State_passing.run
+
+let exhaustive_check ~depth =
+  let num_tests = ref 0 in
+  let ks = [1;2;3] in
+  (* FIXME could do better with ops *)
+  let ops = `Detach::
+            (ks 
+             |> List.map (fun k -> [`Find(k);`Insert(k,2*k);`Delete(k)])
+             |> List.concat)
+  in
+  let store = Tjr_store.initial_store in
+  let (free_ref,pl_ref,blks_ref,dmap_ref),s,dmap_ops = make_dmap_ops ~store in
+  let map_ops = 
+    Detachable_map.convert_dmap_ops_to_map_ops ~monad_ops ~dmap_ops 
+  in
+  let calculate_bindings = calculate_bindings ~blks_ref ~dmap_ref in
+  (* NOTE d is depth in following *)
+  let rec go1 ~d ~s = go2 ~d ~s ~bindings:(calculate_bindings ~store:s)
+  and go2 ~d ~s ~bindings = 
+    (* for each op, calculate a next state *)
+    ops 
+    |> List.map (fun op -> 
+        match op with
+        | `Detach -> 
+          run ~init_state:s (map_ops.detach ()) |> fun (_,s') -> (op,s')
+        | `Find k -> 
+          run ~init_state:s (map_ops.find k) |> fun (_,s') -> (op,s')
+        | `Insert(k,v) -> 
+          run ~init_state:s (map_ops.insert k v) |> fun (_,s') -> (op,s')
+        | `Delete k -> 
+          run ~init_state:s (map_ops.delete k) |> fun (_,s') -> (op,s'))
+    |> List.iter (fun (op,s') -> 
+        go3 ~d ~s ~bindings ~op ~s' ~bindings':(calculate_bindings ~store:s'))
+  and go3 ~d ~s ~bindings ~op ~s' ~bindings' =
+    (* check and recurse *)
+    num_tests:=!num_tests+1;
+    assert(true);
+    go2 ~d:(d-1) ~s:s' ~bindings:bindings'
+  in
+  go1 ~d:depth ~s
+
+
