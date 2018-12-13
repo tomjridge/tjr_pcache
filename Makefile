@@ -23,8 +23,9 @@ view_doc:
 
 
 run_tests:
-	$(DUNE) exec bin/run_tests.exe
-	$(DUNE) exec bin/test_dcl.exe
+	$(DUNE) exec bin/run_dmap_tests.exe
+#	$(DUNE) exec bin/run_tests.exe
+#	$(DUNE) exec bin/test_dcl.exe
 
 # 
 # run_more_tests:
