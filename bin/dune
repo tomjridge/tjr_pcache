@@ -1,4 +1,4 @@
 (executables
 ;  (names run_tests test_dcl)
   (names run_dmap_tests run_dmap_example)
-  (libraries tjr_pcache))
+  (libraries tjr_pcache core))
