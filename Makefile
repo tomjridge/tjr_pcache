@@ -25,7 +25,7 @@ view_doc:
 
 run_tests:
 	$(DUNE) exec bin/run_dmap_tests.exe
-	$(DUNE) exec bin/run_dmap_example.exe
+	$(DUNE) exec bin/run_dmap_example.exe 100000
 #	$(DUNE) exec bin/run_tests.exe
 #	$(DUNE) exec bin/test_dcl.exe
 
