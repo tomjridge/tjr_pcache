@@ -1,21 +1,16 @@
+(** An example use of the detachable map, for an on-disk persistent
+   cache, with key type int, value type int
 
-(** An example use of the detachable chunked list, for an on-disk
-   persistent cache, with key type int, value type int
+Suppose the block size is B bytes. Then we need xxx bytes (1 for list
+   elt, 1 for option tag, 9 for ptr; xxx=11) for the End_of_list
+   marker.
 
-Suppose the block size is B bytes. Then we need 10 bytes for the
-   End_of_list marker.
-
-- (B-10) bytes are available for data
+- (B-xxx) bytes are available for data
 
 When we write eg Insert(k,v), we potentially use 1+|k|+|v| bytes. We
-   need to be very careful that this doesn't exceed the B-10
+   need to be very careful that this doesn't exceed the B-xxx
    limit. Particularly, if values can be largeish (eg 256 bytes) we
-   need to take great care.
-
-
-*)
-
-(* open Ins_del_op_type *)
+   need to take great care.  *)
 
 
 
@@ -30,12 +25,16 @@ type ('k,'v,'ptr) config = {
   k_size:int;
   v_size:int;
   k_writer: 'k Bin_prot.Type_class.writer;
+  k_reader: 'k Bin_prot.Type_class.reader;
   v_writer: 'v Bin_prot.Type_class.writer;
+  v_reader: 'v Bin_prot.Type_class.reader;
   ptr_writer: 'ptr Bin_prot.Type_class.writer;
-  ptr0:'ptr;
+  ptr_reader: 'ptr Bin_prot.Type_class.reader;
+  ptr0:'ptr; (* initial block *)
   next_free_ptr:'ptr -> 'ptr;
 }
 
+(* xxx *)
 let end_of_list_sz ~config = 1+1+config.ptr_sz   
 (* End_of_list, Some/None, and int ptr; assumes binprot *)
 
@@ -58,6 +57,8 @@ module Elt = struct
 
   let elt_writer ~config = 
     bin_writer_elt config.k_writer config.v_writer config.ptr_writer
+  let elt_reader ~config = 
+    bin_reader_elt config.k_reader config.v_reader config.ptr_reader
 end
 include Elt
 
@@ -100,6 +101,39 @@ let write_node ~config ~blk_dev_ops ~dev (pl_state: 'ptr pl_state) =
   blk_dev_ops.write ~dev ~blk_id:pl_state.current ~blk
 
 let _ = write_node
+
+open Tjr_monad.Types
+
+let read_node ~monad_ops ~config ~blk_dev_ops ~dev ~blk_id =
+  let ( >>= ) = monad_ops.bind in
+  let return = monad_ops.return in
+  blk_dev_ops.read ~dev ~blk_id >>= fun (blk:string) ->
+  let buf = Bin_prot.Common.create_buf config.blk_sz in
+  Bin_prot.Common.unsafe_blit_string_buf ~src_pos:0 blk ~dst_pos:0 buf ~len:config.blk_sz;
+  (* now we convert buf to a seq of elts *)
+  let reader = elt_reader ~config in
+  let rec read pos_ref elts_so_far (* reversed *) =
+    reader.read buf ~pos_ref |> fun (elt:('k,'v,'ptr)elt) -> 
+    match elt with
+    (* read till we reach end_of_list *)
+    | End_of_list ptr_opt -> (List.rev elts_so_far,ptr_opt)
+    | Insert(k,v) -> 
+      let elt = Ins_del_op_type.Insert(k,v) in
+      read pos_ref (elt::elts_so_far)
+    | Delete k -> 
+      let elt = Ins_del_op_type.Delete k in
+      read pos_ref (elt::elts_so_far)
+  in
+  return (read (ref 0) [])
+    
+
+(* FIXME can generalize over string? *)
+let _ :
+monad_ops:'a monad_ops ->
+config:('k, 'v, 'ptr) config ->
+blk_dev_ops:('b, string, 'c, 'a) blk_dev_ops ->
+dev:'c -> blk_id:'b -> (('k, 'v) Ins_del_op_type.op list * 'ptr option, 'a) m
+= read_node
 
 (* let pl_state_ops = Pl_types.{
  *   set_data=(fun data pl_state -> {pl_state with data});
@@ -146,7 +180,7 @@ let pcl_state_ops ~(config:('k,'v,'ptr)config) =
 let _ = pcl_state_ops
 
 
-(* dcl -------------------------------------------------------------- *)
+(* dcl/dmap --------------------------------------------------------- *)
 
 (* nothing to do *)
 
@@ -155,7 +189,7 @@ let _ = pcl_state_ops
 
 
 open Tjr_monad.Types
-open Tjr_monad.State_passing
+(* open Tjr_monad.State_passing *)
 open Ins_del_op_type
 
 let make_pl_ops' ~monad_ops ~write_node ~with_pl ~alloc = 
@@ -174,36 +208,35 @@ let make_pcl_ops' ~monad_ops ~config ~write_node ~alloc ~with_pl ~with_pcl =
     ~monad_ops ~pl_ops ~pcl_state_ops:(pcl_state_ops ~config) ~with_pcl
 
 
-let make_dcl_ops' 
+let make_dmap_ops' 
     ~(monad_ops:'t monad_ops) 
     ~(config:('k,'v,'ptr)config) 
     ~(write_node:('ptr pl_state -> (unit,'t)m))
     ~alloc 
     ~with_pl 
     ~with_pcl 
-    ~with_dcl 
+    ~with_dmap
   =
   let pcl_ops = 
     make_pcl_ops' ~monad_ops ~config ~write_node ~alloc ~with_pl ~with_pcl 
   in
-  Detachable_chunked_list.make_dcl_ops
+  Detachable_map.make_dmap_ops
     ~monad_ops
     ~pcl_ops
-    ~with_dcl
+    ~with_dmap
 
 let _ :
 monad_ops:'t monad_ops ->
 config:('k, 'v, 'ptr) config ->
 write_node:('ptr pl_state -> (unit, 't) m) ->
 alloc:(unit -> ('ptr, 't) m) ->
-with_pl:('ptr pl_state, 't) with_state ->
+with_pl:((buf * int, 'ptr) Pl_simple_implementation.pl_state, 't) with_state ->
 with_pcl:(pcl_state, 't) with_state ->
-with_dcl:((('k, ('k, 'v) op) Tjr_polymap.t, 'ptr) Dcl_types.dcl_state, 't)
-         with_state ->
-('k, 'v, ('k, ('k, 'v) op) Tjr_polymap.t, 'ptr, 't) Dcl_types.dcl_ops
-= make_dcl_ops'
+with_dmap:(('ptr, 'k, 'v) Detachable_map.dmap_state, 't) with_state ->
+('ptr, 'k, 'v, 't) Detachable_map.dmap_ops
+= make_dmap_ops'
 
-let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops ()
+(* let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () *)
 
 open Store_passing
 
@@ -211,7 +244,7 @@ open Store_passing
 (* with fun store --------------------------------------------------- *)
 
 (** Construct dcl ops on top of a functional store. *)
-let make_dcl_ops_with_fun_store 
+let make_dmap_ops_with_fun_store 
     ~(config:('k,'v,'ptr)config) 
     ~write_node 
     ~store 
@@ -219,7 +252,7 @@ let make_dcl_ops_with_fun_store
   let open Tjr_store in
   (* get some refs *)
   let ptr0 = config.ptr0 in
-  mk_ref ptr0 store |> fun (s,free_ref) ->
+  mk_ref (config.next_free_ptr ptr0) store |> fun (s,free_ref) ->
   let with_free f = with_ref free_ref f in
 
   let data = (Bin_prot.Common.create_buf config.blk_sz,0) in
@@ -235,37 +268,37 @@ let make_dcl_ops_with_fun_store
   mk_ref pcl_state s |> fun (s,pcl_ref) ->
   let with_pcl f = with_ref pcl_ref f in
 
-  let kvop_map_ops = Ins_del_op_type.default_kvop_map_ops () in
+  let kvop_map_ops = Op_aux.default_kvop_map_ops () in
   let empty_map = kvop_map_ops.map_empty in
-  let dcl_state = Dcl_types.{
+  let dmap_state = Dcl_types.{
       start_block=ptr0;
       current_block=ptr0;
       block_list_length=1;
-      map_past=empty_map;
-      map_current=empty_map
+      abs_past=empty_map;
+      abs_current=empty_map
     } 
   in
-  mk_ref dcl_state s |> fun (s,dcl_ref) ->
-  let with_dcl f = with_ref dcl_ref f in
+  mk_ref dmap_state s |> fun (s,dmap_ref) ->
+  let with_dmap f = with_ref dmap_ref f in
 
   let alloc () = with_free (fun ~state:free ~set_state -> 
       let free' = config.next_free_ptr free in
       set_state free' >>= fun () ->
       return free)
   in
-  let dcl_ops = 
-    make_dcl_ops'
+  let dmap_ops = 
+    make_dmap_ops'
       ~monad_ops
       ~config
       ~write_node
       ~alloc
       ~with_pl:{with_state=with_pl}
       ~with_pcl:{with_state=with_pcl}
-      ~with_dcl:{with_state=with_dcl}
+      ~with_dmap:{with_state=with_dmap}
   in
-  s,dcl_ops
+  s,dmap_ops
 
-let _ = make_dcl_ops_with_fun_store
+let _ = make_dmap_ops_with_fun_store
 
 
 (* on file ---------------------------------------------------------- *)
@@ -274,18 +307,18 @@ let _ = make_dcl_ops_with_fun_store
 
 open Blk_dev
 
-
-let make_dcl_ops_on_file ~monad_ops ~config ~fn = 
+let make_dmap_ops_on_file ~monad_ops ~config ~fn = 
   (* NOTE the following uses ptr=int *)
   let blk_dev_ops = 
     Blk_dev_on_file.make_blk_dev_on_file ~monad_ops ~blk_sz:config.blk_sz in
   let fd = Tjr_fs_shared.File_util.fd_from_file ~fn ~create:true ~init:true in
   let write_node = write_node ~config ~blk_dev_ops ~dev:fd in
   let store = Tjr_store.initial_store in
-  let store,dcl_ops = make_dcl_ops_with_fun_store ~config ~write_node ~store in
-  fd,store,dcl_ops
+  let store,dmap_ops = 
+    make_dmap_ops_with_fun_store ~config ~write_node ~store in
+  fd,store,dmap_ops
 
-let _ = make_dcl_ops_on_file
+let _ = make_dmap_ops_on_file
 
 
 (* example, int int ------------------------------------------------- *)
@@ -295,9 +328,7 @@ open Tjr_monad.State_passing
 
 let int_int_config = 
   let writer = Bin_prot.Type_class.bin_writer_int in
-  let k_writer = writer in
-  let v_writer = writer in
-  let ptr_writer = writer in
+  let reader = Bin_prot.Type_class.bin_reader_int in
   let ptr0 = 0 in
   let next_free_ptr = fun p -> p+1 in
   {
@@ -305,22 +336,56 @@ let int_int_config =
     blk_sz=4096;
     k_size=9;
     v_size=9;
-    k_writer;
-    v_writer;
-    ptr_writer;
+    k_writer=writer;
+    k_reader=reader;
+    v_writer=writer;
+    v_reader=reader;
+    ptr_writer=writer;
+    ptr_reader=reader;
     ptr0;
     next_free_ptr
   }
 
-let test_dcl_ops_on_file ~fn ~count = 
-  let config = int_int_config in
-  let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () in
-  let fd,store,dcl_ops = make_dcl_ops_on_file ~monad_ops ~config ~fn in
+let config = int_int_config
+
+let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops ()
+
+let blk_dev_on_file = 
+  Blk_dev_on_file.make_blk_dev_on_file ~monad_ops ~blk_sz:config.blk_sz
+
+let test_dmap_ops_on_file ~fn ~count = 
+  let fd,store,dmap_ops = make_dmap_ops_on_file ~monad_ops ~config ~fn in
   let s = ref store in
   List.iter
     (fun i -> 
-       run ~init_state:(!s) (dcl_ops.add (Insert(i,2*i)))
+       run ~init_state:(!s) (dmap_ops.add (Insert(i,2*i)))
        |> fun (_,s') -> s:=s')       
-    (Tjr_list.from_to 1 count)
-  
-  
+    (Tjr_list.from_to 1 count);
+  Unix.close fd
+
+
+
+(* read data from file ------------------------------------------------ *)
+let _ = read_node
+
+let read_node ~dev ~blk_id = 
+  read_node ~monad_ops ~config ~blk_dev_ops:blk_dev_on_file ~dev ~blk_id
+
+let read_back ~fn =
+  (* let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () in *)
+  let fd = Tjr_fs_shared.File_util.fd_from_file ~fn ~create:false ~init:false in
+  let read_node ptr blks = read_node ~dev:fd ~blk_id:ptr in
+  let read_node ptr blks =
+    read_node ptr blks 
+    |> run ~init_state:Tjr_store.initial_store
+    |> fun (ess,_) -> ess
+  in
+  let _ = read_node in
+  let ess = 
+    Persistent_chunked_list.pcl_to_elt_list_list
+      ~read_node ~ptr:config.ptr0 ~blks:() 
+  in
+  Unix.close fd;
+  ess
+
+let _ = read_back

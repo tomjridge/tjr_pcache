@@ -7,3 +7,4 @@
 _build/
 /test/.merlin
 /test_dcl_ops.store
+/dmap_example.store

@@ -2,9 +2,9 @@
 open Tjr_store
 open Store_passing
 
-let ptr0 = 0
 
 let make_dmap_ops ~store = 
+  let ptr0 = 0 in
   let (free_ref,pl_ref,blks_ref),s,pl_ops = 
     Pl_test.make_pl_test 
       ~store 
@@ -129,9 +129,14 @@ let exhaustive_check ~depth =
   in
   let calculate_bindings = calculate_bindings ~blks_ref ~dmap_ref in
   (* NOTE d is depth in following *)
-  let rec go1 ~d ~s = go2 ~d ~s ~bindings:(calculate_bindings ~store:s) ~sofar:[]
-  and go2 ~d ~s ~bindings ~sofar = 
+  let rec go1 ~d ~s = 
+    (* always check any new calculated bindings *)
+    let bindings = calculate_bindings ~store:s in
+    let sofar = [] in
     check_bindings bindings sofar;
+    num_tests:=!num_tests+1;
+    go2 ~d ~s ~bindings ~sofar
+  and go2 ~d ~s ~bindings ~sofar = 
     match d <= 0 with
     | true -> ()
     | false -> (* for each op, calculate a next state *)
@@ -147,12 +152,18 @@ let exhaustive_check ~depth =
           | Delete k -> 
             run ~init_state:s (map_ops.delete k) |> fun (_,s') -> (op,s'))
       |> List.iter (fun (op,s') -> 
-          go3 ~d ~s ~bindings ~op ~s' ~bindings':(calculate_bindings ~store:s') ~sofar)
+          let bindings' = calculate_bindings ~store:s' in
+          let sofar = sofar@[op] in
+          check_bindings bindings' sofar;
+          num_tests:=!num_tests+1;
+          go3 ~d ~s ~bindings ~op ~s' ~bindings' ~sofar)
   and go3 ~d ~s ~bindings ~op ~s' ~bindings' ~sofar =
-    (* check and recurse *)
-    num_tests:=!num_tests+1;
-    assert(true);
-    check_bindings bindings' (sofar@[op]);
+    go2 ~d:(d-1) ~s:s' ~bindings:bindings' ~sofar
+  in
+  go1 ~d:depth ~s;
+  Printf.printf "%s: number of tests: %d\n%!" __MODULE__ (!num_tests)
+
+
 (*    let bs = bindings' in
     Printf.printf "Depth of bindings: %d %d %d %d %d \n%!" 
       d
@@ -160,8 +171,5 @@ let exhaustive_check ~depth =
       (List.length bs.pl_current)
       (List.length bs.dmap_past)
       (List.length bs.dmap_current); *)
-    go2 ~d:(d-1) ~s:s' ~bindings:bindings' ~sofar:(sofar@[op])
-  in
-  go1 ~d:depth ~s
 
 

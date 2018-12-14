@@ -91,3 +91,6 @@ let pcl_to_elt_list_list
     ~ptr
     ~blks
   |> List.map (fun (ptr,(es,_)) -> es)
+
+
+let _ = pcl_to_elt_list_list

@@ -1,7 +1,5 @@
 -*- org -*-
 
-- prefer tjr exhaustive testing to make_checked_dcl_ops
-
 - at the moment pcl combines contents-as-list with marshalling; split?
 
 - change doc to emphasize that this is a general purpose way to
@@ -9,3 +7,7 @@
   datastructures
 
 - check detach operation in dmap_tests
+
+
+- factor out common code from tests and examples, so it is easier to
+  instantiate this library
