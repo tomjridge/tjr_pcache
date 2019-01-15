@@ -33,7 +33,7 @@ let abs_singleton ~abs_ops op = abs_ops.add op abs_ops.empty
 - [abs_current] is the abstract view of ops for the current block
 
 NOTE unlike Pl and Pcl, we have a concrete type for the state, since
-we don't expect to have any extra info stored at this point. But
+we don't expect to have any extra info stored at this point. (FIXME what about dcl_dummy_implementation where we need to store all ptrs?) But
 perhaps we can avoid some of these extra type params if we keep dcl
 state abstract as ['dcl_state]. But this seems unlikely.
 
