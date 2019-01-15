@@ -1,7 +1,12 @@
+(** A dmap is effectively just a DCL. However, we also include
+   functionality to convert to a standard map interface (not one based
+   on ops). *)
+
 open Tjr_monad.Types
 open Dcl_types
 open Ins_del_op_type
 
+(** NOTE dmap_state is just an abbreviation for dcl_state *)
 type ('ptr,'k,'v) dmap_state = 
   ('ptr,
    ('k,('k,'v)op)Tjr_polymap.t) dcl_state
@@ -22,7 +27,7 @@ let internal_ ~(ptr:'ptr) ~(abs:('k,('k,'v)op)Tjr_polymap.t) =
              ('k,('k,'v)op)Tjr_polymap.t) dcl_state = _x in
   ()
 
-
+(** NOTE dmap_ops is just an abbreviation for dcl_ops *)
 type ('ptr,'k,'v,'t) dmap_ops = 
   (('k,'v) op, (* 'op *)
    ('k,('k,'v)op)Tjr_polymap.t,  (* 'abs *)
