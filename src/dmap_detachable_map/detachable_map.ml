@@ -39,7 +39,6 @@ let make_dmap_ops
 
 let _ = make_dmap_ops
   
-  
 
 let convert_dmap_ops_to_map_ops ~monad_ops ~dmap_ops =
   let ( >>= ) = monad_ops.bind in
@@ -62,7 +61,9 @@ let convert_dmap_ops_to_map_ops ~monad_ops ~dmap_ops =
   let delete k = dmap_ops.add (Delete k) in
   let detach () = 
     dmap_ops.detach () >>= fun dcl_state ->
-    return (dcl_state.abs_past,dcl_state.abs_current)
+    return { past_map=dcl_state.abs_past;
+             current_map=dcl_state.abs_current;
+             current_ptr=dcl_state.current_block }
   in
   let block_list_length () =
     dmap_ops.block_list_length ()
