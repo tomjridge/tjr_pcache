@@ -1,6 +1,8 @@
-(** A dummy implementation of the dmap_as_map interface, for testing. 
+(** A dummy implementation of the dmap_as_map interface, for testing.
 
-For block_list_length, we store the number of ops and perform some silly calculation.
+For block_list_length, we store the number of ops and perform some
+   silly calculation to simulate moving to a new block.
+
 *)
 
 open Tjr_map
@@ -31,7 +33,9 @@ end
 
 open Dummy_state
 
-let make_dmap_as_map_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr = 
+let make_dmap_as_map_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr 
+  : ('k,'v,'ptr,'t)Dmap_types.dmap_as_map_ops 
+  = 
   let return = monad_ops.return in
   let ( >>= ) = monad_ops.bind in
   let map_ops = Op_aux.default_kvop_map_ops () in
