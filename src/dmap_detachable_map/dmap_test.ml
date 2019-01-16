@@ -3,7 +3,7 @@ open Tjr_store
 open Store_passing
 
 
-let make_dmap_ops ~store = 
+let make_dmap_dcl_ops ~store = 
   let ptr0 = 0 in
   let (free_ref,pl_ref,blks_ref),s,pl_ops = 
     Pl_test.make_pl_test 
@@ -24,13 +24,13 @@ let make_dmap_ops ~store =
   in
   let s,dmap_ref = mk_ref dcl_state0 s in
   let with_dmap f = Store_passing.with_ref dmap_ref f in
-  let dmap_ops = 
-    Detachable_map.make_dmap_ops
+  let dmap_dcl_ops = 
+    Detachable_map.make_dmap_dcl_ops
       ~monad_ops
       ~pcl_ops
       ~with_dmap:{with_state=with_dmap}
   in
-  (free_ref,pl_ref,blks_ref,dmap_ref),s,dmap_ops
+  (free_ref,pl_ref,blks_ref,dmap_ref),s,dmap_dcl_ops
 
 
 (* for a given state, we need to calculate:
@@ -123,9 +123,9 @@ let exhaustive_check ~depth =
              |> List.concat)
   in
   let store = Tjr_store.initial_store in
-  let (free_ref,pl_ref,blks_ref,dmap_ref),s,dmap_ops = make_dmap_ops ~store in
+  let (free_ref,pl_ref,blks_ref,dmap_ref),s,dmap_dcl_ops = make_dmap_dcl_ops ~store in
   let map_ops = 
-    Detachable_map.convert_dmap_ops_to_map_ops ~monad_ops ~dmap_ops 
+    Detachable_map.convert_dcl_to_dmap ~monad_ops ~dmap_dcl_ops 
   in
   let calculate_bindings = calculate_bindings ~blks_ref ~dmap_ref in
   (* NOTE d is depth in following *)

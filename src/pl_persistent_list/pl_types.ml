@@ -7,7 +7,14 @@ open Tjr_monad.Types
    subsequently). For [new_node], the ptr is the ptr of the new block,
    and the second argument is the data. 
 
-    NOTE the type ['a] is the type of the data stored in each node.
+
+NOTE the type ['a] is the type of the data stored in each node.
+
+Type variables:
+
+- ['a] the type of data stored in pl nodes
+- ['ptr] the type of pointers to nodes; each node has an optional next pointer
+- ['i] the internal state of the persistent list FIXME rename?
 
 *)
 type ('a,'ptr,'i) pl_state_ops = {
@@ -20,8 +27,11 @@ type ('a,'ptr,'i) pl_state_ops = {
 
 (* FIXME rename plist *)
 
-(** The operations provided by the persistent list. [replace_last]
-   replaces the contents of the last element of the list. [new_node]
+(** The operations provided by the persistent list. 
+
+- [replace_last]
+   replaces the contents of the last element of the list. 
+- [new_node]
    allocates a new node at the end of the list and makes it the
    "current" node. *)
 type ('a,'ptr,'t) pl_ops = {

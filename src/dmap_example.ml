@@ -208,7 +208,7 @@ let make_pcl_ops' ~monad_ops ~config ~write_node ~alloc ~with_pl ~with_pcl =
     ~monad_ops ~pl_ops ~pcl_state_ops:(pcl_state_ops ~config) ~with_pcl
 
 
-let make_dmap_ops' 
+let make_dmap_dcl_ops' 
     ~(monad_ops:'t monad_ops) 
     ~(config:('k,'v,'ptr)config) 
     ~(write_node:('ptr pl_state -> (unit,'t)m))
@@ -220,7 +220,7 @@ let make_dmap_ops'
   let pcl_ops = 
     make_pcl_ops' ~monad_ops ~config ~write_node ~alloc ~with_pl ~with_pcl 
   in
-  Detachable_map.make_dmap_ops
+  Detachable_map.make_dmap_dcl_ops
     ~monad_ops
     ~pcl_ops
     ~with_dmap
@@ -233,8 +233,8 @@ alloc:(unit -> ('ptr, 't) m) ->
 with_pl:((buf * int, 'ptr) Pl_simple_implementation.pl_state, 't) with_state ->
 with_pcl:(pcl_state, 't) with_state ->
 with_dmap:(('ptr, 'k, 'v) Detachable_map.dmap_state, 't) with_state ->
-('ptr, 'k, 'v, 't) Detachable_map.dmap_ops
-= make_dmap_ops'
+('ptr, 'k, 'v, 't) Detachable_map.dmap_dcl_ops
+= make_dmap_dcl_ops'
 
 (* let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () *)
 
@@ -287,7 +287,7 @@ let make_dmap_ops_with_fun_store
       return free)
   in
   let dmap_ops = 
-    make_dmap_ops'
+    make_dmap_dcl_ops'
       ~monad_ops
       ~config
       ~write_node

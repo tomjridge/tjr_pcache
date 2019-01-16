@@ -33,8 +33,8 @@ end
 
 open Dummy_state
 
-let make_dmap_as_map_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr 
-  : ('k,'v,'ptr,'t)Dmap_types.dmap_as_map_ops 
+let make_dmap_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr 
+  : ('k,'v,'ptr,'t)Dmap_types.dmap_ops 
   = 
   let return = monad_ops.return in
   let ( >>= ) = monad_ops.bind in

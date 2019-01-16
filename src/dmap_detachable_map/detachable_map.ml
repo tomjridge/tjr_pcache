@@ -8,11 +8,11 @@ open Detachable_chunked_list
 
 include Dmap_types
 
-let make_dmap_ops 
+let make_dmap_dcl_ops 
     ~monad_ops 
     ~(pcl_ops:('op,'ptr,'t)pcl_ops) 
     ~(with_dmap:(('ptr,'k,'v)dmap_state,'t) Tjr_monad.With_state.with_state) 
-  : ('ptr,'k,'v,'t) dmap_ops
+  : ('ptr,'k,'v,'t) dmap_dcl_ops
   (* : (('k,'v)op,'abs,'ptr,'t)dcl_ops *)
   =
 
@@ -37,15 +37,15 @@ let make_dmap_ops
   make_dcl_ops ~monad_ops ~pcl_ops ~with_dcl:with_dmap ~abs_ops
 
 
-let _ = make_dmap_ops
+let _ = make_dmap_dcl_ops
   
 
-let convert_dmap_ops_to_map_ops ~monad_ops ~dmap_ops =
+let convert_dcl_to_dmap ~monad_ops ~dmap_dcl_ops =
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in
   let map_ops = Op_aux.default_kvop_map_ops () in
   let find k = 
-    dmap_ops.peek () >>= fun dcl_state ->
+    dmap_dcl_ops.peek () >>= fun dcl_state ->
     let map = Tjr_map.map_union ~map_ops ~m1:dcl_state.abs_past ~m2:dcl_state.abs_current in
     let v = 
       match map_ops.map_find k map with
@@ -57,16 +57,16 @@ let convert_dmap_ops_to_map_ops ~monad_ops ~dmap_ops =
     in        
     return v
   in
-  let insert k v = dmap_ops.add (Insert(k,v)) in
-  let delete k = dmap_ops.add (Delete k) in
+  let insert k v = dmap_dcl_ops.add (Insert(k,v)) in
+  let delete k = dmap_dcl_ops.add (Delete k) in
   let detach () = 
-    dmap_ops.detach () >>= fun dcl_state ->
+    dmap_dcl_ops.detach () >>= fun dcl_state ->
     return { past_map=dcl_state.abs_past;
              current_map=dcl_state.abs_current;
              current_ptr=dcl_state.current_block }
   in
   let block_list_length () =
-    dmap_ops.block_list_length ()
+    dmap_dcl_ops.block_list_length ()
   in
   Dmap_types.{find;insert;delete;detach;block_list_length}
     
