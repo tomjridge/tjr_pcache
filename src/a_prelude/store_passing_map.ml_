@@ -1,5 +1,6 @@
 (** Spec of dmap - just a map *)
 
+(*
 (* open Tjr_monad.Types *)
 open Tjr_store
 open Store_passing
@@ -22,3 +23,4 @@ let make_store_passing_map ~store  =
   in
   Map_ops.{find;insert;delete}
   
+*)

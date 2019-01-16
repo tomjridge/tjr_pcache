@@ -1,4 +1,5 @@
-(** A monad which passes a functional store. FIXME move elsewhere? *)
+(** A monad which passes a functional store. FIXME move elsewhere?
+   NOTE used for testing dmap etc, but common in other repos *)
 
 open Tjr_monad
 open Monad_ops

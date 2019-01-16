@@ -8,6 +8,8 @@ operations against the B-tree.
 
 * Documentation
 
+NOTE the main documentation entry point is module `Tjr_pcache_doc`. 
+
 See https://tomjridge.github.io/tjr_imp_build_script/
 
 * Dependencies
