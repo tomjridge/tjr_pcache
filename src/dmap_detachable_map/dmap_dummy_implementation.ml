@@ -33,7 +33,7 @@ end
 
 open Dummy_state
 
-let make_dmap_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr 
+let make_dmap_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr
   : ('k,'v,'ptr,'t)Dmap_types.dmap_ops 
   = 
   let return = monad_ops.return in
@@ -52,7 +52,7 @@ let make_dmap_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr
   in
   let maybe_move_to_new_block s = 
     match s.op_count_current > ops_per_block with
-    | true -> alloc_ptr >>= fun ptr -> return {
+    | true -> alloc_ptr () >>= fun ptr -> return {
         map_current=map_ops.map_empty; 
         op_count_current=0;
         ptr_current=ptr;

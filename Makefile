@@ -18,6 +18,7 @@ clean:
 
 doc: FORCE
 	$(DUNE) build @doc
+	rm -rf /tmp/tjr_pcache
 	cp -R _build/default/_doc/_html /tmp/tjr_pcache  # so we don't lose it on clean
 
 view_doc:
