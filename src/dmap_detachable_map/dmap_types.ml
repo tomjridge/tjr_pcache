@@ -4,9 +4,9 @@
 
 open Tjr_monad.Types
 open Dcl_types
-(* open Ins_del_op_type *)
+open Ins_del_op_type 
 
-type ('k,'v) op = ('k,'v) Ins_del_op_type.op
+(* type ('k,'v) op = ('k,'v) Ins_del_op_type.op *)
 
 (** Abbreviation; FIXME move to Ins_del_op_type *)
 type ('k,'v) op_map = ('k,('k,'v)op)Tjr_polymap.t
