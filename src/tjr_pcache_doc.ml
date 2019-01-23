@@ -4,7 +4,7 @@
 
 (**
 
-{1 Introduction}
+{2 Introduction}
 
 This library implements a persistent cache (pcache), i.e., an on-disk
 cache. This should be used with [tjr_btree] to reduce the writes going
