@@ -311,7 +311,7 @@ let make_dmap_ops_on_file ~monad_ops ~config ~fn =
   (* NOTE the following uses ptr=int *)
   let blk_dev_ops = 
     Blk_dev_on_file.make_blk_dev_on_file ~monad_ops ~blk_sz:config.blk_sz in
-  let fd = Tjr_fs_shared.File_util.fd_from_file ~fn ~create:true ~init:true in
+  let fd = Tjr_file.fd_from_file ~fn ~create:true ~init:true in
   let write_node = write_node ~config ~blk_dev_ops ~dev:fd in
   let store = Tjr_store.initial_store in
   let store,dmap_ops = 
@@ -373,7 +373,7 @@ let read_node ~dev ~blk_id =
 
 let read_back ~fn =
   (* let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () in *)
-  let fd = Tjr_fs_shared.File_util.fd_from_file ~fn ~create:false ~init:false in
+  let fd = Tjr_file.fd_from_file ~fn ~create:false ~init:false in
   let read_node ptr blks = read_node ~dev:fd ~blk_id:ptr in
   let read_node ptr blks =
     read_node ptr blks 
