@@ -14,10 +14,7 @@ bug-reports: "https://github.com/tomjridge/tjr_pcache/issues"
 depends: [
   "yojson"
   "ppx_deriving_yojson"
-  "tjr_lib"
   "tjr_fs_shared"
-  "tjr_monad"
-  "tjr_polymap"
 ]
 
 # ----------------------------------------------------------------------
