@@ -21,10 +21,12 @@ let _ =
   let time = now() - now1 in
   Printf.printf "finished in %d\n%!" time
 
+(*
 let pow =
   let rec pow' a x n =
     if n = 0 then a else pow' (a * (if n mod 2 = 0 then 1 else x)) (x * x) (n / 2) in
   pow' 1
+*)
 
 let _ =
   Printf.printf "%s: starting read... %!" __MODULE__;

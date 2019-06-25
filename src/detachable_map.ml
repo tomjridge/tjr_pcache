@@ -5,7 +5,6 @@
 open Pcache_intf
 open Pcl_types
 open Dcl_types
-(* open Detachable_chunked_list *)
 
 open Dmap_types
 

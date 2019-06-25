@@ -1,7 +1,8 @@
-(** A "detachable list", with an operation [detach] to drop everything but the current node.
+(** A "detachable list", with an operation [detach] to drop everything
+   but the current node.
 
     NOTE this code is not concurrent safe. Access must be serialized.
-*)
+   *)
 
 open Pcache_intf
 open Pcl_types
