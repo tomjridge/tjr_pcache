@@ -4,7 +4,7 @@
 NOTE not concurrent safe; access must be serialized.
  *)
 
-open Tjr_monad.Types
+
 (* open Tjr_monad.Mref *)
 open Tjr_monad.With_state
 include Pl_types

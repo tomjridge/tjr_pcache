@@ -1,19 +1,9 @@
-(** Blocks and block devices *)
-open Tjr_monad.Monad_ops
-
-type ('blk_id,'blk,'dev,'t) blk_dev_ops = {
-  write:
-    dev:'dev -> 
-    blk_id:'blk_id -> 
-    blk:'blk -> 
-    (unit,'t) m;
-  read:
-    dev:'dev -> 
-    blk_id:'blk_id -> 
-    ('blk,'t) m;
-}
-
 (** A basic implementation of a block device; runtime checks for correct block size *)
+
+(* open Store_passing *)
+open Tjr_pcache.Pcache_intf
+
+(* FIXME there is a version of this in fs_shared *)
 module Blk_dev_on_file = struct
 
   type fd = Unix.file_descr
@@ -51,7 +41,7 @@ module Blk_dev_on_file = struct
     let write ~dev:fd ~blk_id ~blk = 
       return (write ~fd ~blk_sz ~blk_id ~blk)
     in
-    {write;read}
+    { write;read }
 
   let _ = make_blk_dev_on_file
 

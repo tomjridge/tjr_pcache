@@ -3,11 +3,9 @@
     NOTE this code is not concurrent safe. Access must be serialized.
 *)
 
-open Tjr_monad.Types
-open Tjr_monad.With_state
-
+open Pcache_intf
 open Pcl_types
-include Dcl_types
+open Dcl_types
 
 
 (** Construct the dcl operations. Parameters:

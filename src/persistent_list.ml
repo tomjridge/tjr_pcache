@@ -1,7 +1,8 @@
 (** A persistent-on-disk list *)
 
-open Tjr_monad.Types
-include Pl_types
+
+open Pcache_intf
+open Pcache_intf.Pl_types
 
 let make_persistent_list 
     ~monad_ops

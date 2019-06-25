@@ -11,7 +11,7 @@ See notes in TESTING
 
 *)
 
-open Tjr_monad.Types
+
 open Tjr_monad.State_passing
 
 open Tjr_pcache

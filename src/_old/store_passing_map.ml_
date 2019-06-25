@@ -1,7 +1,7 @@
 (** Spec of dmap - just a map *)
 
 (*
-(* open Tjr_monad.Types *)
+
 open Tjr_store
 open Store_passing
 

@@ -6,10 +6,10 @@ NOTE not concurrent safe; access must be serialized.
 
 *)
 
-open Tjr_monad.Types
-open Tjr_monad.With_state
+
+open Pcache_intf
 open Pl_types
-include Pcl_types
+open Pcl_types
 
 
 (** Function to construct a persistent chunked list. Parameters:

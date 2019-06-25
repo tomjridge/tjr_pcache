@@ -1,22 +1,20 @@
 (** A monad which passes a functional store. FIXME move elsewhere?
    NOTE used for testing dmap etc, but common in other repos *)
 
-open Tjr_monad
-open Monad_ops
-open State_passing
-open Tjr_store
-
-let monad_ops : Tjr_store.t state_passing monad_ops = 
-  Tjr_monad.State_passing.monad_ops'
+let monad_ops = Fstore_passing.monad_ops
 
 let ( >>= ) = monad_ops.bind 
 let return = monad_ops.return
 
 
-let with_ref r f = Tjr_monad.State_passing.with_state
+(* FIXME? used to have an f argument *)
+let with_ref r = Fstore_passing.fstore_ref_to_with_state r
+
+(*
     ~get:(fun x -> get r x) 
     ~set:(fun s t -> set r s t)
     ~f
+*)
 
 (*
 let mk_ref' v = 

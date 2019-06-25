@@ -12,7 +12,8 @@ When we write eg Insert(k,v), we potentially use 1+|k|+|v| bytes. We
    limit. Particularly, if values can be largeish (eg 256 bytes) we
    need to take great care.  *)
 
-
+open Pcache_intf.Blk_dev_ops
+open Pcache_intf.Ins_del_op
 
 type buf = Bin_prot.Common.buf
 let create_buf = Bin_prot.Common.create_buf
@@ -85,11 +86,12 @@ at the pcl level, again we can take
  *   next: 'ptr option
  * } *)
 
-open Blk_dev
+open Blk_dev_on_file
+open Simple_pl_and_pcl_implementations
 
-open Pl_simple_implementation  (* record aux fns *)
-type 'ptr pl_state = (buf*int,'ptr) Pl_simple_implementation.pl_state
-let pl_state_ops = Pl_simple_implementation.pl_state_ops
+open Pl_impl  (* record aux fns *)
+type 'ptr pl_state = (buf*int,'ptr) Pl_impl.pl_state
+let pl_state_ops = Pl_impl.pl_state_ops
 
 let write_node ~config ~blk_dev_ops ~dev (pl_state: 'ptr pl_state) =
   let buf,pos = pl_state.data in
@@ -102,7 +104,7 @@ let write_node ~config ~blk_dev_ops ~dev (pl_state: 'ptr pl_state) =
 
 let _ = write_node
 
-open Tjr_monad.Types
+
 
 let read_node ~monad_ops ~config ~blk_dev_ops ~dev ~blk_id =
   let ( >>= ) = monad_ops.bind in
@@ -112,16 +114,17 @@ let read_node ~monad_ops ~config ~blk_dev_ops ~dev ~blk_id =
   Bin_prot.Common.unsafe_blit_string_buf ~src_pos:0 blk ~dst_pos:0 buf ~len:config.blk_sz;
   (* now we convert buf to a seq of elts *)
   let reader = elt_reader ~config in
+  let open Pcache_intf.Ins_del_op in
   let rec read pos_ref elts_so_far (* reversed *) =
     reader.read buf ~pos_ref |> fun (elt:('k,'v,'ptr)elt) -> 
     match elt with
     (* read till we reach end_of_list *)
     | End_of_list ptr_opt -> (List.rev elts_so_far,ptr_opt)
     | Insert(k,v) -> 
-      let elt = Ins_del_op_type.Insert(k,v) in
+      let elt = Insert(k,v) in
       read pos_ref (elt::elts_so_far)
     | Delete k -> 
-      let elt = Ins_del_op_type.Delete k in
+      let elt = Delete k in
       read pos_ref (elt::elts_so_far)
   in
   return (read (ref 0) [])
@@ -132,7 +135,7 @@ let _ :
 monad_ops:'a monad_ops ->
 config:('k, 'v, 'ptr) config ->
 blk_dev_ops:('b, string, 'c, 'a) blk_dev_ops ->
-dev:'c -> blk_id:'b -> (('k, 'v) Ins_del_op_type.op list * 'ptr option, 'a) m
+dev:'c -> blk_id:'b -> (('k, 'v) op list * 'ptr option, 'a) m
 = read_node
 
 (* let pl_state_ops = Pl_types.{
@@ -151,9 +154,9 @@ type pcl_state = {
 
 let pcl_state_ops ~(config:('k,'v,'ptr)config) = 
   assert(config.k_size + config.v_size+1 <= max_data_length ~config);
-  Pcl_types.{
+  Pcache_intf.Pcl_types.{
     nil=(fun () -> {data=(create_buf config.blk_sz,0)});
-    snoc=(fun pcl_state (e:('k,'v)Ins_del_op_type.op) -> 
+    snoc=(fun pcl_state (e:('k,'v)op) -> 
         (* remember that we have to leave 10 bytes for the
            "End_of_list" marker *)        
         let buf,pos = pcl_state.data in
@@ -188,9 +191,9 @@ let _ = pcl_state_ops
 (* everything ------------------------------------------------------- *)
 
 
-open Tjr_monad.Types
+
 (* open Tjr_monad.State_passing *)
-open Ins_del_op_type
+(* open Ins_del_op_type *)
 
 let make_pl_ops' ~monad_ops ~write_node ~with_pl ~alloc = 
   Persistent_list.make_persistent_list
@@ -230,10 +233,10 @@ monad_ops:'t monad_ops ->
 config:('k, 'v, 'ptr) config ->
 write_node:('ptr pl_state -> (unit, 't) m) ->
 alloc:(unit -> ('ptr, 't) m) ->
-with_pl:((buf * int, 'ptr) Pl_simple_implementation.pl_state, 't) with_state ->
+with_pl:((buf * int, 'ptr) Pl_impl.pl_state, 't) with_state ->
 with_pcl:(pcl_state, 't) with_state ->
-with_dmap:(('ptr, 'k, 'v) Detachable_map.dmap_state, 't) with_state ->
-('ptr, 'k, 'v, 't) Detachable_map.dmap_dcl_ops
+with_dmap:(('ptr, 'k, 'v) Pcache_intf.Dmap_types.dmap_state, 't) with_state ->
+('ptr, 'k, 'v, 't) Pcache_intf.Dmap_types.dmap_dcl_ops
 = make_dmap_dcl_ops'
 
 (* let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () *)
@@ -253,7 +256,7 @@ let make_dmap_ops_with_fun_store
   (* get some refs *)
   let ptr0 = config.ptr0 in
   mk_ref (config.next_free_ptr ptr0) store |> fun (s,free_ref) ->
-  let with_free f = with_ref free_ref f in
+  let with_free = with_ref free_ref in
 
   let data = (Bin_prot.Common.create_buf config.blk_sz,0) in
   let pl_state = { 

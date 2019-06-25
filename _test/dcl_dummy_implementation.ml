@@ -4,7 +4,7 @@
 NOTE the layered implementation is in {! Detachable_chunked_list }.
  *)
 
-open Tjr_monad.Types
+
 open Ins_del_op_type
 open Dcl_types
 
