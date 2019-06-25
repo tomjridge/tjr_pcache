@@ -10,6 +10,9 @@ let return = monad_ops.return
 (* FIXME? used to have an f argument *)
 let with_ref r = Fstore_passing.fstore_ref_to_with_state r
 
+let run ~init_state m = 
+  (sp_to_fun m) init_state
+
 (*
     ~get:(fun x -> get r x) 
     ~set:(fun s t -> set r s t)

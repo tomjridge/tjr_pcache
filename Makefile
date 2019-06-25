@@ -2,9 +2,12 @@ TMP_DOC_DIR:=/tmp/tjr_pcache
 scratch:=/tmp/l/github/scratch
 
 default: all
-	dune build example/dmap_example.exe
+	dune build example/run_dmap_example.exe
 
 -include Makefile.ocaml
+
+run_dmap_example:
+	time dune exec example/run_dmap_example.exe 1e6
 
 # test: FORCE
 # 	dune build test/test_main.exe

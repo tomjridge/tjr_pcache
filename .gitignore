@@ -1,10 +1,6 @@
-/src/META
-/src/*.odoc
 /dune-project
-/src/.merlin
-/bin/.merlin
 /tjr_pcache.install
 _build/
-/test/.merlin
 /test_dcl_ops.store
 /dmap_example.store
+.merlin

@@ -144,4 +144,7 @@ end
 
 (** {2 Internal, for testing} *)
 
+module Op_aux = Op_aux
+
 module Simple_pl_and_pcl_implementations = Simple_pl_and_pcl_implementations
+

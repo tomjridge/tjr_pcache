@@ -12,6 +12,7 @@ When we write eg Insert(k,v), we potentially use 1+|k|+|v| bytes. We
    limit. Particularly, if values can be largeish (eg 256 bytes) we
    need to take great care.  *)
 
+open Pcache_intf
 open Pcache_intf.Blk_dev_ops
 open Pcache_intf.Ins_del_op
 
@@ -241,7 +242,8 @@ with_dmap:(('ptr, 'k, 'v) Pcache_intf.Dmap_types.dmap_state, 't) with_state ->
 
 (* let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () *)
 
-open Store_passing
+
+open Pcache_store_passing
 
 
 (* with fun store --------------------------------------------------- *)
@@ -265,14 +267,14 @@ let make_dmap_ops_with_fun_store
     next=None }
   in
   mk_ref pl_state s |> fun (s,pl_ref) ->
-  let with_pl f = with_ref pl_ref f in
+  let with_pl = with_ref pl_ref in
 
   let pcl_state = { data } in
   mk_ref pcl_state s |> fun (s,pcl_ref) ->
-  let with_pcl f = with_ref pcl_ref f in
+  let with_pcl = with_ref pcl_ref in
 
   let kvop_map_ops = Op_aux.default_kvop_map_ops () in
-  let empty_map = kvop_map_ops.map_empty in
+  let empty_map = kvop_map_ops.empty in
   let dmap_state = Dcl_types.{
       start_block=ptr0;
       current_block=ptr0;
@@ -282,9 +284,9 @@ let make_dmap_ops_with_fun_store
     } 
   in
   mk_ref dmap_state s |> fun (s,dmap_ref) ->
-  let with_dmap f = with_ref dmap_ref f in
+  let with_dmap = with_ref dmap_ref in
 
-  let alloc () = with_free (fun ~state:free ~set_state -> 
+  let alloc () = with_free.with_state (fun ~state:free ~set_state -> 
       let free' = config.next_free_ptr free in
       set_state free' >>= fun () ->
       return free)
@@ -295,9 +297,9 @@ let make_dmap_ops_with_fun_store
       ~config
       ~write_node
       ~alloc
-      ~with_pl:{with_state=with_pl}
-      ~with_pcl:{with_state=with_pcl}
-      ~with_dmap:{with_state=with_dmap}
+      ~with_pl
+      ~with_pcl
+      ~with_dmap
   in
   s,dmap_ops
 
@@ -308,7 +310,7 @@ let _ = make_dmap_ops_with_fun_store
 
 (** Construct write_node on top of a blk_dev *)
 
-open Blk_dev
+(* open Blk_dev_on_file *)
 
 let make_dmap_ops_on_file ~monad_ops ~config ~fn = 
   (* NOTE the following uses ptr=int *)
@@ -326,8 +328,7 @@ let _ = make_dmap_ops_on_file
 
 (* example, int int ------------------------------------------------- *)
 
-open Tjr_monad.Monad_ops
-open Tjr_monad.State_passing
+(* open Tjr_monad.State_passing *)
 
 let int_int_config = 
   let writer = Bin_prot.Type_class.bin_writer_int in
@@ -351,7 +352,7 @@ let int_int_config =
 
 let config = int_int_config
 
-let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops ()
+(* let monad_ops = Pcache_store_passing.monad_ops *)
 
 let blk_dev_on_file = 
   Blk_dev_on_file.make_blk_dev_on_file ~monad_ops ~blk_sz:config.blk_sz
@@ -359,11 +360,10 @@ let blk_dev_on_file =
 let test_dmap_ops_on_file ~fn ~count = 
   let fd,store,dmap_ops = make_dmap_ops_on_file ~monad_ops ~config ~fn in
   let s = ref store in
-  List.iter
+  List_.from_to 1 count |> List.iter
     (fun i -> 
-       run ~init_state:(!s) (dmap_ops.add (Insert(i,2*i)))
-       |> fun (_,s') -> s:=s')       
-    (Tjr_list.from_to 1 count);
+       Pcache_store_passing.run ~init_state:(!s) (dmap_ops.add (Insert(i,2*i)))
+       |> fun (_,s') -> s:=s');
   Unix.close fd
 
 
@@ -377,10 +377,10 @@ let read_node ~dev ~blk_id =
 let read_back ~fn =
   (* let monad_ops : Tjr_store.t state_passing monad_ops = monad_ops () in *)
   let fd = Tjr_file.fd_from_file ~fn ~create:false ~init:false in
-  let read_node ptr blks = read_node ~dev:fd ~blk_id:ptr in
+  let read_node ptr _blks = read_node ~dev:fd ~blk_id:ptr in
   let read_node ptr blks =
     read_node ptr blks 
-    |> run ~init_state:Tjr_store.initial_store
+    |> Pcache_store_passing.run ~init_state:Tjr_store.initial_store
     |> fun (ess,_) -> ess
   in
   let _ = read_node in

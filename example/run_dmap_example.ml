@@ -1,14 +1,18 @@
 (** Test the dmap backed by a file *)
-open Tjr_pcache
+(* open Tjr_pcache *)
 
+(* allow float representation *)
+let int_of_string s = 
+  float_of_string_opt s |> function
+  | None -> int_of_string s
+  | Some f -> int_of_float f
+
+(* FIXME use config *)
 let fn = "dmap_example.store"
 let count = int_of_string Sys.argv.(1)
 
-let now =
-  Core.(fun () ->
-      Time_stamp_counter.(now () |> to_time_ns)
-      |>Time_ns.to_int63_ns_since_epoch 
-      |>Int63.to_int_exn)
+let now = Core.Time_stamp_counter.(fun () ->
+    now () |> to_int63 |> Core.Int63.to_int |> fun (Some x) -> x)[@ocaml.warning "-8"]
 
 let _ = 
   Printf.printf "%s: starting write... %!" __MODULE__;
