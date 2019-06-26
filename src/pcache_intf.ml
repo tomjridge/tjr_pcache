@@ -285,3 +285,12 @@ module Dmap_types = struct
 
 
 end
+
+(* NOTE use merlin to get the collection of all types, without ocamldoc *)
+module Internal_collection_of_all_types = struct
+  include Map_ops
+  include Pl_types
+  include Pcl_types
+  include Dcl_types
+  include Dmap_types
+end

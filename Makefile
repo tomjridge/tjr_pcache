@@ -7,7 +7,7 @@ default: all
 -include Makefile.ocaml
 
 run_dmap_example:
-	time dune exec example/run_dmap_example.exe 1e6
+	time dune exec example/run_dmap_example.exe 1e5
 
 # test: FORCE
 # 	dune build test/test_main.exe
