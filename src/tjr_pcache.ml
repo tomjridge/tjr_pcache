@@ -76,6 +76,9 @@ module Generic_make_functor = struct
     end
 
     let dmap_ops = Internal.dmap_ops
+                     
+    (** Execute this before closing the persistent list/dmap *)
+    let pl_sync = Internal.pl_ops.pl_sync
   end
 end
 

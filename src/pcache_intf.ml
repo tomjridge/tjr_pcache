@@ -80,10 +80,15 @@ module Pl_types = struct
         replaces the contents of the last element of the list. 
       - [new_node]
         allocates a new node at the end of the list and makes it the
-        "current" node. *)
+        "current" node. 
+      - [pl_sync] force a write to disk; a disk write happens automatically when allocating a new node;
+        this forces a possibly-partial node to disk
+
+  *)
   type ('a,'ptr,'t) pl_ops = {
     replace_last: 'a -> (unit,'t) m;
     new_node: 'a -> ('ptr,'t) m;  (* NOTE we return the ptr to the new node *)
+    pl_sync: unit -> (unit,'t) m; 
   }
 end
 (* NOTE don't include *)

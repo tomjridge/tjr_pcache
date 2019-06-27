@@ -18,8 +18,12 @@ let make_persistent_list
   let replace_last (a:'a) =
     with_pl (fun ~state:s ~set_state ->
         set_data a s |> fun s' ->
-        write_node s' >>= fun () ->
+        (* write_node s' >>= fun () -> don't write on every change *)
         set_state s')
+  in
+  let pl_sync () = 
+    with_pl (fun ~state:s ~set_state ->
+        write_node s)
   in
   let new_node (a:'a) = 
     alloc () >>= fun new_ptr ->
@@ -35,7 +39,7 @@ let make_persistent_list
         set_state s' >>= fun () ->
         return new_ptr)
   in
-  Pl_types.{ replace_last; new_node }
+  Pl_types.{ replace_last; new_node; pl_sync }
 
 (* NOTE how the impl type 'i disappears in the following, except for
    write_node *)

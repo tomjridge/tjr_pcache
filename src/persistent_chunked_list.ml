@@ -25,7 +25,7 @@ let make_pcl_ops
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in
   let with_pcl = with_pcl.with_state in
-  let { replace_last; new_node } = pl_ops in
+  let { replace_last; new_node; pl_sync } = pl_ops in
   let { nil;snoc;pl_data } = pcl_state_ops in
   let insert (e:'e) = 
     with_pcl (fun ~state:s ~set_state ->         

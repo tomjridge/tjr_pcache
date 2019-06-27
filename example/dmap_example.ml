@@ -313,6 +313,7 @@ end
 module Pcache : sig 
   val make_dmap_on_file :
     fn:string -> Unix.file_descr * fstore * (int, int, ptr, fstore_passing) Dmap_types.dmap_ops
+  val pl_sync : unit -> (unit, fstore_passing) m
 end = struct
   module Internal2 = struct
     include Tjr_pcache.Generic_make_functor.Make(S)
@@ -331,6 +332,8 @@ end = struct
   end
 
   let make_dmap_on_file = Internal2.make_dmap_on_file
+
+  let pl_sync = Internal2.pl_sync
 end
 
 
@@ -347,6 +350,7 @@ module Test = struct
          profiler.mark "za";
          Pcache_store_passing.run ~init_state:(!s) (dmap_ops.insert i (2*i))
          |> fun (_,s') -> profiler.mark "zb"; s:=s');
+    Pcache_store_passing.run ~init_state:!s (Pcache.pl_sync ()) |> fun ((),_s') -> ();
     profiler.print_summary();
     Unix.close fd
 
