@@ -17,4 +17,4 @@ run_dmap_example:
 
 # for auto-completion of Makefile target
 clean::
-	rm dmap_example.store
+	rm -f dmap_example.store

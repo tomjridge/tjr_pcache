@@ -1,29 +1,27 @@
-opam-version: "2.0"
-name: "tjr_pcache"
-version: "0.0.1"
+opam-version : "2.0"
+name         : "tjr_pcache"
+version      : "0.0.1"
+synopsis     : "Persistent cache (part of ImpFS)"
 
 # ----------------------------------------------------------------------
 
-authors: "Tom Ridge <tom.j.ridge@googlemail.com>"
-maintainer: "Tom Ridge <tom.j.ridge@googlemail.com>"
-homepage: "https://github.com/tomjridge/tjr_pcache"
-bug-reports: "https://github.com/tomjridge/tjr_pcache/issues"
+authors      : "Tom Ridge <tom.j.ridge@googlemail.com>"
+maintainer   : "Tom Ridge <tom.j.ridge@googlemail.com>"
+homepage     : "https://github.com/tomjridge/tjr_pcache"
+bug-reports  : "https://github.com/tomjridge/tjr_pcache/issues"
+dev-repo     : "git+https://github.com/tomjridge/tjr_pcache.git"
 
 # ----------------------------------------------------------------------
 
 depends: [
   "yojson"
   "ppx_deriving_yojson"
+  "ppx_bin_prot"
   "tjr_fs_shared"
 ]
 
 # ----------------------------------------------------------------------
 
 build: [
-#  ["dune" "subst"] {pinned}
   ["dune" "build" "-p" name "-j" jobs]
 ]
-
-# install: [make "install"]
-
-# remove: [make "uninstall"]
