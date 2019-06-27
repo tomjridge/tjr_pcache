@@ -1,0 +1,7 @@
+(library
+  (name tjr_pcache_test)
+  (public_name tjr_pcache_test)
+  (preprocess (pps ppx_deriving_yojson))
+  (flags (:standard  -open Tjr_monad -open Tjr_lib -open Tjr_fs_shared -open Tjr_pcache -open Tjr_pcache.Pcache_intf )) 
+  (libraries tjr_pcache)
+)

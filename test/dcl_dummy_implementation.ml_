@@ -5,7 +5,7 @@ NOTE the layered implementation is in {! Detachable_chunked_list }.
  *)
 
 
-open Ins_del_op_type
+open Ins_del_op
 open Dcl_types
 
 (** NOTE for pointers, we make sure to allocate a new pointer every

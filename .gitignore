@@ -5,3 +5,4 @@ _build/
 /dmap_example.store
 .merlin
 /tjr_pcache_example.install
+/tjr_pcache_test.install
