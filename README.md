@@ -18,7 +18,20 @@ There is an executable `run_dmap_example.exe` . See the Makefile for how to run.
 
 To build and install using dune, type `make`. This assumes you have already installed the dependencies.
 
-Alternatively, just opam pin this repo.
+Alternatively, just opam pin this repo and the dependencies:
+
+~~~
+opam install -y dune ocamlfind odoc
+opam pin add -y -n tjr_lib_core https://github.com/tomjridge/tjr_lib.git
+opam pin add -y -n tjr_lib https://github.com/tomjridge/tjr_lib.git
+opam pin add -y -n tjr_monad https://github.com/tomjridge/tjr_monad.git
+opam pin add -y -n tjr_profile https://github.com/tomjridge/tjr_profile.git
+opam pin add -y -n tjr_fs_shared https://github.com/tomjridge/tjr_fs_shared.git
+opam pin add -y -n tjr_pcache https://github.com/tomjridge/tjr_pcache.git
+opam pin add -y -n tjr_pcache_example https://github.com/tomjridge/tjr_pcache.git
+opam install -y tjr_pcache tjr_pcache_example
+~~~
+
 
 ## Example
 
