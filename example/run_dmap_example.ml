@@ -19,12 +19,20 @@ let count = int_of_string Sys.argv.(1)
 
 let _ = 
   profile_function "run_dmap_example" @@ fun () -> 
-  Dmap_example.test_dmap_ops_on_file ~fn ~count
+  Dmap_example.Test.test_dmap_ops_on_file ~fn ~count
+
+module Internal = struct
+  type t = (int,int)Pcache_intf.op list list[@@deriving yojson]
+end
 
 let _ =
   profile_function "read" @@ fun () -> 
-  Dmap_example.read_back ~fn |> fun ess ->
+  Dmap_example.Internal_read_node.read_back ~fn |> fun ess ->
   Printf.printf "read back %d ops\n%!" (List.length (List.concat ess))
+(*
+  Printf.sprintf "Read back: %s\n" (ess |> Internal.to_yojson |> Yojson.Safe.pretty_to_string) |> fun s ->
+  Tjr_file.write_string_to_file ~fn:"tmp.txt" s
+*)
 
 let _ = 
   Tjr_profile.(!string_profiler.print_summary())
