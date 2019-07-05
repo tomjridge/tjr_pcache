@@ -80,11 +80,11 @@ open Config
 
 module Fstore = struct
   
-  let _fstore = ref Tjr_store.initial_store
+  let _fstore = ref (Tjr_store.empty_fstore ~allow_reset:false ())
 
   let alloc_fstore_ref = 
     fun x -> 
-    Tjr_store.mk_ref x !_fstore |> fun (store',r) ->
+    Tjr_store.mk_ref x !_fstore |> fun (r,store') ->
     _fstore:=store';
     r
 
@@ -209,7 +209,7 @@ module Internal_read_node = struct
     let read_node ptr _blks = read_node ~dev:fd ~blk_id:ptr in
     let read_node ptr blks =
       read_node ptr blks 
-      |> Pcache_store_passing.run ~init_state:Tjr_store.initial_store
+      |> Pcache_store_passing.run ~init_state:(Tjr_store.empty_fstore ())
       |> fun (ess,_) -> ess
     in
     let _ = read_node in
