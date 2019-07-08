@@ -20,15 +20,26 @@ open Pcache_intf.Ins_del_op
 
 open Pcache_store_passing
 
-let blk_sz = 4096
-
 type buf = Bin_prot.Common.buf
 let create_buf = Bin_prot.Common.create_buf
 
+module Pcl_internal_state = struct
+  type pcl_internal_state = {
+    pcl_data:buf*int;  (* NOTE this is the same as pl_data *)
+  }
+end
+(* open Pcl_internal_state *)
+
+
+(* blk ptr *)
 type ptr = int
 
-
+(** Various other bits of configuration (typically how to marshal k,v etc) *)
 module Config = struct
+
+  let ptr0 = 0 
+
+  let blk_sz = 4096
 
   type ('k,'v,'ptr) config = {
     ptr_sz:int;
@@ -77,24 +88,39 @@ end
 open Config
 
 
+(** Track the various bits of state by using a functional store:
 
+- free (free block ptr)
+- fd (block device via file descriptor)
+- pl  
+- pcl  
+- dmap
+
+*)
 module Fstore = struct
   
-  let _fstore = ref (Tjr_store.empty_fstore ~allow_reset:false ())
-
-  let alloc_fstore_ref = 
-    fun x -> 
-    Tjr_store.mk_ref x !_fstore |> fun (r,store') ->
-    _fstore:=store';
-    r
-
+  (* NOTE we allow_reset, but only for fd_ref (and free ref?) *)
+  module R = Tjr_store.Make_imperative_fstore(struct let allow_reset=true end)
   (* initial block number *)
-  let ptr0 = 0 
-  let free_ref = alloc_fstore_ref (config.next_free_ptr ptr0)
+  let free_ref = R.ref (config.next_free_ptr ptr0)
+
+  let fd_ref = R.ref (None:Unix.file_descr option)
+  let pl_ref = R.mk_uref ~name:"pl_ref" 
+  let pcl_ref = R.mk_uref ~name:"pcl_ref"
+  let dmap_ref = R.mk_uref ~name:"dmap_ref"
+
   let with_free = with_ref free_ref
+  let with_fd = with_ref fd_ref 
+  let with_pl = with_ref pl_ref
+  let with_pcl = with_ref pcl_ref
+  let with_dmap = with_ref dmap_ref
 
 end
 open Fstore
+
+
+
+
 
 
 module Pcl_elt = struct
@@ -131,9 +157,11 @@ at the pcl level, again we can take
   open Simple_pl_and_pcl_implementations
   type pl_data = buf*int
   type pl_internal_state = (pl_data,ptr) Pl_impl.pl_state
+      
+  
+  let _ = 
+    R.(pl_ref := Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None})
 
-  let pl_ref = alloc_fstore_ref Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None}
-  let with_pl = with_ref pl_ref
   let pl_state_ops = Pl_impl.pl_state_ops
 
   let blk_dev_ops = 
@@ -155,13 +183,12 @@ at the pcl level, again we can take
   let _ = write_node
 
   (* assume the fd is stored in the fstore *)
-  let fd_ref = alloc_fstore_ref (None:Unix.file_descr option)
-  let with_fd = with_ref fd_ref
-
   let write_node pl_state = 
     with_fd.with_state (fun ~state:fd ~set_state:_ -> 
         let fd = fd |> dest_Some in
         write_node ~config ~blk_dev_ops ~dev:fd pl_state)
+
+  let with_pl = with_pl
 end
 
 
@@ -224,14 +251,9 @@ module Internal_read_node = struct
 end
 
 
-
-
 module Pcl_impl = struct
 
-  type pcl_internal_state = {
-    pcl_data:buf*int;  (* NOTE this is the same as pl_data *)
-  }
-
+  include Pcl_internal_state
   (* type e = (k,v)Pcache_intf.op *)
   
   let pcl_state_ops ~(config:('k,'v,'ptr)config) = 
@@ -264,27 +286,27 @@ module Pcl_impl = struct
 
   let pcl_state_ops = pcl_state_ops ~config 
 
-  let pcl_ref = alloc_fstore_ref {pcl_data=(create_buf blk_sz,0)}
-  let with_pcl = with_ref pcl_ref
+  let _ = 
+    R.(pcl_ref := {pcl_data=(create_buf blk_sz,0)})
+
+  let with_pcl = with_pcl
 end
 
 
 module With_dmap = struct
   open Pcache_intf.Dcl_types
 
-  let dmap_ref = 
+  let _ =  
     (* FIXME this should be elsewhere *)
     let kvop_map_ops = Op_aux.default_kvop_map_ops () in
     let empty_map = kvop_map_ops.empty in
-    alloc_fstore_ref 
-      { start_block=ptr0;
-        current_block=ptr0;
-        block_list_length=1;
-        abs_past=empty_map;
-        abs_current=empty_map }
+    R.(dmap_ref := { start_block=ptr0;
+                     current_block=ptr0;
+                     block_list_length=1;
+                     abs_past=empty_map;
+                     abs_current=empty_map })
 
-  let with_dmap : ((ptr,int,int)Dmap_types.dmap_state,fstore_passing)with_state = with_ref dmap_ref
-  let _ = dmap_ref
+  let with_dmap = with_dmap
 end
 
 module S = struct
@@ -319,10 +341,10 @@ end = struct
     include Tjr_pcache.Generic_make_functor.Make(S)
 
     (** NOTE this needs to have the fd set before use *)
-    let initial_store = ref (!Fstore._fstore)
+    let initial_store = R.fstore
 
     let set_fd_in_initial_store ~fd = 
-      !initial_store |> Tjr_store.set Pl_impl.fd_ref (Some fd) |> fun s ->
+      !initial_store |> Tjr_store.set fd_ref (Some fd) |> fun s ->
       initial_store:=s
 
     let make_dmap_on_file ~fn =
@@ -335,6 +357,9 @@ end = struct
 
   let pl_sync = Internal2.pl_sync
 end
+
+
+
 
 
 module Test = struct
@@ -355,4 +380,5 @@ module Test = struct
     Unix.close fd
 
 end
+
 
