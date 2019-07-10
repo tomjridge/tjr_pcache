@@ -12,7 +12,11 @@ When we write eg Insert(k,v), we potentially use 1+|k|+|v| bytes. We
    limit. Particularly, if values can be largeish (eg 256 bytes) we
    need to take great care.  *)
 
-open Tjr_profile.Util.Profiler
+(* open Tjr_profile.Util.Profiler *)
+let _ = Tjr_profile_with_core.initialize()
+
+let profiler = Tjr_profile.make_string_profiler ()
+let mark = profiler.mark
 
 open Pcache_intf
 open Pcache_intf.Blk_dev_ops
@@ -365,9 +369,7 @@ end
 module Test = struct
 
   let test_dmap_ops_on_file ~fn ~count = 
-    let open Util in
-    let profiler = Tjr_profile.make_string_profiler ~now in
-    Util.profile_function "test_dmap_ops_on_file" @@ fun () -> 
+    profiler.time_function "test_dmap_ops_on_file" @@ fun () -> 
     let fd,store,dmap_ops = Pcache.make_dmap_on_file ~fn in
     let s = ref store in
     List_.from_to 1 count |> List.iter

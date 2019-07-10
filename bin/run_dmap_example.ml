@@ -1,10 +1,7 @@
 (** Test the dmap backed by a file *)
-(* open Tjr_pcache *)
-(* open Tjr_profile.Util.Profiler *)
-open Util
 
-  
-let _ = Tjr_profile.(string_profiler := make_string_profiler ~now) 
+let profiler = Tjr_profile.make_string_profiler ()  
+
 
 (* allow float representation *)
 let int_of_string s = 
@@ -18,7 +15,7 @@ let count = int_of_string Sys.argv.(1)
 
 
 let _ = 
-  profile_function "run_dmap_example" @@ fun () -> 
+  profiler.time_function "run_dmap_example" @@ fun () -> 
   Dmap_example.Test.test_dmap_ops_on_file ~fn ~count
 
 module Internal = struct
@@ -26,7 +23,7 @@ module Internal = struct
 end
 
 let _ =
-  profile_function "read" @@ fun () -> 
+  profiler.time_function "read_back" @@ fun () -> 
   Dmap_example.Internal_read_node.read_back ~fn |> fun ess ->
   Printf.printf "read back %d ops\n%!" (List.length (List.concat ess))
 (*
@@ -34,8 +31,6 @@ let _ =
   Tjr_file.write_string_to_file ~fn:"tmp.txt" s
 *)
 
-let _ = 
-  Tjr_profile.(!string_profiler.print_summary())
   
 (*
 let open open Ins_del_op_type in
@@ -56,23 +51,4 @@ let open open Ins_del_op_type in
       | _ -> ()
     )
     ess''
-*)
-
-(*
-
-100k in 2.2s
-
-1M:
-Run_dmap_example: starting write... finished in 27924296012  
-ie 27 s to write
-
-Run_dmap_example: starting read...  read back 1000000 ops in 189117339
-.18s to read
-
-*)
-(*
-let pow =
-  let rec pow' a x n =
-    if n = 0 then a else pow' (a * (if n mod 2 = 0 then 1 else x)) (x * x) (n / 2) in
-  pow' 1
 *)

@@ -3,4 +3,4 @@
   (public_name tjr_pcache_example)
   (preprocess (pps ppx_bin_prot ppx_deriving_yojson))
   (flags (:standard  -open Tjr_monad -open Tjr_lib -open Tjr_fs_shared -open Tjr_pcache )) 
-  (libraries tjr_pcache bin_prot ppx_bin_prot core tjr_profile))
+  (libraries tjr_pcache bin_prot ppx_bin_prot core tjr_profile tjr_profile_with_core))
