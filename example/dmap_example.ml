@@ -15,8 +15,19 @@ When we write eg Insert(k,v), we potentially use 1+|k|+|v| bytes. We
 (* open Tjr_profile.Util.Profiler *)
 let _ = Tjr_profile_with_core.initialize()
 
-let profiler = Tjr_profile.make_string_profiler ()
-let mark = profiler.mark
+
+let _ = 
+  Persistent_list.profiler := Tjr_profile.make_string_profiler();
+  Persistent_chunked_list.profiler := Tjr_profile.make_string_profiler();
+  Detachable_chunked_list.profiler := Tjr_profile.make_string_profiler();
+  Detachable_map.profiler := Tjr_profile.make_string_profiler()
+
+
+
+let write_profiler = 
+  Tjr_profile.dummy_profiler
+  (* Tjr_profile.make_string_profiler () *)
+(* let mark = profiler.mark *)
 
 open Pcache_intf
 open Pcache_intf.Blk_dev_ops
@@ -37,6 +48,27 @@ end
 
 (* blk ptr *)
 type ptr = int
+
+
+(*
+module Test_config = struct
+
+  module C = struct
+   
+    type config = {
+      block_writes: bool
+      (** we may want to disable block writes, in order to assess the time spent writing to disk *)
+    }
+
+    let default_config = Some { block_writes=true }
+  end
+
+  module D = Tjr_config.Make(C)
+   
+
+end
+*)
+
 
 (** Various other bits of configuration (typically how to marshal k,v etc) *)
 module Config = struct
@@ -171,18 +203,25 @@ at the pcl level, again we can take
   let blk_dev_ops = 
     Blk_dev_on_file.make_blk_dev_on_file ~monad_ops ~blk_sz 
 
+  let write_count = ref 0
+
+  let _ = Pervasives.at_exit (fun () -> 
+      Printf.printf "Blk write count: %d\n" !write_count)
+
   let write_node ~config ~blk_dev_ops ~dev (pl_state: pl_internal_state) =
-    mark "ab";
+    let mark = write_profiler.mark in
+    mark "start";
     let buf,pos = pl_state.data in
     let eol = End_of_list pl_state.next in
     let _pos = (elt_writer ~config).write buf ~pos eol in
     (* FIXME could be more efficient if we wrote direct to disk without
        going via string *)
-    mark "ac";
+    mark "buf2string";
     let blk = Core.Bigstring.to_string buf in
-    mark "bc";
+    mark "buf2string'";
     blk_dev_ops.write ~dev ~blk_id:pl_state.current ~blk >>= fun x ->
-    mark "cd"; return x
+    incr write_count;
+    mark "end"; return x
 
   let _ = write_node
 
@@ -368,18 +407,32 @@ end
 
 module Test = struct
 
+  let profiler1 = Tjr_profile.make_string_profiler()
+
   let test_dmap_ops_on_file ~fn ~count = 
-    profiler.time_function "test_dmap_ops_on_file" @@ fun () -> 
+    profiler1.mark "begin";
     let fd,store,dmap_ops = Pcache.make_dmap_on_file ~fn in
     let s = ref store in
-    List_.from_to 1 count |> List.iter
-      (fun i -> 
-         profiler.mark "za";
-         Pcache_store_passing.run ~init_state:(!s) (dmap_ops.insert i (2*i))
-         |> fun (_,s') -> profiler.mark "zb"; s:=s');
-    Pcache_store_passing.run ~init_state:!s (Pcache.pl_sync ()) |> fun ((),_s') -> ();
-    profiler.print_summary();
-    Unix.close fd
+    profiler1.mark "start inserts";
+    1 |> List_.iter_break 
+           (fun i -> 
+              match i > count with
+              | true -> `Break ()
+              | false -> 
+                profiler1.mark "test_ins";
+                Pcache_store_passing.run ~init_state:(!s) (dmap_ops.insert i (2*i))
+                |> fun (_,s') -> profiler1.mark "test_ins'"; s:=s';
+                `Continue (i+1));
+    profiler1.mark "end";
+    profiler1.time_function "final_sync" (fun () -> 
+      Pcache_store_passing.run ~init_state:!s (Pcache.pl_sync ()) |> fun ((),_s') -> ());
+    Unix.close fd;
+    Printf.printf "\nTop-level profiler\n";profiler1.print_summary();
+    Printf.printf "\nWrite profiler\n";write_profiler.print_summary();
+    Printf.printf "\nPl profiler\n";!Persistent_list.profiler.print_summary();
+    Printf.printf "\nPcl profiler\n";!Persistent_chunked_list.profiler.print_summary();
+    Printf.printf "\nDcl profiler\n";!Detachable_chunked_list.profiler.print_summary();
+    Printf.printf "\nDmap profiler\n";!Detachable_map.profiler.print_summary()
 
 end
 

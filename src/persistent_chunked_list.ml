@@ -12,6 +12,9 @@ open Pl_types
 open Pcl_types
 
 
+let profiler = ref Tjr_profile.dummy_profiler
+               |> Global.register ~name:"pcl_profiler"
+
 (** Function to construct a persistent chunked list. Parameters:
 - [pl_ops] The underlying persistent list operations.
 - [pcl_state_ops, with_pcl] For the internal state of the pcl.
@@ -27,14 +30,30 @@ let make_pcl_ops
   let with_pcl = with_pcl.with_state in
   let { replace_last; new_node; pl_sync } = pl_ops in
   let { nil;snoc;pl_data } = pcl_state_ops in
+  let mark = !profiler.mark in
+  let profile_m s m = 
+    return () >>= fun () -> 
+    mark s;
+    m >>= fun r ->
+    mark (s^"'");
+    return r
+  in
+
   let insert (e:'e) = 
-    with_pcl (fun ~state:s ~set_state ->         
+    profile_m "pcl_insert" @@ with_pcl (fun ~state:s ~set_state ->         
+        mark "ab";
         snoc s e |> function
         | `Ok s' -> 
-          replace_last (pl_data s') >>= fun () ->
+          mark "ac";
+          pl_data s' |> fun data ->
+          mark "ad";          
+          replace_last data >>= fun () ->
+          mark "ae";
           set_state s' >>= fun () ->
+          mark "bc";
           return Inserted_in_current_node
         | `Error_too_large ->
+          mark "cd";
           (* we can't fit this new elt; so make a new node and try again *)
           snoc (nil()) e |> function 
           | `Error_too_large -> 
@@ -46,6 +65,7 @@ let make_pcl_ops
                pointer in the old node *)
             new_node (pl_data s') >>= fun ptr ->            
             set_state s' >>= fun () ->
+            mark "de";
             return (Inserted_in_new_node ptr))
   in
   { insert }

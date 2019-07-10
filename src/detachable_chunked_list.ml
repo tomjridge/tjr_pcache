@@ -8,6 +8,8 @@ open Pcache_intf
 open Pcl_types
 open Dcl_types
 
+let profiler = ref Tjr_profile.dummy_profiler
+               |> Global.register ~name:"dcl_profiler"
 
 (** Construct the dcl operations. Parameters:
 
@@ -27,9 +29,17 @@ let make_dcl_ops
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in  
   let with_dcl = with_dcl.with_state in
+  let mark = !profiler.mark in
+  let profile_m s m = 
+    return () >>= fun () -> 
+    mark s;
+    m >>= fun r ->
+    mark (s^"'");
+    return r
+  in
   (* ASSUME start_block is initialized and consistent with pcl_state *)
   let add op =
-    with_dcl (fun ~state:s ~set_state -> 
+    profile_m "dcl_add" @@ with_dcl (fun ~state:s ~set_state -> 
         pcl_ops.insert op >>= function
         | Inserted_in_current_node ->
           set_state { s with abs_current=abs_ops.add op s.abs_current }
@@ -46,21 +56,21 @@ let make_dcl_ops
   in
   let detach () =  
     with_dcl (fun ~state:s ~set_state -> 
-        (* we need to adjust the start block and the map_past - we are
-           forgetting everything in previous blocks *)
-        let new_state = { s with 
-                          start_block=s.current_block; 
-                          block_list_length=1;  (* NOTE current block may be
-                                                   empty, but still
-                                                   allocated *)
-                          abs_past=abs_ops.empty }
-        in
-        set_state new_state >>= fun () ->         
-        return s)
+      (* we need to adjust the start block and the map_past - we are
+         forgetting everything in previous blocks *)
+      let new_state = { s with 
+                        start_block=s.current_block; 
+                        block_list_length=1;  (* NOTE current block may be
+                                                 empty, but still
+                                                 allocated *)
+                        abs_past=abs_ops.empty }
+      in
+      set_state new_state >>= fun () ->         
+      return s)
   in
   let block_list_length () = 
     with_dcl (fun ~state ~set_state -> 
-        return state.block_list_length)
+      return state.block_list_length)
   in
   { add; peek; detach; block_list_length }  
 

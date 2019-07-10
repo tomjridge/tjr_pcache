@@ -4,6 +4,9 @@
 open Pcache_intf
 open Pcache_intf.Pl_types
 
+let profiler = ref Tjr_profile.dummy_profiler
+                  |> Global.register ~name:"pl_profiler"
+
 let make_persistent_list 
     ~monad_ops
     ~(pl_state_ops:('a,'ptr,'i) pl_state_ops)
@@ -15,17 +18,28 @@ let make_persistent_list
   let return = monad_ops.return in
   let {set_data;set_next;new_node} = pl_state_ops in
   let with_pl = with_pl.with_state in
+  let mark = !profiler.mark in
+  let profile_m s m = 
+    return () >>= fun () -> 
+    mark s;
+    m >>= fun r ->
+    mark (s^"'");
+    return r
+  in
   let replace_last (a:'a) =
+    profile_m "pl_last" @@
     with_pl (fun ~state:s ~set_state ->
         set_data a s |> fun s' ->
         (* write_node s' >>= fun () -> don't write on every change *)
         set_state s')
   in
   let pl_sync () = 
+    profile_m "pl_sync" @@
     with_pl (fun ~state:s ~set_state ->
         write_node s)
   in
   let new_node (a:'a) = 
+    profile_m "new_node" @@ (
     alloc () >>= fun new_ptr ->
     with_pl (fun ~state:s ~set_state ->
         (* What if next is already set? FIXME maybe allow
@@ -37,7 +51,7 @@ let make_persistent_list
         write_node s' >>= fun () ->
         update_old_node_with_ptr_to_new_node >>= fun () ->
         set_state s' >>= fun () ->
-        return new_ptr)
+        return new_ptr))
   in
   Pl_types.{ replace_last; new_node; pl_sync }
 
