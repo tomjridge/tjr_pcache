@@ -7,5 +7,5 @@
 (executable
   (name run_dmap_example)
   (preprocess (pps ppx_bin_prot ppx_deriving_yojson))
-  (flags (:standard  -open Tjr_monad -open Tjr_lib -open Tjr_fs_shared -open Tjr_pcache -open Tjr_pcache_example -open Tjr_profile_with_core )) 
+  (flags (:standard  -open Tjr_monad -open Tjr_lib -open Tjr_fs_shared -open Tjr_pcache -open Tjr_pcache_example )) 
   (libraries tjr_profile_with_core tjr_pcache_example))
