@@ -3,11 +3,11 @@
 (* open Store_passing *)
 open Tjr_pcache.Pcache_intf
 
+module Profiler = Make_profiler()
+open Profiler
+
 (* FIXME there is a version of this in fs_shared *)
 module Internal = struct
-
-  let profiler = ref Tjr_profile.dummy_profiler
-                 |> Global.register ~name:"Blk_dev_on_file profiler"
 
   type fd = Unix.file_descr
 
@@ -18,7 +18,7 @@ module Internal = struct
 
   let read ~fd ~blk_sz ~blk_id = 
     ignore (Unix.lseek fd (blk_id * blk_sz) SEEK_SET);
-    !profiler.mark "blk_aa";
+    mark "blk_aa";
     let buf = Bytes.make blk_sz (Char.chr 0) in 
     let n = Unix.read fd buf 0 blk_sz in
     (* assert (n=blk_sz); we allow the file to expand automatically, so

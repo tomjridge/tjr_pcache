@@ -8,8 +8,8 @@ open Pcache_intf
 open Pcl_types
 open Dcl_types
 
-let profiler = ref Tjr_profile.dummy_profiler
-               |> Global.register ~name:"dcl_profiler"
+module Profiler = Make_profiler()
+open Profiler
 
 (** Construct the dcl operations. Parameters:
 
@@ -29,7 +29,6 @@ let make_dcl_ops
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in  
   let with_dcl = with_dcl.with_state in
-  let mark = !profiler.mark in
   let profile_m s m = 
     return () >>= fun () -> 
     mark s;

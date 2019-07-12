@@ -4,8 +4,8 @@
 open Pcache_intf
 open Pcache_intf.Pl_types
 
-let profiler = ref Tjr_profile.dummy_profiler
-                  |> Global.register ~name:"pl_profiler"
+module Profiler = Make_profiler()
+open Profiler
 
 let make_persistent_list 
     ~monad_ops
@@ -18,7 +18,6 @@ let make_persistent_list
   let return = monad_ops.return in
   let {set_data;set_next;new_node} = pl_state_ops in
   let with_pl = with_pl.with_state in
-  let mark = !profiler.mark in
   let profile_m s m = 
     return () >>= fun () -> 
     mark s;

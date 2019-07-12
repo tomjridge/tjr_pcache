@@ -12,8 +12,8 @@ open Pl_types
 open Pcl_types
 
 
-let profiler = ref Tjr_profile.dummy_profiler
-               |> Global.register ~name:"pcl_profiler"
+module Profiler = Make_profiler()
+open Profiler
 
 (** Function to construct a persistent chunked list. Parameters:
 - [pl_ops] The underlying persistent list operations.
@@ -30,7 +30,6 @@ let make_pcl_ops
   let with_pcl = with_pcl.with_state in
   let { replace_last; new_node; pl_sync } = pl_ops in
   let { nil;snoc;pl_data } = pcl_state_ops in
-  let mark = !profiler.mark in
   let profile_m s m = 
     return () >>= fun () -> 
     mark s;

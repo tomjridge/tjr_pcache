@@ -8,8 +8,8 @@ open Dcl_types
 
 open Dmap_types
 
-let profiler = ref Tjr_profile.dummy_profiler
-               |> Global.register ~name:"dmap_profiler"
+module Profiler = Make_profiler()
+open Profiler
 
 module Internal = struct
 
@@ -61,7 +61,6 @@ module Internal = struct
   let convert_dcl_to_dmap ~monad_ops ~dmap_dcl_ops =
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in
-    let mark = !profiler.mark in
     let profile_m s m = 
       return () >>= fun () -> 
       mark s;

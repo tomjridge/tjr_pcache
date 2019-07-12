@@ -15,7 +15,7 @@ let count = int_of_string Sys.argv.(1)
 
 
 let _ = 
-  profiler.time_function "run_dmap_example" @@ fun () -> 
+  measure_execution_time_and_print "run_dmap_example" @@ fun () -> 
   Dmap_example.Test.test_dmap_ops_on_file ~fn ~count
 
 module Internal = struct
@@ -23,7 +23,7 @@ module Internal = struct
 end
 
 let _ =
-  profiler.time_function "read_back" @@ fun () -> 
+  measure_execution_time_and_print "read_back" @@ fun () -> 
   Dmap_example.Internal_read_node.read_back ~fn |> fun ess ->
   Printf.printf "read back %d ops\n%!" (List.length (List.concat ess))
 (*

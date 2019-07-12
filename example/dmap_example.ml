@@ -12,22 +12,10 @@ When we write eg Insert(k,v), we potentially use 1+|k|+|v| bytes. We
    limit. Particularly, if values can be largeish (eg 256 bytes) we
    need to take great care.  *)
 
-(* open Tjr_profile.Util.Profiler *)
-let _ = Tjr_profile_with_core.initialize()
 
 
-let _ = 
-  Persistent_list.profiler := Tjr_profile.make_string_profiler();
-  Persistent_chunked_list.profiler := Tjr_profile.make_string_profiler();
-  Detachable_chunked_list.profiler := Tjr_profile.make_string_profiler();
-  Detachable_map.profiler := Tjr_profile.make_string_profiler()
-
-
-
-let write_profiler = 
-  Tjr_profile.dummy_profiler
-  (* Tjr_profile.make_string_profiler () *)
-(* let mark = profiler.mark *)
+module Write_profiler = Make_profiler()
+open Write_profiler
 
 open Pcache_intf
 open Pcache_intf.Blk_dev_ops
@@ -209,7 +197,6 @@ at the pcl level, again we can take
       Printf.printf "Blk write count: %d\n" !write_count)
 
   let write_node ~config ~blk_dev_ops ~dev (pl_state: pl_internal_state) =
-    let mark = write_profiler.mark in
     mark "start";
     let buf,pos = pl_state.data in
     let eol = End_of_list pl_state.next in
@@ -407,33 +394,35 @@ end
 
 module Test = struct
 
-  let profiler1 = Tjr_profile.make_string_profiler()
+  module Profiler1 = Make_profiler()
+  open Profiler1
 
   let test_dmap_ops_on_file ~fn ~count = 
-    profiler1.mark "begin";
+    mark "begin";
     let fd,store,dmap_ops = Pcache.make_dmap_on_file ~fn in
     let s = ref store in
-    profiler1.mark "start inserts";
+    mark "start inserts";
     1 |> List_.iter_break 
            (fun i -> 
               match i > count with
               | true -> `Break ()
               | false -> 
-                profiler1.mark "test_ins";
+                mark "test_ins";
                 Pcache_store_passing.run ~init_state:(!s) (dmap_ops.insert i (2*i))
-                |> fun (_,s') -> profiler1.mark "test_ins'"; s:=s';
+                |> fun (_,s') -> mark "test_ins'"; s:=s';
                 `Continue (i+1));
-    profiler1.mark "end";
-    profiler1.time_function "final_sync" (fun () -> 
+    mark "end";
+    Tjr_profile.measure_execution_time_and_print "final_sync" (fun () -> 
       Pcache_store_passing.run ~init_state:!s (Pcache.pl_sync ()) |> fun ((),_s') -> ());
     Unix.close fd;
-    Printf.printf "\nTop-level profiler\n";profiler1.print_summary();
-    Printf.printf "\nWrite profiler\n";write_profiler.print_summary();
-    Printf.printf "\nPl profiler\n";!Persistent_list.profiler.print_summary();
-    Printf.printf "\nPcl profiler\n";!Persistent_chunked_list.profiler.print_summary();
-    Printf.printf "\nDcl profiler\n";!Detachable_chunked_list.profiler.print_summary();
-    Printf.printf "\nDmap profiler\n";!Detachable_map.profiler.print_summary()
-
+    if profiling_enabled then (
+      Printf.printf "\nTop-level profiler\n";Profiler1.print_summary();
+      Printf.printf "\nWrite profiler\n";Write_profiler.print_summary();
+      Printf.printf "\nPl profiler\n";Persistent_list.Profiler.print_summary();
+      Printf.printf "\nPcl profiler\n";Persistent_chunked_list.Profiler.print_summary();
+      Printf.printf "\nDcl profiler\n";Detachable_chunked_list.Profiler.print_summary();
+      Printf.printf "\nDmap profiler\n";Detachable_map.Profiler.print_summary())
+    else ()
 end
 
 
