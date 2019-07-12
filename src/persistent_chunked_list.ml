@@ -12,8 +12,11 @@ open Pl_types
 open Pcl_types
 
 
-module Profiler = Make_profiler()
-open Profiler
+module Pcl_profiler = Make_profiler()
+open Pcl_profiler
+
+module Pcl_micro_profiler = Make_profiler()
+module M = Pcl_micro_profiler
 
 (** Function to construct a persistent chunked list. Parameters:
 - [pl_ops] The underlying persistent list operations.
@@ -30,29 +33,22 @@ let make_pcl_ops
   let with_pcl = with_pcl.with_state in
   let { replace_last; new_node; pl_sync } = pl_ops in
   let { nil;snoc;pl_data } = pcl_state_ops in
-  let profile_m s m = 
-    return () >>= fun () -> 
-    mark s;
-    m >>= fun r ->
-    mark (s^"'");
-    return r
-  in
-
+  let profile_m = Util.profile_m ~monad_ops ~mark in
   let insert (e:'e) = 
-    profile_m "pcl_insert" @@ with_pcl (fun ~state:s ~set_state ->         
-        mark "ab";
+    profile_m.profile_m "pcl_insert" @@ with_pcl (fun ~state:s ~set_state ->         
+        M.mark "start";
         snoc s e |> function
         | `Ok s' -> 
-          mark "ac";
+          M.mark "ac";
           pl_data s' |> fun data ->
-          mark "ad";          
+          M.mark "ad";          
           replace_last data >>= fun () ->
-          mark "ae";
+          M.mark "ae";
           set_state s' >>= fun () ->
-          mark "bc";
+          M.mark "end1'";
           return Inserted_in_current_node
         | `Error_too_large ->
-          mark "cd";
+          M.mark "cd";
           (* we can't fit this new elt; so make a new node and try again *)
           snoc (nil()) e |> function 
           | `Error_too_large -> 
@@ -64,7 +60,7 @@ let make_pcl_ops
                pointer in the old node *)
             new_node (pl_data s') >>= fun ptr ->            
             set_state s' >>= fun () ->
-            mark "de";
+            M.mark "end2'";
             return (Inserted_in_new_node ptr))
   in
   { insert }

@@ -397,31 +397,43 @@ module Test = struct
   module Profiler1 = Make_profiler()
   open Profiler1
 
+  let detach_interval = 1000
+
   let test_dmap_ops_on_file ~fn ~count = 
-    mark "begin";
+    mark "start1";
     let fd,store,dmap_ops = Pcache.make_dmap_on_file ~fn in
     let s = ref store in
-    mark "start inserts";
+    mark "start2";
     1 |> List_.iter_break 
            (fun i -> 
               match i > count with
               | true -> `Break ()
               | false -> 
-                mark "test_ins";
-                Pcache_store_passing.run ~init_state:(!s) (dmap_ops.insert i (2*i))
-                |> fun (_,s') -> mark "test_ins'"; s:=s';
-                `Continue (i+1));
-    mark "end";
+                match i mod detach_interval = 0 with
+                | false -> (
+                    mark "test_ins";
+                    Pcache_store_passing.run ~init_state:(!s) (dmap_ops.insert i (2*i))
+                    |> fun (_,s') -> mark "test_ins'"; s:=s';
+                    `Continue (i+1))
+
+                | true -> (
+                    mark "detach";
+                    Pcache_store_passing.run ~init_state:(!s) (dmap_ops.detach ())
+                    |> fun (_,s') -> mark "detach'"; s:=s';
+                    `Continue (i+1)));
+    mark "end'";
     Tjr_profile.measure_execution_time_and_print "final_sync" (fun () -> 
       Pcache_store_passing.run ~init_state:!s (Pcache.pl_sync ()) |> fun ((),_s') -> ());
     Unix.close fd;
     if profiling_enabled then (
       Printf.printf "\nTop-level profiler\n";Profiler1.print_summary();
       Printf.printf "\nWrite profiler\n";Write_profiler.print_summary();
-      Printf.printf "\nPl profiler\n";Persistent_list.Profiler.print_summary();
-      Printf.printf "\nPcl profiler\n";Persistent_chunked_list.Profiler.print_summary();
-      Printf.printf "\nDcl profiler\n";Detachable_chunked_list.Profiler.print_summary();
-      Printf.printf "\nDmap profiler\n";Detachable_map.Profiler.print_summary())
+      Printf.printf "\nPl profiler\n";Persistent_list.Pl_profiler.print_summary();
+      Printf.printf "\nPcl profiler\n";Persistent_chunked_list.Pcl_profiler.print_summary();
+      Printf.printf "\nPcl micro profiler\n";Persistent_chunked_list.M.print_summary();
+      Printf.printf "\nDcl profiler\n";Detachable_chunked_list.Dcl_profiler.print_summary();
+      Printf.printf "\nDcl micro profiler\n";Detachable_chunked_list.Micro.print_summary();
+      Printf.printf "\nDmap profiler\n";Detachable_map.Dmap_profiler.print_summary())
     else ()
 end
 

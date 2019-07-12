@@ -8,8 +8,10 @@ open Pcache_intf
 open Pcl_types
 open Dcl_types
 
-module Profiler = Make_profiler()
-open Profiler
+module Dcl_profiler = Make_profiler()
+open Dcl_profiler
+
+module Micro = Make_profiler()
 
 (** Construct the dcl operations. Parameters:
 
@@ -29,26 +31,26 @@ let make_dcl_ops
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in  
   let with_dcl = with_dcl.with_state in
-  let profile_m s m = 
-    return () >>= fun () -> 
-    mark s;
-    m >>= fun r ->
-    mark (s^"'");
-    return r
-  in
+  let profile_m = Util.profile_m ~monad_ops ~mark in
   (* ASSUME start_block is initialized and consistent with pcl_state *)
   let add op =
-    profile_m "dcl_add" @@ with_dcl (fun ~state:s ~set_state -> 
+    profile_m.profile_m "dcl_add" @@ with_dcl (fun ~state:s ~set_state -> 
+        Micro.mark "start";
         pcl_ops.insert op >>= function
         | Inserted_in_current_node ->
+          Micro.mark "1'";
           set_state { s with abs_current=abs_ops.add op s.abs_current }
         | Inserted_in_new_node ptr ->
+          Micro.mark "2";
+          let abs_past = abs_ops.merge s.abs_past s.abs_current in
+          let abs_current = abs_singleton ~abs_ops op in
+          Micro.mark "3'";
           (* NOTE this code isn't concurrent safe *)
           set_state { s with 
                       current_block=ptr;
                       block_list_length=s.block_list_length+1;
-                      abs_past=abs_ops.merge s.abs_past s.abs_current;
-                      abs_current=abs_singleton ~abs_ops op})
+                      abs_past;
+                      abs_current})
   in
   let peek () = 
     with_dcl (fun ~state:s ~set_state -> return s)

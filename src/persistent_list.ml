@@ -4,8 +4,8 @@
 open Pcache_intf
 open Pcache_intf.Pl_types
 
-module Profiler = Make_profiler()
-open Profiler
+module Pl_profiler = Make_profiler()
+open Pl_profiler
 
 let make_persistent_list 
     ~monad_ops
@@ -18,27 +18,22 @@ let make_persistent_list
   let return = monad_ops.return in
   let {set_data;set_next;new_node} = pl_state_ops in
   let with_pl = with_pl.with_state in
-  let profile_m s m = 
-    return () >>= fun () -> 
-    mark s;
-    m >>= fun r ->
-    mark (s^"'");
-    return r
-  in
+  let profile_m = (Util.profile_m ~monad_ops ~mark) in
+  let _ = profile_m in
   let replace_last (a:'a) =
-    profile_m "pl_last" @@
+    profile_m.profile_m "pl_last" @@
     with_pl (fun ~state:s ~set_state ->
         set_data a s |> fun s' ->
         (* write_node s' >>= fun () -> don't write on every change *)
         set_state s')
   in
   let pl_sync () = 
-    profile_m "pl_sync" @@
+    profile_m.profile_m "pl_sync" @@
     with_pl (fun ~state:s ~set_state ->
         write_node s)
   in
   let new_node (a:'a) = 
-    profile_m "new_node" @@ (
+    profile_m.profile_m "new_node" @@ (
     alloc () >>= fun new_ptr ->
     with_pl (fun ~state:s ~set_state ->
         (* What if next is already set? FIXME maybe allow

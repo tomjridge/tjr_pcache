@@ -2,6 +2,8 @@ TMP_DOC_DIR:=/tmp/tjr_pcache
 scratch:=/tmp/l/github/scratch
 
 default: all
+
+all::
 	dune build bin/run_dmap_example.exe
 
 -include Makefile.ocaml

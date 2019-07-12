@@ -8,8 +8,8 @@ open Dcl_types
 
 open Dmap_types
 
-module Profiler = Make_profiler()
-open Profiler
+module Dmap_profiler = Make_profiler()
+open Dmap_profiler
 
 module Internal = struct
 
@@ -61,12 +61,15 @@ module Internal = struct
   let convert_dcl_to_dmap ~monad_ops ~dmap_dcl_ops =
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in
-    let profile_m s m = 
-      return () >>= fun () -> 
-      mark s;
-      m >>= fun r ->
-      mark (s^"'");
-      return r
+    let profile_m = 
+      if profiling_enabled then (
+        fun s m -> 
+          return () >>= fun () -> 
+          mark s;
+          m >>= fun r ->
+          mark (s^"'");
+          return r)
+      else (fun _s m -> m)
     in
 
     let map_ops = Op_aux.default_kvop_map_ops () in
