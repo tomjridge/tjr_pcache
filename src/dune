@@ -2,7 +2,7 @@
   (name tjr_pcache)
   (public_name tjr_pcache)
   (preprocess (pps ppx_deriving_yojson ppx_bin_prot))
-  (flags (:standard "-w" "-27-39" -open Tjr_monad -open Tjr_lib -open Tjr_fs_shared ))  ; -27 is unused var, -39 is unused rec flag
+  (flags (:standard "-w" "-27-39" -open Tjr_monad -open Tjr_lib -open Tjr_fs_shared -open Tjr_profile))  ; -27 is unused var, -39 is unused rec flag
   (libraries tjr_monad tjr_fs_shared yojson ppx_deriving_yojson tjr_profile)
 )
 

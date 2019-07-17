@@ -1,4 +1,4 @@
-type 'a profile_m = {
+type ('a) profile_m = {
   profile_m: 'b. string -> ('b, 'a) m -> ('b, 'a) m
 }
 
@@ -16,3 +16,4 @@ let profile_m ~monad_ops ~mark =
     else (fun _s m -> m)
   in
   {profile_m}
+

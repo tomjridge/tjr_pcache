@@ -425,7 +425,7 @@ module Test = struct
     Tjr_profile.measure_execution_time_and_print "final_sync" (fun () -> 
       Pcache_store_passing.run ~init_state:!s (Pcache.pl_sync ()) |> fun ((),_s') -> ());
     Unix.close fd;
-    if profiling_enabled then (
+    if true || profiling_enabled then (  (* always print for the moment *)
       Printf.printf "\nTop-level profiler\n";Profiler1.print_summary();
       Printf.printf "\nWrite profiler\n";Write_profiler.print_summary();
       Printf.printf "\nPl profiler\n";Persistent_list.Pl_profiler.print_summary();
