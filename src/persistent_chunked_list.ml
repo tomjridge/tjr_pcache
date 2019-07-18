@@ -11,16 +11,28 @@ open Pcache_intf
 open Pl_types
 open Pcl_types
 
+[%%import "pcache_optcomp_config.ml"]
 
-module Pcl_profiler = Make_profiler()
+[%%if PROFILE_PCL]
+module Pcl_profiler = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
+[%%else]
+module Pcl_profiler = Tjr_profile.Dummy_int_profiler
+[%%endif]
+
 open Pcl_profiler
 
-module Pcl_micro_profiler = Make_profiler()
-module M = Pcl_micro_profiler
+let [ins; ins'] = 
+  List.map allocate_int 
+    ["ins";"ins'"]
+[@@warning "-8"]
 
 (** Function to construct a persistent chunked list. Parameters:
 - [pl_ops] The underlying persistent list operations.
 - [pcl_state_ops, with_pcl] For the internal state of the pcl.
+
+The returned ops:
+- [insert], in the Inserted_in_current_node case, does not write to disk or update pl; in the new_node case, the underlying pl should issue disk writes
+
 *)
 let make_pcl_ops
     ~(monad_ops:'t monad_ops)
@@ -31,24 +43,24 @@ let make_pcl_ops
   let ( >>= ) = monad_ops.bind in
   let return = monad_ops.return in
   let with_pcl = with_pcl.with_state in
-  let { replace_last; new_node; pl_sync } = pl_ops in
+  let { replace_last; new_node; pl_write; _ } = pl_ops in
   let { nil;snoc;pl_data } = pcl_state_ops in
-  let profile_m = Util.profile_m ~monad_ops ~mark in
+  let pcl_write () = 
+    with_pcl (fun ~state:s ~set_state -> 
+      pl_data s |> fun data -> 
+      replace_last data >>= fun () -> 
+      pl_write ())
+  in
+  let pcl_sync () = pcl_write () in (* FIXME *)
   let insert (e:'e) = 
-    profile_m.profile_m "pcl_insert" @@ with_pcl (fun ~state:s ~set_state ->         
-        M.mark "start";
+    return () >>= fun () -> 
+    mark ins;
+    with_pcl (fun ~state:s ~set_state ->         
         snoc s e |> function
         | `Ok s' -> 
-          M.mark "ac";
-          pl_data s' |> fun data ->
-          M.mark "ad";          
-          replace_last data >>= fun () ->
-          M.mark "ae";
           set_state s' >>= fun () ->
-          M.mark "end1'";
           return Inserted_in_current_node
         | `Error_too_large ->
-          M.mark "cd";
           (* we can't fit this new elt; so make a new node and try again *)
           snoc (nil()) e |> function 
           | `Error_too_large -> 
@@ -60,10 +72,12 @@ let make_pcl_ops
                pointer in the old node *)
             new_node (pl_data s') >>= fun ptr ->            
             set_state s' >>= fun () ->
-            M.mark "end2'";
             return (Inserted_in_new_node ptr))
+      >>= fun r -> 
+      mark ins';
+      return r
   in
-  { insert }
+  { insert; pcl_write; pcl_sync }
 
 
 (* NOTE how 'pl_data and 'i disappear in result *)

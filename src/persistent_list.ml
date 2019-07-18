@@ -1,15 +1,36 @@
 (** A persistent-on-disk list *)
 
-
 open Pcache_intf
 open Pcache_intf.Pl_types
 
-module Pl_profiler = With_array.Make_profiler()
+
+[%%import "pcache_optcomp_config.ml"]
+
+[%%if PROFILE_PL]
+module Pl_profiler = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
+[%%else]
+module Pl_profiler = Tjr_profile.Dummy_int_profiler
+[%%endif]
+
 open Pl_profiler
 
-let [pl_last; pl_last'; pl_sync; pl_sync'; new_node_i; new_node'] = List.map Pl_profiler.allocate_int ["pl_last";"pl_last'";"pl_sync";"pl_sync'"; "new_node"; "new_node'"]
+module Internal = struct
+  let [pl_last; pl_last'; pl_sync; pl_sync'; new_node_i; new_node'] = 
+    List.map Pl_profiler.allocate_int 
+      ["pl_last";"pl_last'";"pl_sync";"pl_sync'"; "new_node"; "new_node'"]
 [@@warning "-8"]
+end
+open Internal
 
+(** NOTE
+
+- [replace_last] does not issue a write
+- [write] issues an async write of current node
+- [sync] issues a sync write of current node
+- [new_node] writes new, then writes current; assumes these aren't reordered
+
+FIXME at the moment, we assume an async write_node provided by the disk; we also need a per-block sync (at the moment, sync is just write)
+*)
 let make_persistent_list 
     ~monad_ops
     ~(pl_state_ops:('a,'ptr,'i) pl_state_ops)
@@ -21,8 +42,6 @@ let make_persistent_list
   let return = monad_ops.return in
   let {set_data;set_next;new_node} = pl_state_ops in
   let with_pl = with_pl.with_state in
-  (* let profile_m = (Util.profile_m ~monad_ops ~mark) in *)
-  (* let _ = profile_m in *)
   let replace_last (a:'a) =
     mark pl_last;
     with_pl (fun ~state:s ~set_state ->
@@ -31,12 +50,13 @@ let make_persistent_list
         set_state s') >>= fun () -> 
     mark pl_last'; return ()
   in
-  let pl_sync () = 
+  let pl_write () = 
     mark pl_sync;
     with_pl (fun ~state:s ~set_state ->
       write_node s) >>= fun () -> 
     mark pl_sync'; return ()
   in
+  let pl_sync () = pl_write () in (* FIXME *)
   let new_node (a:'a) = 
     mark new_node_i;
     alloc () >>= fun new_ptr ->
@@ -45,17 +65,18 @@ let make_persistent_list
            pre-allocation of next *)
         (* update current node and write *)
         s |> set_next new_ptr |> fun s' ->
-        let update_old_node_with_ptr_to_new_node = write_node s' in
+        (* NOTE the following requires a functional s,s' *)
+        let update_old_node_with_ptr_to_new_node () = write_node s' in
         new_node new_ptr a s' |> fun s' ->
         write_node s' >>= fun () ->
-        update_old_node_with_ptr_to_new_node >>= fun () ->
+        update_old_node_with_ptr_to_new_node () >>= fun () ->
         set_state s' >>= fun () ->
         return new_ptr)
     >>= fun ptr -> 
     mark new_node';
     return ptr
   in
-  Pl_types.{ replace_last; new_node; pl_sync }
+  Pl_types.{ replace_last; new_node; pl_write; pl_sync }
 
 (* NOTE how the impl type 'i disappears in the following, except for
    write_node *)

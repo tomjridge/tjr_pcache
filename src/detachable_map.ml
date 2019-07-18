@@ -8,11 +8,24 @@ open Dcl_types
 
 open Dmap_types
 
-module Dmap_profiler = Make_profiler()
+[%%import "pcache_optcomp_config.ml"]
+
+[%%if PROFILE_DMAP]
+module Dmap_profiler = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
+[%%else]
+module Dmap_profiler = Tjr_profile.Dummy_int_profiler
+[%%endif]
+
 open Dmap_profiler
+
+let [ins; ins'] = 
+  List.map allocate_int 
+    ["ins";"ins'"]
+[@@warning "-8"]
 
 module Internal = struct
 
+  (* FIXME this is grossly inefficient for find - just look up in current then in past *)
   let map_merge ~map_ops ~old ~new_ = (
     let open Tjr_map in
     map_ops.bindings new_ |> fun kvs ->
@@ -61,16 +74,6 @@ module Internal = struct
   let convert_dcl_to_dmap ~monad_ops ~dmap_dcl_ops =
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in
-    let profile_m = 
-      if profiling_enabled then (
-        fun s m -> 
-          return () >>= fun () -> 
-          mark s;
-          m >>= fun r ->
-          mark (s^"'");
-          return r)
-      else (fun _s m -> m)
-    in
 
     let map_ops = Op_aux.default_kvop_map_ops () in
     let find k = 
@@ -86,10 +89,14 @@ module Internal = struct
       in        
       return v
     in
-    let insert k v = profile_m "insert" @@ dmap_dcl_ops.add (Insert(k,v)) in
-    let delete k = profile_m "delete" @@ dmap_dcl_ops.add (Delete k) in
+    let insert k v = 
+      return () >>= fun () ->
+      mark ins;
+      dmap_dcl_ops.add (Insert(k,v)) >>= fun r -> 
+      mark ins'; return r
+    in
+    let delete k = dmap_dcl_ops.add (Delete k) in
     let detach () = 
-      profile_m "detach" @@ 
       dmap_dcl_ops.detach () >>= fun dcl_state ->
       return { past_map=dcl_state.abs_past;
                current_map=dcl_state.abs_current;
@@ -98,7 +105,9 @@ module Internal = struct
     let block_list_length () =
       dmap_dcl_ops.block_list_length ()
     in
-    Dmap_types.{find;insert;delete;detach;block_list_length}
+    let dmap_write () = dmap_dcl_ops.dcl_write () in
+    let dmap_sync = dmap_write in
+    Dmap_types.{find;insert;delete;detach;block_list_length;dmap_write;dmap_sync}
 
 
 end

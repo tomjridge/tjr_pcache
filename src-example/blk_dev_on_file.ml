@@ -3,8 +3,16 @@
 (* open Store_passing *)
 open Tjr_pcache.Pcache_intf
 
-module Profiler = Make_profiler()
+module Profiler = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
 open Profiler
+
+module Internal2 = struct
+  let [write;write'] = 
+    List.map Profiler.allocate_int 
+      ["write";"write'"]
+[@@warning "-8"]
+end
+open Internal2
 
 (* FIXME there is a version of this in fs_shared *)
 module Internal = struct
@@ -18,7 +26,6 @@ module Internal = struct
 
   let read ~fd ~blk_sz ~blk_id = 
     ignore (Unix.lseek fd (blk_id * blk_sz) SEEK_SET);
-    mark "blk_aa";
     let buf = Bytes.make blk_sz (Char.chr 0) in 
     let n = Unix.read fd buf 0 blk_sz in
     (* assert (n=blk_sz); we allow the file to expand automatically, so
@@ -28,6 +35,7 @@ module Internal = struct
     Bytes.to_string buf
 
   let write ~fd ~blk_sz ~blk_id ~blk = 
+    mark write;
     assert(String.length blk > 0);
     assert(blk_sz > 0);
     ignore (Unix.lseek fd (blk_id * blk_sz) SEEK_SET);
@@ -36,6 +44,7 @@ module Internal = struct
     let n = Unix.single_write fd buf 0 blk_sz in
     (* test(fun _ -> assert (n=blk_sz)); *)
     assert (n=blk_sz);
+    mark write';
     ()
 
   (** Construct [blk_dev_ops] *)

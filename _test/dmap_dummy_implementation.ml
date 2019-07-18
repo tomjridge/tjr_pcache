@@ -44,13 +44,13 @@ let make_dmap_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr
   let with_state = with_state.with_state in
   let find k =
     with_state (fun ~state:s ~set_state:_ -> 
-        let map = map_merge ~map_ops ~old:s.map_past ~new_:s.map_current in
-        let op = map_ops.find_opt k map in
-        return (
-          match op with
-          | None -> None
-          | Some(Insert(_,v)) -> Some v
-          | Some(Delete _) -> None))
+      let map = map_merge ~map_ops ~old:s.map_past ~new_:s.map_current in
+      let op = map_ops.find_opt k map in
+      return (
+        match op with
+        | None -> None
+        | Some(Insert(_,v)) -> Some v
+        | Some(Delete _) -> None))
   in
   let maybe_move_to_new_block s = 
     match s.op_count_current > ops_per_block with
@@ -64,43 +64,44 @@ let make_dmap_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr
   in
   let insert k v = 
     with_state (fun ~state:s ~set_state -> 
-        let s = { s with 
-                  map_current=map_ops.add k (Insert(k,v)) s.map_current;
-                  op_count_current=s.op_count_current+1;
-                }
-        in
-        (* maybe move to a new block *)
-        maybe_move_to_new_block s >>= fun s -> 
-        set_state s)
+      let s = { s with 
+                map_current=map_ops.add k (Insert(k,v)) s.map_current;
+                op_count_current=s.op_count_current+1;
+              }
+      in
+      (* maybe move to a new block *)
+      maybe_move_to_new_block s >>= fun s -> 
+      set_state s)
   in
   let delete k =
     with_state (fun ~state:s ~set_state -> 
-        let s = { s with 
-                  map_current=map_ops.add k (Delete(k)) s.map_current;
-                  op_count_current=s.op_count_current+1;
-                }
-        in
-        (* maybe move to a new block *)
-        maybe_move_to_new_block s  >>= fun s ->
-        set_state s)
+      let s = { s with 
+                map_current=map_ops.add k (Delete(k)) s.map_current;
+                op_count_current=s.op_count_current+1; }
+      in
+      (* maybe move to a new block *)
+      maybe_move_to_new_block s  >>= fun s ->
+      set_state s)
   in
   let detach () =
     with_state (fun ~state:s ~set_state -> 
-        let new_state = { 
-          map_past=map_ops.empty;
-          map_current=s.map_current;
-          op_count_current=s.op_count_current;
-          ptr_current=s.ptr_current;
-          block_list_length=1}
-        in
-        set_state new_state >>= fun () ->
-        let open Dmap_types in
-        return { 
-          past_map=s.map_past; 
-          current_map=s.map_current; 
-          current_ptr=s.ptr_current })
+      let new_state = { 
+        map_past=map_ops.empty;
+        map_current=s.map_current;
+        op_count_current=s.op_count_current;
+        ptr_current=s.ptr_current;
+        block_list_length=1}
+      in
+      set_state new_state >>= fun () ->
+      let open Dmap_types in
+      return { 
+        past_map=s.map_past; 
+        current_map=s.map_current; 
+        current_ptr=s.ptr_current })
   in
   let block_list_length () = with_state (fun ~state:s ~set_state:_ -> 
       return s.block_list_length)
   in
-  Dmap_types.{find;insert;delete;detach;block_list_length}
+  let dmap_write () = return () in
+  let dmap_sync = dmap_write in 
+  Dmap_types.{find;insert;delete;detach;block_list_length; dmap_write; dmap_sync }

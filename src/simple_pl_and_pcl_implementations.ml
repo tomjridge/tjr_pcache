@@ -49,7 +49,6 @@ module Pcl_impl = struct
 
   type 'e pcl_state = {
     es:'e list
-
   }
 
   (** The too_large argument indicates when the list is too large (ie
@@ -57,7 +56,7 @@ module Pcl_impl = struct
   let make_pcl_state_ops ~too_large = Pcl_types.{
       nil=(fun () -> {es=[]});
       snoc=(fun i e -> 
-          let es' = i.es@[e] in
+          let es' = i.es@[e] in  (* FIXME prefer cons *)
           match too_large es' with
           | true -> `Error_too_large
           | false -> `Ok {es=es'});

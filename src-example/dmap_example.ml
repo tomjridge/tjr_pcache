@@ -14,8 +14,10 @@ When we write eg Insert(k,v), we potentially use 1+|k|+|v| bytes. We
 
 
 
+(*
 module Write_profiler = Make_profiler()
 open Write_profiler
+*)
 
 open Pcache_intf
 open Pcache_intf.Blk_dev_ops
@@ -76,7 +78,7 @@ module Config = struct
     v_reader: 'v Bin_prot.Type_class.reader;
     ptr_writer: 'ptr Bin_prot.Type_class.writer;
     ptr_reader: 'ptr Bin_prot.Type_class.reader;
-    ptr0:'ptr; (* initial block *)
+    (* ptr0:'ptr; (\* initial block *\) *)
     next_free_ptr:'ptr -> 'ptr;
   }
 
@@ -89,7 +91,6 @@ module Config = struct
   let int_int_config = 
     let writer = Bin_prot.Type_class.bin_writer_int in
     let reader = Bin_prot.Type_class.bin_reader_int in
-    let ptr0 = 0 in
     let next_free_ptr = fun p -> p+1 in
     {
       ptr_sz=9;
@@ -102,7 +103,7 @@ module Config = struct
       v_reader=reader;
       ptr_writer=writer;
       ptr_reader=reader;
-      ptr0;
+      (* ptr0; *)
       next_free_ptr
     }
 
@@ -197,18 +198,19 @@ at the pcl level, again we can take
       Printf.printf "Blk write count: %d\n" !write_count)
 
   let write_node ~config ~blk_dev_ops ~dev (pl_state: pl_internal_state) =
-    mark "start";
+    (* mark "start"; *)
     let buf,pos = pl_state.data in
     let eol = End_of_list pl_state.next in
     let _pos = (elt_writer ~config).write buf ~pos eol in
     (* FIXME could be more efficient if we wrote direct to disk without
        going via string *)
-    mark "buf2string";
+    (* mark "buf2string"; *)
     let blk = Core.Bigstring.to_string buf in
-    mark "buf2string'";
+    (* mark "buf2string'"; *)
     blk_dev_ops.write ~dev ~blk_id:pl_state.current ~blk >>= fun x ->
     incr write_count;
-    mark "end"; return x
+    (* mark "end";  *)
+    return x
 
   let _ = write_node
 
@@ -272,7 +274,7 @@ module Internal_read_node = struct
     let _ = read_node in
     let ess = 
       Persistent_chunked_list.pcl_to_elt_list_list
-        ~read_node ~ptr:config.ptr0 ~blks:() 
+        ~read_node ~ptr:ptr0 ~blks:() 
     in
     Unix.close fd;
     ess
@@ -365,7 +367,6 @@ end
 module Pcache : sig 
   val make_dmap_on_file :
     fn:string -> Unix.file_descr * fstore * (int, int, ptr, fstore_passing) Dmap_types.dmap_ops
-  val pl_sync : unit -> (unit, fstore_passing) m
 end = struct
   module Internal2 = struct
     include Tjr_pcache.Generic_make_functor.Make(S)
@@ -384,8 +385,6 @@ end = struct
   end
 
   let make_dmap_on_file = Internal2.make_dmap_on_file
-
-  let pl_sync = Internal2.pl_sync
 end
 
 
@@ -394,47 +393,58 @@ end
 
 module Test = struct
 
-  module Profiler1 = Make_profiler()
-  open Profiler1
+  (* module Profiler1 = Make_profiler() *)
+  (* open Profiler1 *)
 
-  let detach_interval = 1000
+  let detach_interval = 100
 
   let test_dmap_ops_on_file ~fn ~count = 
-    mark "start1";
+    (* mark "start1"; *)
     let fd,store,dmap_ops = Pcache.make_dmap_on_file ~fn in
     let s = ref store in
-    mark "start2";
-    1 |> List_.iter_break 
-           (fun i -> 
-              match i > count with
-              | true -> `Break ()
-              | false -> 
-                match i mod detach_interval = 0 with
-                | false -> (
-                    mark "test_ins";
-                    Pcache_store_passing.run ~init_state:(!s) (dmap_ops.insert i (2*i))
-                    |> fun (_,s') -> mark "test_ins'"; s:=s';
-                    `Continue (i+1))
-
-                | true -> (
-                    mark "detach";
-                    Pcache_store_passing.run ~init_state:(!s) (dmap_ops.detach ())
-                    |> fun (_,s') -> mark "detach'"; s:=s';
-                    `Continue (i+1)));
-    mark "end'";
+    let run m = Pcache_store_passing.run ~init_state:(!s) m |> fun (r,s') -> 
+                s:=s';
+                r
+    in
+    (* mark "start2"; *)
+    
+    (* loop count times, inserting kv pair *)
+    begin
+      1 |> List_.iter_break 
+             (fun i -> 
+                match i > count with
+                | true -> `Break ()
+                | false -> 
+                  let _maybe_detach = 
+                    match false (* i mod detach_interval = 0 *) with
+                    | false -> ()
+                    | true -> (
+                        (* mark "detach"; *)
+                        ignore(run (dmap_ops.detach ()));
+                        ())
+                  in
+                  (* mark "test_ins"; *)
+                  run (dmap_ops.insert i (2*i))
+                  |> fun _ -> `Continue (i+1))
+    end;
+    run (dmap_ops.dmap_write ());
     Tjr_profile.measure_execution_time_and_print "final_sync" (fun () -> 
-      Pcache_store_passing.run ~init_state:!s (Pcache.pl_sync ()) |> fun ((),_s') -> ());
+      run (dmap_ops.dmap_sync ()));
     Unix.close fd;
-    if true || profiling_enabled then (  (* always print for the moment *)
-      Printf.printf "\nTop-level profiler\n";Profiler1.print_summary();
-      Printf.printf "\nWrite profiler\n";Write_profiler.print_summary();
+    Tjr_profile.measure_execution_time_and_print "read_back" (fun () -> 
+      Internal_read_node.read_back ~fn |> fun ess ->
+      Printf.printf "read back %d ops\n%!" (List.length (List.concat ess)));    
+    if true then (  (* always print for the moment *)
+      (* Printf.printf "\nTop-level profiler\n";Profiler1.print_summary(); *)
+      (* Printf.printf "\nWrite profiler\n";Write_profiler.print_summary(); *)
       Printf.printf "\nPl profiler\n";Persistent_list.Pl_profiler.print_summary();
       Printf.printf "\nPcl profiler\n";Persistent_chunked_list.Pcl_profiler.print_summary();
-      Printf.printf "\nPcl micro profiler\n";Persistent_chunked_list.M.print_summary();
+      (* Printf.printf "\nPcl micro profiler\n";Persistent_chunked_list.M.print_summary(); *)
       Printf.printf "\nDcl profiler\n";Detachable_chunked_list.Dcl_profiler.print_summary();
-      Printf.printf "\nDcl micro profiler\n";Detachable_chunked_list.Micro.print_summary();
+      Printf.printf "\nDcl micro profiler\n";Detachable_chunked_list.M.print_summary();
       Printf.printf "\nDmap profiler\n";Detachable_map.Dmap_profiler.print_summary())
     else ()
+
 end
 
 

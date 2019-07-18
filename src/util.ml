@@ -1,3 +1,4 @@
+(*
 type ('a) profile_m = {
   profile_m: 'b. string -> ('b, 'a) m -> ('b, 'a) m
 }
@@ -17,3 +18,4 @@ let profile_m ~monad_ops ~mark =
   in
   {profile_m}
 
+*)

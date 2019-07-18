@@ -47,12 +47,16 @@ end
 module Pl_types = struct
 
 
-  (* pure interface *)
+  (** A persistent list maintains a state, iso to a pair of
+  (data,next_ptr option). It knows nothing about the data (especially,
+  it does not know the marshalled size of the data). It allows to set
+  the "current" data (possibly many times), to step to a new node (a
+  node corresponds to a block), and to issue a write to disk. *)
 
   (** The persistent list state. Each node consists of data and a
       possible next pointer (initially None, but may be set
       subsequently). For [new_node], the ptr is the ptr of the new block,
-      and the second argument is the data. 
+      the second argument is the data, and the third is the internal repr. of the current node.
 
 
       NOTE the type ['a] is the type of the data stored in each node.
@@ -81,14 +85,17 @@ module Pl_types = struct
       - [new_node]
         allocates a new node at the end of the list and makes it the
         "current" node. 
+      - [pl_write]
+        issues a disk write for hte current node
       - [pl_sync] force a write to disk; a disk write happens automatically when allocating a new node;
         this forces a possibly-partial node to disk
 
   *)
   type ('a,'ptr,'t) pl_ops = {
-    replace_last: 'a -> (unit,'t) m;
-    new_node: 'a -> ('ptr,'t) m;  (* NOTE we return the ptr to the new node *)
-    pl_sync: unit -> (unit,'t) m; 
+    replace_last : 'a -> (unit,'t) m;
+    new_node     : 'a -> ('ptr,'t) m;  (* NOTE we return the ptr to the new node *)
+    pl_write     : unit -> (unit,'t) m;
+    pl_sync      : unit -> (unit,'t) m; 
   }
 end
 (* NOTE don't include *)
@@ -96,7 +103,7 @@ end
 
 module Pcl_types = struct
 
-  (* open Pl_types *)
+  (** A persistent chunked list interface. The state consists of something of type ['i] isomorphic to a list of elements. There is a function to convert the list to pl-format data. The cons list operation "knows" something about the marshalled size of the list, and can indicate when the size of the list has become larger than the backing node/block can handle. *)
 
   (** Pure interface for manipulating the [pcl_state]. Type vars:
 
@@ -116,9 +123,9 @@ module Pcl_types = struct
 
   *)
   type ('pl_data,'e,'i) pcl_state_ops = {
-    nil:unit -> 'i;
-    snoc: 'i -> 'e -> [ `Error_too_large | `Ok of 'i ];
-    pl_data:'i -> 'pl_data
+    nil     :unit -> 'i;
+    snoc    :'i -> 'e -> [ `Error_too_large | `Ok of 'i ];
+    pl_data :'i -> 'pl_data
   }
 
 
@@ -132,7 +139,9 @@ module Pcl_types = struct
   (** The interface exposed by the persistent chunked list, a single
       [insert] function. NOTE how 'pl_data and 'i have disappeared. *)
   type ('e,'ptr,'t) pcl_ops = {
-    insert:'e -> ('ptr inserted_type,'t) m
+    insert:'e -> ('ptr inserted_type,'t) m;
+    pcl_write: unit -> (unit,'t) m;
+    pcl_sync: unit -> (unit,'t) m;
   }
 
 end
@@ -141,19 +150,30 @@ end
 
 
 module Dcl_types = struct
-  (** The DCL types *)
-  
-  (** Operations on the "abstract" state. The pcl state is something like a list of map operations. The 'abs type is something like the "map" view of these operations (needed because the list is redundant, or at the very least inefficient for map operations). Type vars:
+  (** A "detachable chunked list". This is like the persistent chunked
+      list, except that we provide a "detach" operation which drops the
+      tail of the list.
+
+  *)
+
+  (** Operations on the "abstract" state. The pcl state is something
+      like a list of map operations. The 'abs type is something like
+      the "map" view of these operations (needed because the list is
+      redundant, or at the very least inefficient for map
+      operations). Type vars:
 
 
-      - ['op] is eg insert(k,v), delete(k) 
-      - 'abs is the "abstraction"
+      - ['op] is eg insert(k,v), delete(k) - 'abs is the "abstraction"
 
       Operations:
 
       - empty, the empty map
+
       - add, to add an operation to the abstract state
-      - merge, to merge two maps (second takes precedence); used when a new node is created, and the old node is merged into the accumulated past nodes.
+
+      - merge, to merge two maps (second takes precedence); used when
+        a new node is created, and the old node is merged into the
+        accumulated past nodes.
 
 
   *)
@@ -163,7 +183,7 @@ module Dcl_types = struct
     merge: 'abs -> 'abs -> 'abs;  (* second arg takes precedence *)
   }
 
-  let abs_singleton ~abs_ops op = abs_ops.add op abs_ops.empty
+  let abs_singleton ~abs_ops op = abs_ops.add op abs_ops.empty [@@inline]
 
 
 
@@ -189,20 +209,17 @@ module Dcl_types = struct
 
   *)
   type ('ptr,'abs) dcl_state = {
-    start_block: 'ptr;  
-    current_block: 'ptr;
-    block_list_length: int;
-    abs_past: 'abs;  
-    abs_current: 'abs;
+    start_block       : 'ptr;  
+    current_block     : 'ptr;
+    block_list_length : int;
+    abs_past          : 'abs;  
+    abs_current       : 'abs;
   }
 
 
+  (** The DCL operations: 
 
-  (* dcl ops ---------------------------------------------------------- *)
-
-  (** The DCL ops: 
-
-      - [add] to add an op
+      - [add] to add an op; does not necessarily write to disk
       - [peek] to reveal the dcl_state (FIXME why?)
       - [detach] to issue a detach operation (eg prior to rolling the past entries into a B-tree)
       - [block_list_length] to provide information to help determine when to roll up
@@ -220,10 +237,12 @@ module Dcl_types = struct
       NOTE detach returns the dcl_state since this includes at least all the fields we need.
   *)
   type ('op,'abs,'ptr,'t) dcl_ops = {
-    add: 'op -> (unit,'t) m;     (* NOTE add rather than insert, to avoid confusion *)
-    peek: unit -> (('ptr,'abs)dcl_state,'t) m;    
-    detach: unit -> (('ptr,'abs)dcl_state, 't) m;
-    block_list_length: unit -> (int,'t) m;
+    add               : 'op -> (unit,'t) m;     (* NOTE add rather than insert, to avoid confusion *)
+    peek              : unit -> (('ptr,'abs)dcl_state,'t) m;    
+    detach            : unit -> (('ptr,'abs)dcl_state, 't) m;
+    block_list_length : unit -> (int,'t) m;
+    dcl_write         : unit -> (unit,'t) m;
+    dcl_sync          : unit -> (unit,'t) m;
   }
 
 end
@@ -238,8 +257,6 @@ module Dmap_types = struct
 
   open Dcl_types
 
-  (* type ('k,'v) op = ('k,'v) Ins_del_op_type.op *)
-
   (** Abbreviation; FIXME move to Ins_del_op_type *)
   type ('k,'v) op_map = ('k,('k,'v)op,unit)Tjr_map.map
 
@@ -247,15 +264,6 @@ module Dmap_types = struct
   type ('ptr,'k,'v) dmap_state = 
     ('ptr,
      ('k,'v)op_map) dcl_state
-
-  (* just check types match up *)
-(*
-  let internal_ ~(ptr:'ptr) ~(abs:('k,('k,'v)op)Tjr_polymap.t) =
-    let _x : ('ptr,'k,'v) dmap_state = {start_block=ptr;current_block=ptr; block_list_length=1;abs_past=abs; abs_current=abs} in
-    let _y :  ('ptr,
-               ('k,('k,'v)op)Tjr_polymap.t) dcl_state = _x in
-    ()
-*)
 
   (** NOTE dmap_dcl_ops is just an abbreviation for dcl_ops with:
 
@@ -269,22 +277,25 @@ module Dmap_types = struct
      'ptr,
      't) dcl_ops
 
-  (** The result of "detaching" the map. We get the abstract map for all
-      but the current node, and information about the current node. *)
+  (** The result of "detaching" the map. We get the abstract map for
+     all but the current node, and information about the current
+     node. FIXME could be part of dcl_ops *)
   type ('k,'v,'ptr) detach_info = { 
-    past_map: ('k,'v) op_map;
-    current_map: ('k,'v) op_map;
-    current_ptr: 'ptr
+    past_map    : ('k,'v) op_map;
+    current_map : ('k,'v) op_map;
+    current_ptr : 'ptr
   }
 
   (** For the detach operation, we get the map upto the current node,
       and the map for the current node *)
   type ('k,'v,'ptr,'t) dmap_ops = {
-    find: 'k -> ('v option,'t) m;
-    insert: 'k -> 'v -> (unit,'t) m;
-    delete: 'k -> (unit,'t)m;
-    detach: unit -> ( ('k,'v,'ptr) detach_info, 't) m;
-    block_list_length: unit -> (int,'t)m;
+    find              : 'k -> ('v option,'t) m;
+    insert            : 'k -> 'v -> (unit,'t) m;
+    delete            : 'k -> (unit,'t)m;
+    detach            : unit -> ( ('k,'v,'ptr) detach_info, 't) m;
+    block_list_length : unit -> (int,'t)m;
+    dmap_write        : unit -> (unit,'t)m;
+    dmap_sync         : unit -> (unit,'t)m
   }
 
 
