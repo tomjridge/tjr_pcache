@@ -2,55 +2,80 @@
 
 (* test  ---------------------------------------------------------- *)
 
-(* open Tjr_pcache *)
+(** Tests for pcl *)
+
 open Pcl_types
-
 open Tjr_store
-open Store_passing
+open Fstore_passing
 
-open Pcl_simple_implementation
+open Simple_pl_and_pcl_implementations
+
+(** Number of elements to insert *)
+let count = 20
+
+(** Number of elements that can be stored in a node *)
+let elts_per_node = 3
 
 
-let make_pcl_test ~pl_ops ~store =
-  mk_ref {es=[]} store |> fun (s,pcl_state_ref) -> 
-  let with_pcl_state f = with_ref pcl_state_ref f in
+module Make(S:sig
+    type ptr = int
+    val ptr0: ptr
+    val initial_store: Tjr_store.fstore
+end) = struct
+  open S
+
+  include Pl_test.Make(struct
+      type data = int list
+      type ptr = int
+      let ptr0 = ptr0
+      let initial_store = initial_store
+      let data0 = []
+    end)
+
+  let with_pcl,store = 
+    mk_ref Pcl_impl.{es=[]} store |> fun (pcl_state_ref,s) -> 
+    let with_pcl_state = Fstore_passing.fstore_ref_to_with_state pcl_state_ref in
+    with_pcl_state,s
   
-
   let pcl_state_ops = 
-    make_pcl_state_ops ~too_large:(fun es -> List.length es >= 3) in
+    Pcl_impl.make_pcl_state_ops ~too_large:(fun es -> List.length es > elts_per_node) 
+
   let pcl_ops = 
     Persistent_chunked_list.make_pcl_ops 
-      ~monad_ops ~pl_ops ~pcl_state_ops ~with_pcl:{with_state=with_pcl_state}
-  in
-  s,pcl_ops
-
-let _ = make_pcl_test
+      ~monad_ops ~pl_ops ~pcl_state_ops ~with_pcl  
+end
 
 
-(* main ----------------------------------------------------------- *)
-
-
-(* run some tests *)
 let main () = 
   Printf.printf "%s: tests starting...\n%!" __MODULE__;
   let ptr0 = 0 in
-  let _blks_ref,s,pl_ops = 
-    Pl_test.make_pl_test
-      ~store:Tjr_store.initial_store
-      ~data0:[]
-      ~ptr0
-      ~next_free_ptr:(fun x -> x+1)
+  let module M = Make(
+    struct
+      type ptr = int
+      let ptr0 = 0
+      let initial_store = Tjr_store.empty_fstore ~allow_reset:true ()
+    end)
   in
-  let s,pcl_ops = make_pcl_test ~pl_ops ~store:s in
-  let s = ref s in
-  List.iter 
-    (fun i -> 
-       Tjr_monad.State_passing.run ~init_state:(!s) (pcl_ops.insert i) 
-       |> fun (_,s') -> s:=s')
-    (Tjr_list.from_to 1 100);
+  let ops = M.pcl_ops in
+  let s = ref M.store in
+  let run m = State_passing.to_fun m !s |> fun (r,s') -> s:=s'; r in
+  1 |> List_.iter_break (fun i -> 
+      match i <= count with
+      | true -> ignore(run (ops.insert i)); `Continue (i+1)
+      | false -> `Break ());
+  run (ops.pcl_write ()); (* NOTE need the last sync *)
+  let blks = Tjr_store.get M.blks_ref !s in
+  let ess = Persistent_chunked_list.pcl_to_elt_list_list ~read_node:M.read_node ~ptr:ptr0 ~blks in
+  let expected = 
+    [[1; 2; 3]; [4; 5; 6]; [7; 8; 9]; [10; 11; 12]; [13; 14; 15]; [16; 17; 18]; [19; 20]]
+  in
+  Alcotest.(check (list (list int))) "" ess expected;
   Printf.printf "%s: ...tests finished\n" __MODULE__;
-  s  (* FIXME? *)
+  ()
 
+let test_set = [
+  "Pcl_test",`Quick,main
+]
 
 
 (* to test interactively:
@@ -105,6 +130,5 @@ let main () =
 
 
 (* FIXME do more testing a la gom testing with abstract models etc *)
-
 
 

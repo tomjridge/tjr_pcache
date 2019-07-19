@@ -1,10 +1,11 @@
 (library
   (name tjr_pcache)
   (public_name tjr_pcache)
-  (preprocess (pps ppx_deriving_yojson ppx_bin_prot ppx_optcomp))
+  (preprocess (pps ppx_deriving_yojson ppx_jane))
   (preprocessor_deps (file "pcache_optcomp_config.ml"))
-  (flags (:standard "-w" "-27-39" -open Tjr_monad -open Tjr_lib -open Tjr_fs_shared))  ; -27 is unused var, -39 is unused rec flag
-  (libraries tjr_monad tjr_fs_shared yojson ppx_deriving_yojson tjr_profile ppx_optcomp)
+  (flags (:standard "-w" "-27-39" -open Tjr_monad -open Tjr_lib -open Tjr_fs_shared))  
+  ; -27 is unused var, -39 is unused rec flag
+  (libraries tjr_fs_shared ppx_jane ppx_deriving_yojson)
 )
 
 (include_subdirs unqualified)

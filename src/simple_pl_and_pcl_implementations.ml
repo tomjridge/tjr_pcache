@@ -3,6 +3,7 @@ open Pcache_intf
 (** A simple persistent list implementation, for testing *)
 module Pl_impl = struct
 
+  (** The internal pl state *)
   type ('a,'ptr) pl_state = {
     data: 'a;
     current: 'ptr;
@@ -15,7 +16,7 @@ module Pl_impl = struct
       new_node=(fun current data pl_state -> { data; current; next=None })
     }  
 
-
+  (** The on-disk data *)
   type ('a,'ptr) pl_node = { 
     next:'ptr option; 
     contents:'a

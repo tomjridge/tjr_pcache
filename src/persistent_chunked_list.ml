@@ -32,6 +32,9 @@ let [ins; ins'] =
 
 The returned ops:
 - [insert], in the Inserted_in_current_node case, does not write to disk or update pl; in the new_node case, the underlying pl should issue disk writes
+- [pcl_write/sync], will update pl and then call pl_write/sync
+
+NOTE by default we do not call any lower level operations for the insert case.
 
 *)
 let make_pcl_ops
@@ -70,6 +73,7 @@ let make_pcl_ops
           | `Ok s' ->
             (* NOTE the following allocates a new node and updates the
                pointer in the old node *)
+            pcl_write() >>= fun () ->
             new_node (pl_data s') >>= fun ptr ->            
             set_state s' >>= fun () ->
             return (Inserted_in_new_node ptr))

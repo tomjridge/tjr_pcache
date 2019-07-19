@@ -5,11 +5,15 @@ default: all
 
 all::
 	dune build bin/run_dmap_example.exe
+	dune build bin/run_tests.exe
 
 -include Makefile.ocaml
 
 run_dmap_example:
 	time dune exec bin/run_dmap_example.exe 1e6
+
+run_tests:
+	dune exec bin/run_tests.exe test 
 
 # test: FORCE
 # 	dune build test/test_main.exe
