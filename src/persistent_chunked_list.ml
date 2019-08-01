@@ -50,7 +50,7 @@ let make_pcl_ops
   let { nil;snoc;pl_data } = pcl_state_ops in
   let pcl_write () = 
     with_pcl (fun ~state:s ~set_state -> 
-      pl_data s |> fun data -> 
+      pl_data  s |> fun data -> 
       replace_last data >>= fun () -> 
       pl_write ())
   in

@@ -129,6 +129,14 @@ module Pcl_types = struct
   }
 
 
+  (** NOTE that if we store the list of e in the pcl_state, then
+     pl_data potentially repeatedly marshals the prefix of the list
+     that was marshalled last time; to avoid this, pcl likely stores
+     the marshalled version of the e list, which is passed directly to
+     pl (which then adds the next ptr). See the dmap_example in
+     package tjr_pcache_example for an example. *)
+
+
   (* pcl_ops ---------------------------------------------------------- *)
 
   (** A type that records whether an element was inserted in the current

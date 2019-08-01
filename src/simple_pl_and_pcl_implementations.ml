@@ -53,7 +53,7 @@ module Pcl_impl = struct
   }
 
   (** The too_large argument indicates when the list is too large (ie
-     a new blk needs to be allocated *)
+     a new blk needs to be allocated) *)
   let make_pcl_state_ops ~too_large = Pcl_types.{
       nil=(fun () -> {es=[]});
       snoc=(fun i e -> 

@@ -371,6 +371,9 @@ end = struct
   module Internal2 = struct
     include Tjr_pcache.Generic_make_functor.Make(S)
 
+    (* FIXME where does pl_sync go in the following ? *)
+    let dmap_ops = S.(make_dmap_ops ~alloc ~with_pl ~write_node ~with_pcl ~with_dmap).dmap_ops
+
     (** NOTE this needs to have the fd set before use *)
     let initial_store = R.fstore
 

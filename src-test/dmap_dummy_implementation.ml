@@ -29,6 +29,8 @@ module Dummy_state = struct
       block_list_length=1
     }
 
+  let _ = init_dummy_state
+
 end
 
 open Dummy_state
@@ -105,3 +107,5 @@ let make_dmap_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr
   let dmap_write () = return () in
   let dmap_sync = dmap_write in 
   Dmap_types.{find;insert;delete;detach;block_list_length; dmap_write; dmap_sync }
+
+let _ = make_dmap_ops
