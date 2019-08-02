@@ -1,3 +1,4 @@
+(*
 (** A basic implementation of a block device; runtime checks for correct block size *)
 
 (* open Store_passing *)
@@ -66,3 +67,4 @@ end
 
 
 let make_blk_dev_on_file = Internal.make_blk_dev_on_file
+*)

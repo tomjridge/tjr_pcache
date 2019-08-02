@@ -4,6 +4,7 @@ scratch:=/tmp/l/github/scratch
 default: all
 
 all::
+	dune build --only-packages tjr_pcache @install
 	dune build bin/run_dmap_example.exe
 	dune build bin/run_tests.exe
 

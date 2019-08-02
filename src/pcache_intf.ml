@@ -1,4 +1,5 @@
 
+(* FIXME use fs_shared
 module Blk_dev_ops = struct
   type ('blk_id,'blk,'dev,'t) blk_dev_ops = {
     write:
@@ -13,6 +14,7 @@ module Blk_dev_ops = struct
   }
 end
 include Blk_dev_ops
+*)
 
 module Ins_del_op = struct
   (** A concrete type for insert and delete operations *)
