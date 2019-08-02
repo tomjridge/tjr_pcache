@@ -414,12 +414,13 @@ module Test = struct
     let (fd,store) = x.initial_state in
     let Generic_make_functor.{dmap_ops;pl_sync=_} = x.ops in
     let s = ref store in
-    let run m = Pcache_store_passing.run ~init_state:(!s) m |> fun (r,s') -> 
-                s:=s';
-                r
+    let run m = 
+      Pcache_store_passing.run ~init_state:(!s) m |> fun (r,s') -> 
+      s:=s';
+      r
     in
     (* mark "start2"; *)
-    
+
     (* loop count times, inserting kv pair *)
     begin
       1 |> List_.iter_break 
@@ -428,7 +429,8 @@ module Test = struct
                 | true -> `Break ()
                 | false -> 
                   let _maybe_detach = 
-                    match false (* i mod detach_interval = 0 *) with
+                    (* FIXME enable detach NOTE detach improves performance as expected *)
+                    match false (* i mod detach_interval = 0 *) with 
                     | false -> ()
                     | true -> (
                         (* mark "detach"; *)
@@ -439,7 +441,7 @@ module Test = struct
                   run (dmap_ops.insert i (2*i))
                   |> fun _ -> `Continue (i+1))
     end;
-    run (dmap_ops.dmap_write ());
+    run (dmap_ops.dmap_write ()); (* FIXME needed? isn't this the same as sync? *)
     Tjr_profile.measure_execution_time_and_print "final_sync" (fun () -> 
       run (dmap_ops.dmap_sync ())); (* FIXME if dmap_ops has sync, why do we need pl_sync? *)
     Unix.close fd;
