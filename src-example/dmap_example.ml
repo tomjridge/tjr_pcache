@@ -16,7 +16,7 @@
 
 open Pcache_intf
 open Pcache_intf.Ins_del_op
-open Pcache_store_passing
+(* open Pcache_store_passing *)
 
 type buf = Bin_prot.Common.buf
 let create_buf = Bin_prot.Common.create_buf
@@ -103,7 +103,7 @@ open Pcl_elt
 module Blk_layer = struct
   let blk_ops = Common_blk_ops.String_.make ~blk_sz
 
-  let blk_dev_ops ~fd = 
+  let blk_dev_ops ~monad_ops ~fd = 
     Blk_dev_on_fd.make_blk_dev_on_fd ~monad_ops ~blk_ops ~fd 
 
   module Internal_read_node = struct
@@ -143,13 +143,14 @@ module Blk_layer = struct
 
     (* let read_node ~blk_id = read_node ~monad_ops ~config ~blk_dev_ops ~blk_id *)
 
-    let read_back ~config ~fn ~ptr0 =
+    (* FIXME we probably want this to be imperative, just for ease of use *) 
+    let read_back ~monad_ops ~config ~fn ~ptr0 ~run =
       let fd = Tjr_file.fd_from_file ~fn ~create:false ~init:false in
-      let blk_dev_ops = blk_dev_ops ~fd in
+      let blk_dev_ops = blk_dev_ops ~monad_ops ~fd in
       let read_node ptr _blks = read_node ~monad_ops ~config ~blk_dev_ops ~blk_id:ptr in
       let read_node ptr blks =
         read_node ptr blks 
-        |> Pcache_store_passing.run ~init_state:(Tjr_store.empty_fstore ())
+        |> run ~init_state:(Tjr_store.empty_fstore ())
         |> fun (ess,_) -> ess
       in
       let _ = read_node in
@@ -167,6 +168,63 @@ end
 open Blk_layer
 
 
+module Pl_impl = struct
+  (* at the pl level:
+     data : 'a = buf * pos
+     'i = buf,pos,next
+
+     at the pcl level, again we can take 
+
+     'a = buf * pos
+     'e = op
+     'i = op list as buf * pos
+
+  *)
+  open Simple_pl_and_pcl_implementations
+  type pl_data = buf*int
+  type pl_internal_state = (pl_data,blk_id) Pl_impl.pl_state
+
+  let pl_state_ops = Pl_impl.pl_state_ops
+end
+
+
+module Pcl_impl = struct
+  include Pcl_internal_state
+  (* type e = (k,v)Pcache_intf.op *)
+
+  let pcl_state_ops ~(config:('k,'v,'ptr)config) = 
+    assert(config.k_size + config.v_size+1 <= max_data_length ~config);
+    Pcache_intf.Pcl_types.{
+      nil=(fun () -> {pcl_data=(create_buf config.blk_sz,0)});
+      snoc=(fun pcl_state (e:('k,'v)op) -> 
+        (* remember that we have to leave 10 bytes for the
+           "End_of_list" marker *)        
+        let buf,pos = pcl_state.pcl_data in
+        let e' = match e with
+          | Insert(k,v) -> Pcl_elt.Insert(k,v)
+          | Delete k -> Pcl_elt.Delete k
+        in
+        (* FIXME note that we need to be careful to leave enough space
+           for the next ptr, and we need to ensure we can write the
+           "current" elt *)
+        let new_bytes_len = match e with
+          | Insert _ -> config.k_size+config.v_size+1
+          | Delete _ -> config.k_size+1
+        in
+        match pos + new_bytes_len <= max_data_length ~config with
+        | true -> 
+          let pos' = (elt_writer ~config).write buf ~pos e' in
+          `Ok {pcl_data=(buf,pos')}
+        | false -> `Error_too_large       
+      ); 
+      pl_data=(fun pcl_state -> pcl_state.pcl_data)
+    }
+end
+
+
+
+
+
 (* known at compile time *)
 module type S1 = sig
   type k
@@ -175,185 +233,80 @@ module type S1 = sig
   type ptr = blk_id
   val config: (k,v,ptr)Config.config
   val ptr0: ptr
+  type t
+  val monad_ops: t monad_ops
 end
 
 (* probably only known at runtime *)
 module type S2 = sig
   include S1
-  val fd: Unix.file_descr
-end
 
+  val fd: Unix.file_descr
+
+  open Pl_impl
+  val with_pl: (pl_internal_state,t) with_state
+  open Pcl_impl
+  val with_pcl : (pcl_internal_state, t) with_state
+              
+  open Dcl_types
+  val with_dmap: ((ptr, (k,v,unit)Tjr_map.map) dcl_state, t)with_state
+end
 
 module Make(S:S2) = struct
   open S
 
   let blk_dev_ops = blk_dev_ops ~fd
 
-  (** Track the various bits of state by using a functional store:
+  let write_count = ref 0
 
-      - free (free block ptr)
-      - fd (block device via file descriptor)
-      - pl  
-      - pcl  
-      - dmap
+  let _ = Pervasives.at_exit (fun () -> 
+      Printf.printf "Blk write count: %d\n" !write_count)
 
-  *)
-  module Fstore = struct
-
-    (* NOTE we allow_reset, but only for fd_ref (and free ref?) *)
-    module R = Tjr_store.Make_imperative_fstore(struct let allow_reset=true end)
-    (* initial block number *)
-    let free_ref = R.ref (config.next_free_ptr ptr0)
-
-    let fd_ref = R.ref fd
-    let pl_ref = R.mk_uref ~name:"pl_ref" 
-    let pcl_ref = R.mk_uref ~name:"pcl_ref"
-    let dmap_ref = R.mk_uref ~name:"dmap_ref"
-
-    let with_free = with_ref free_ref
-    let with_fd = with_ref fd_ref 
-    let with_pl = with_ref pl_ref
-    let with_pcl = with_ref pcl_ref
-    let with_dmap = with_ref dmap_ref
-
-  end
-  open Fstore
-
-
-  module Pl_impl = struct
-    (* at the pl level:
-       data : 'a = buf * pos
-       'i = buf,pos,next
-
-       at the pcl level, again we can take 
-
-       'a = buf * pos
-       'e = op
-       'i = op list as buf * pos
-
-    *)
-    open Simple_pl_and_pcl_implementations
-    type pl_data = buf*int
-    type pl_internal_state = (pl_data,ptr) Pl_impl.pl_state
-
-
-    let _ = 
-      R.(pl_ref := Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None})
-
-    let pl_state_ops = Pl_impl.pl_state_ops
-
-    let write_count = ref 0
-
-    let _ = Pervasives.at_exit (fun () -> 
-        Printf.printf "Blk write count: %d\n" !write_count)
-
-    (* we assume the fd is fixed *)
-    let write_node (pl_state: pl_internal_state) =
-      (* mark "start"; *)
-      let buf,pos = pl_state.data in
-      let eol = End_of_list pl_state.next in
-      let _pos = (elt_writer ~config).write buf ~pos eol in
-      (* FIXME could be more efficient if we wrote direct to disk without
-         going via string *)
-      (* mark "buf2string"; *)
-      let blk = Core.Bigstring.to_string buf in
-      (* mark "buf2string'"; *)
-      blk_dev_ops.write ~blk_id:pl_state.current ~blk >>= fun x ->
-      incr write_count;
-      (* mark "end";  *)
-      return x
-
-    let _ = write_node
-
-    let with_pl = with_pl
-  end
-  open Pl_impl
-  
-
-  module Pcl_impl = struct
-
-    include Pcl_internal_state
-    (* type e = (k,v)Pcache_intf.op *)
-
-    let pcl_state_ops ~(config:('k,'v,'ptr)config) = 
-      assert(config.k_size + config.v_size+1 <= max_data_length ~config);
-      Pcache_intf.Pcl_types.{
-        nil=(fun () -> {pcl_data=(create_buf config.blk_sz,0)});
-        snoc=(fun pcl_state (e:('k,'v)op) -> 
-          (* remember that we have to leave 10 bytes for the
-             "End_of_list" marker *)        
-          let buf,pos = pcl_state.pcl_data in
-          let e' = match e with
-            | Insert(k,v) -> Pcl_elt.Insert(k,v)
-            | Delete k -> Pcl_elt.Delete k
-          in
-          (* FIXME note that we need to be careful to leave enough space
-             for the next ptr, and we need to ensure we can write the
-             "current" elt *)
-          let new_bytes_len = match e with
-            | Insert _ -> config.k_size+config.v_size+1
-            | Delete _ -> config.k_size+1
-          in
-          match pos + new_bytes_len <= max_data_length ~config with
-          | true -> 
-            let pos' = (elt_writer ~config).write buf ~pos e' in
-            `Ok {pcl_data=(buf,pos')}
-          | false -> `Error_too_large       
-        ); 
-        pl_data=(fun pcl_state -> pcl_state.pcl_data)
-      }
-
-    let pcl_state_ops = pcl_state_ops ~config 
-
-    let _ = 
-      R.(pcl_ref := {pcl_data=(create_buf blk_sz,0)})
-
-    let with_pcl = with_pcl
-  end
-
-
-  module With_dmap = struct
-    open Pcache_intf.Dcl_types
-
-    let _ =  
-      (* FIXME this should be elsewhere *)
-      let kvop_map_ops = Op_aux.default_kvop_map_ops () in
-      let empty_map = kvop_map_ops.empty in
-      R.(dmap_ref := { start_block=ptr0;
-                       current_block=ptr0;
-                       block_list_length=1;
-                       abs_past=empty_map;
-                       abs_current=empty_map })
-
-    let with_dmap = with_dmap
-  end
+  (* we assume the fd is fixed *)
+  let write_node (pl_state: Pl_impl.pl_internal_state) =
+    (* mark "start"; *)
+    let buf,pos = pl_state.data in
+    let eol = End_of_list pl_state.next in
+    let _pos = (elt_writer ~config).write buf ~pos eol in
+    (* FIXME could be more efficient if we wrote direct to disk without
+       going via string *)
+    (* mark "buf2string"; *)
+    let blk = Core.Bigstring.to_string buf in
+    (* mark "buf2string'"; *)
+    blk_dev_ops.write ~blk_id:pl_state.current ~blk >>= fun x ->
+    incr write_count;
+    (* mark "end";  *)
+    return x  
 
   module Internal = struct
-
     type k = S.k
     type v = S.v
     type nonrec ptr = blk_id
-    type t = fstore_passing
-    let monad_ops = Pcache_store_passing.monad_ops
+    type t = S.t
+    let monad_ops = S.monad_ops
 
 
     include Pl_impl
+    (* let pl_state_ops = Pl_impl.pl_state_ops *)
 
     include Pcl_impl
+    let pcl_state_ops = Pcl_impl.pcl_state_ops ~config 
 
     type e = (k,v) Ins_del_op.op
 
-    include With_dmap
+    let with_pl,with_pcl,with_dmap = S.(with_pl,with_pcl,with_dmap)
   end
 
   module G = Tjr_pcache.Generic_make_functor.Make(Internal)
 
+(*
   let alloc () = with_free.with_state (fun ~state:free ~set_state -> 
       let free' = free |> Blk_id.to_int |> fun x -> x+1 |> Blk_id.of_int in
       set_state free' >>= fun () ->
       return free)
+*)
 
-  let make_dmap_ops = G.make_dmap_ops ~alloc ~with_pl ~write_node ~with_pcl ~with_dmap
+  let make_dmap_ops ~alloc = G.make_dmap_ops ~alloc ~with_pl ~write_node ~with_pcl ~with_dmap
 
   let _ = make_dmap_ops
 
@@ -460,3 +413,53 @@ module Test = struct
     else ()
 
 end
+
+
+
+
+
+  (** Track the various bits of state by using a functional store:
+
+      - free (free block ptr)
+      - fd (block device via file descriptor)
+      - pl  
+      - pcl  
+      - dmap
+
+  *)
+  module Fstore = struct
+
+    (* NOTE we allow_reset, but only for fd_ref (and free ref?) *)
+    module R = Tjr_store.Make_imperative_fstore(struct let allow_reset=true end)
+    (* initial block number *)
+    let free_ref = R.ref (config.next_free_ptr ptr0)
+
+    let fd_ref = R.ref fd
+    let pl_ref = R.mk_uref ~name:"pl_ref" 
+    let pcl_ref = R.mk_uref ~name:"pcl_ref"
+    let dmap_ref = R.mk_uref ~name:"dmap_ref"
+
+    let with_free = with_ref free_ref
+    let with_fd = with_ref fd_ref 
+    let with_pl = with_ref pl_ref
+    let with_pcl = with_ref pcl_ref
+    let with_dmap = with_ref dmap_ref
+
+    let _ = 
+      R.(pl_ref := Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None})
+
+    let _ = 
+      R.(pcl_ref := {pcl_data=(create_buf blk_sz,0)})
+
+    let _ =  
+      (* FIXME this should be elsewhere *)
+      let kvop_map_ops = Op_aux.default_kvop_map_ops () in
+      let empty_map = kvop_map_ops.empty in
+      R.(dmap_ref := { start_block=ptr0;
+                       current_block=ptr0;
+                       block_list_length=1;
+                       abs_past=empty_map;
+                       abs_current=empty_map })
+
+  end
+  open Fstore
