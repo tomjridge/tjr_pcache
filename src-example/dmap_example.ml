@@ -10,7 +10,7 @@
     When we write eg Insert(k,v), we potentially use 1+|k|+|v| bytes. We
     need to be very careful that this doesn't exceed the B-xxx
     limit. Particularly, if values can be largeish (eg 256 bytes) we
-    need to take great care.  
+    need to take great care.
 
 *)
 
@@ -48,12 +48,12 @@ module Config = struct
   }
 
   (* xxx *)
-  let end_of_list_sz ~config = 1+1+config.ptr_sz   
+  let end_of_list_sz ~config = 1+1+config.ptr_sz
   (* End_of_list, Some/None, and int ptr; assumes binprot *)
 
   let max_data_length ~config = config.blk_sz - (end_of_list_sz ~config)
 
-  let int_int_config = 
+  let int_int_config =
     let writer = Bin_prot.Type_class.bin_writer_int in
     let reader = Bin_prot.Type_class.bin_reader_int in
     let next_free_ptr = fun p -> p|>Blk_id.to_int |> fun p -> p+1 |> Blk_id.of_int in
@@ -84,15 +84,15 @@ module Pcl_elt = struct
 
   (** For marshalling, we have a seq of elts, where the last elt is a
       End_of_list. The empty seq is just a single elt End_of_list *)
-  type ('k,'v,'ptr) elt = 
+  type ('k,'v,'ptr) elt =
     | Insert of 'k * 'v
-    | Delete of 'k 
+    | Delete of 'k
     | End_of_list of 'ptr option
   [@@deriving bin_io]
 
-  let elt_writer ~config = 
+  let elt_writer ~config =
     bin_writer_elt config.k_writer config.v_writer config.ptr_writer
-  let elt_reader ~config = 
+  let elt_reader ~config =
     bin_reader_elt config.k_reader config.v_reader config.ptr_reader
 end
 open Pcl_elt
@@ -103,8 +103,8 @@ open Pcl_elt
 module Blk_layer = struct
   let blk_ops = Common_blk_ops.String_.make ~blk_sz
 
-  let blk_dev_ops ~monad_ops ~fd = 
-    Blk_dev_on_fd.make_blk_dev_on_fd ~monad_ops ~blk_ops ~fd 
+  let blk_dev_ops ~monad_ops ~fd =
+    Blk_dev_on_fd.make_blk_dev_on_fd ~monad_ops ~blk_ops ~fd
 
   module Internal_read_node = struct
 
@@ -119,14 +119,14 @@ module Blk_layer = struct
       let reader = elt_reader ~config in
       let open Pcache_intf.Ins_del_op in
       let rec read pos_ref elts_so_far (* reversed *) =
-        reader.read buf ~pos_ref |> fun (elt:('k,'v,'ptr)elt) -> 
+        reader.read buf ~pos_ref |> fun (elt:('k,'v,'ptr)elt) ->
         match elt with
         (* read till we reach end_of_list *)
         | End_of_list ptr_opt -> (List.rev elts_so_far,ptr_opt)
-        | Insert(k,v) -> 
+        | Insert(k,v) ->
           let elt = Insert(k,v) in
           read pos_ref (elt::elts_so_far)
-        | Delete k -> 
+        | Delete k ->
           let elt = Delete k in
           read pos_ref (elt::elts_so_far)
       in
@@ -143,20 +143,20 @@ module Blk_layer = struct
 
     (* let read_node ~blk_id = read_node ~monad_ops ~config ~blk_dev_ops ~blk_id *)
 
-    (* FIXME we probably want this to be imperative, just for ease of use *) 
+    (* FIXME we probably want this to be imperative, just for ease of use *)
     let read_back ~monad_ops ~config ~fn ~ptr0 ~run =
       let fd = Tjr_file.fd_from_file ~fn ~create:false ~init:false in
       let blk_dev_ops = blk_dev_ops ~monad_ops ~fd in
       let read_node ptr _blks = read_node ~monad_ops ~config ~blk_dev_ops ~blk_id:ptr in
       let read_node ptr blks =
-        read_node ptr blks 
+        read_node ptr blks
         |> run ~init_state:(Tjr_store.empty_fstore ())
         |> fun (ess,_) -> ess
       in
       let _ = read_node in
-      let ess = 
+      let ess =
         Persistent_chunked_list.pcl_to_elt_list_list
-          ~read_node ~ptr:ptr0 ~blks:() 
+          ~read_node ~ptr:ptr0 ~blks:()
       in
       Unix.close fd;
       ess
@@ -173,7 +173,7 @@ module Pl_impl = struct
      data : 'a = buf * pos
      'i = buf,pos,next
 
-     at the pcl level, again we can take 
+     at the pcl level, again we can take
 
      'a = buf * pos
      'e = op
@@ -192,13 +192,13 @@ module Pcl_impl = struct
   include Pcl_internal_state
   (* type e = (k,v)Pcache_intf.op *)
 
-  let pcl_state_ops ~(config:('k,'v,'ptr)config) = 
+  let pcl_state_ops ~(config:('k,'v,'ptr)config) =
     assert(config.k_size + config.v_size+1 <= max_data_length ~config);
     Pcache_intf.Pcl_types.{
       nil=(fun () -> {pcl_data=(create_buf config.blk_sz,0)});
-      snoc=(fun pcl_state (e:('k,'v)op) -> 
+      snoc=(fun pcl_state (e:('k,'v)op) ->
         (* remember that we have to leave 10 bytes for the
-           "End_of_list" marker *)        
+           "End_of_list" marker *)
         let buf,pos = pcl_state.pcl_data in
         let e' = match e with
           | Insert(k,v) -> Pcl_elt.Insert(k,v)
@@ -212,11 +212,11 @@ module Pcl_impl = struct
           | Delete _ -> config.k_size+1
         in
         match pos + new_bytes_len <= max_data_length ~config with
-        | true -> 
+        | true ->
           let pos' = (elt_writer ~config).write buf ~pos e' in
           `Ok {pcl_data=(buf,pos')}
-        | false -> `Error_too_large       
-      ); 
+        | false -> `Error_too_large
+      );
       pl_data=(fun pcl_state -> pcl_state.pcl_data)
     }
 end
@@ -226,41 +226,63 @@ end
 
 
 (* known at compile time *)
+module type S0 = sig
+  type t
+  val monad_ops: t monad_ops
+
+end
+
+
 module type S1 = sig
+  include S0
+
   type k
   val compare: k -> k -> int
   type v
+
   type ptr = blk_id
   val config: (k,v,ptr)Config.config
   val ptr0: ptr
-  type t
-  val monad_ops: t monad_ops
 end
 
-(* probably only known at runtime *)
 module type S2 = sig
   include S1
-
-  val fd: Unix.file_descr
 
   open Pl_impl
   val with_pl: (pl_internal_state,t) with_state
   open Pcl_impl
   val with_pcl : (pcl_internal_state, t) with_state
-              
-  open Dcl_types
-  val with_dmap: ((ptr, (k,v,unit)Tjr_map.map) dcl_state, t)with_state
+
+  (* open Dcl_types *)
+  (* val with_dmap: ((ptr, (k,v,unit)Tjr_map.map) dcl_state, t)with_state *)
+  val with_dmap: ((ptr, k,v)Dmap_types.dmap_state, t)with_state
+
+  val alloc: unit -> (ptr,t)m
 end
 
-module Make(S:S2) = struct
+
+(* probably only known at runtime *)
+module type S3 = sig
+  include S2
+
+  val fd: Unix.file_descr
+
+end
+
+module Make(S:S3) : sig
+val dmap_ops : (S.k, S.v, S.ptr, S.t) Generic_make_functor.dmap_with_sync end
+ = struct
   open S
 
-  let blk_dev_ops = blk_dev_ops ~fd
+  let blk_dev_ops = blk_dev_ops ~monad_ops ~fd
 
   let write_count = ref 0
 
-  let _ = Pervasives.at_exit (fun () -> 
+  let _ = Pervasives.at_exit (fun () ->
       Printf.printf "Blk write count: %d\n" !write_count)
+
+  let ( >>= ) = monad_ops.bind
+  let return = monad_ops.return
 
   (* we assume the fd is fixed *)
   let write_node (pl_state: Pl_impl.pl_internal_state) =
@@ -276,7 +298,7 @@ module Make(S:S2) = struct
     blk_dev_ops.write ~blk_id:pl_state.current ~blk >>= fun x ->
     incr write_count;
     (* mark "end";  *)
-    return x  
+    return x
 
   module Internal = struct
     type k = S.k
@@ -290,176 +312,197 @@ module Make(S:S2) = struct
     (* let pl_state_ops = Pl_impl.pl_state_ops *)
 
     include Pcl_impl
-    let pcl_state_ops = Pcl_impl.pcl_state_ops ~config 
+    let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
 
     type e = (k,v) Ins_del_op.op
 
-    let with_pl,with_pcl,with_dmap = S.(with_pl,with_pcl,with_dmap)
+    (* let with_pl,_with_pcl,_with_dmap = S.(with_pl,with_pcl,with_dmap) *)
   end
 
   module G = Tjr_pcache.Generic_make_functor.Make(Internal)
 
+  let dmap_ops : (k, v, ptr, t) Generic_make_functor.dmap_with_sync =
+    G.make_dmap_ops ~alloc ~with_pl ~write_node ~with_pcl ~with_dmap
+end
+
+
+module With_fstore = struct
+
+  open Pcache_store_passing
+
+  module Make(S:S1 with type t = fstore_passing)
+    : sig   
+      val make_dmap_ops :
+        fn:string ->
+        (Unix.file_descr * fstore,
+         (S.k, S.v, blk_id, fstore_passing) Generic_make_functor.dmap_with_sync)
+          initial_state_and_ops
+    end
+  = struct
+    open S
+
+
+    open Pcache_store_passing
+
+    (** Track the various bits of state by using a functional store:
+
+        - free (free block ptr)
+        - fd (block device via file descriptor)
+        - pl
+        - pcl
+        - dmap
+
+    *)
+    module Fstore = struct
+      module S_ = Simple_pl_and_pcl_implementations
+
+      (* NOTE we allow_reset, but only for fd_ref (and free ref?) *)
+      module R = Tjr_store.Make_imperative_fstore(struct let allow_reset=true end)
+
+      (* initial block number *)
+      let free_ref = R.ref (config.next_free_ptr ptr0)
+      let pl_ref = R.ref S_.Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None} 
+      let pcl_ref = R.ref Pcl_impl.{pcl_data=(create_buf blk_sz,0)}
+      let dmap_ref = R.ref @@
+        (* FIXME this should be elsewhere *)
+        let kvop_map_ops = Op_aux.default_kvop_map_ops () in
+        let empty_map = kvop_map_ops.empty in
+        Pcache_intf.Dcl_types.{ 
+          start_block=ptr0;
+          current_block=ptr0;
+          block_list_length=1;
+          abs_past=empty_map;
+          abs_current=empty_map }
+
+      let with_free = with_ref free_ref
+      let with_pl = with_ref pl_ref
+      let with_pcl = with_ref pcl_ref
+      let with_dmap = with_ref dmap_ref
 (*
-  let alloc () = with_free.with_state (fun ~state:free ~set_state -> 
-      let free' = free |> Blk_id.to_int |> fun x -> x+1 |> Blk_id.of_int in
-      set_state free' >>= fun () ->
-      return free)
+    let fd_ref = R.ref fd
+    let with_fd = with_ref fd_ref
 *)
 
-  let make_dmap_ops ~alloc = G.make_dmap_ops ~alloc ~with_pl ~write_node ~with_pcl ~with_dmap
-
-  let _ = make_dmap_ops
-
-  module Export : sig
-    val dmap_ops :
-      (k, v, ptr, fstore_passing) Generic_make_functor.dmap_with_sync
-  end
-    = struct
-      let dmap_ops = make_dmap_ops
+      let alloc () = with_free.with_state (fun ~state:free ~set_state ->
+          let free' = free |> Blk_id.to_int |> fun x -> x+1 |> Blk_id.of_int in
+          set_state free' >>= fun () ->
+          return free)
     end
-end
+    (* open Fstore *)
 
-module Make_from_filename(S:S1) = struct  
-  let make_dmap_ops ~fn :
-    (Unix.file_descr * fstore,
-     (S.k, S.v, blk_id, fstore_passing) Generic_make_functor.dmap_with_sync)
-      initial_state_and_ops
-    = 
-    let fd = Tjr_file.fd_from_file ~fn ~create:true ~init:true in
-    let module A = Make(struct include S let fd = fd end) in
-    let initial_store = !A.Fstore.R.fstore in
-    {initial_state=(fd,initial_store);ops=A.Export.dmap_ops}
-end
 
-(** Construct the dmap example backed by a file *)
-let make_dmap_on_file (type k v) ~compare ~config ~ptr0 ~fn =
-  let module A = struct
-    type nonrec k=k
-    let compare=compare
-    type nonrec v=v
-    type ptr=blk_id
-    let config=config
-    let ptr0=ptr0
+
+    let make_dmap_ops ~fn :
+      (Unix.file_descr * fstore,
+       (S.k, S.v, blk_id, S.t) Generic_make_functor.dmap_with_sync)
+        initial_state_and_ops
+      =
+      let fd = Tjr_file.fd_from_file ~fn ~create:true ~init:true in
+      let module Internal = struct
+        include S
+        include Fstore
+        let fd = fd 
+        let alloc = alloc
+      end
+      in
+      let module A = Make(Internal) in
+      let initial_store = !Fstore.R.fstore in
+      {initial_state=(fd,initial_store);ops=A.dmap_ops}
+
   end
-  in  
-  let module B = Make_from_filename(A) in
-  B.make_dmap_ops ~fn
 
-let ptr0 = Blk_id.of_int 0
 
-module Common_dmap_on_file_instances = struct
-
-  let int_int ~fn = 
-    make_dmap_on_file ~compare:(Int_.compare) ~config:Config.int_int_config
-      ~ptr0 ~fn
-
-  (* FIXME other instances here *)
-end
-
-module Test = struct
-
-  let detach_interval = 100
-
-  let test_dmap_ops_on_file ~fn ~count = 
-    (* mark "start1"; *)
-    let config = Config.int_int_config in
-    let x = Common_dmap_on_file_instances.int_int ~fn in
-    let (fd,store) = x.initial_state in
-    let Generic_make_functor.{dmap_ops;pl_sync=_} = x.ops in
-    let s = ref store in
-    let run m = 
-      Pcache_store_passing.run ~init_state:(!s) m |> fun (r,s') -> 
-      s:=s';
-      r
+  (** Construct the dmap example backed by a file, using the fstore interface *)
+  let make_dmap_on_file (type k v) ~compare ~config ~ptr0 ~fn =
+    let module A = struct
+      type t = fstore_passing
+      let monad_ops=monad_ops
+      type nonrec k=k
+      let compare=compare
+      type nonrec v=v
+      type ptr=blk_id
+      let config=config
+      let ptr0=ptr0
+    end
     in
-    (* mark "start2"; *)
+    let module B = Make(A) in
+    B.make_dmap_ops ~fn
 
-    (* loop count times, inserting kv pair *)
-    begin
-      1 |> List_.iter_break 
-             (fun i -> 
-                match i > count with
-                | true -> `Break ()
-                | false -> 
-                  let _maybe_detach = 
-                    (* FIXME enable detach NOTE detach improves performance as expected *)
-                    match false (* i mod detach_interval = 0 *) with 
-                    | false -> ()
-                    | true -> (
-                        (* mark "detach"; *)
-                        ignore(run (dmap_ops.detach ()));
-                        ())
-                  in
-                  (* mark "test_ins"; *)
-                  run (dmap_ops.insert i (2*i))
-                  |> fun _ -> `Continue (i+1))
-    end;
-    run (dmap_ops.dmap_write ()); (* FIXME needed? isn't this the same as sync? *)
-    Tjr_profile.measure_execution_time_and_print "final_sync" (fun () -> 
-      run (dmap_ops.dmap_sync ())); (* FIXME if dmap_ops has sync, why do we need pl_sync? *)
-    Unix.close fd;
-    Tjr_profile.measure_execution_time_and_print "read_back" (fun () -> 
-      Internal_read_node.read_back ~config ~fn ~ptr0 |> fun ess ->
-      Printf.printf "read back %d ops\n%!" (List.length (List.concat ess)));    
-    if true then (  (* always print for the moment *)
-      (* Printf.printf "\nTop-level profiler\n";Profiler1.print_summary(); *)
-      (* Printf.printf "\nWrite profiler\n";Write_profiler.print_summary(); *)
-      Printf.printf "\nPl profiler\n";Persistent_list.Pl_profiler.print_summary();
-      Printf.printf "\nPcl profiler\n";Persistent_chunked_list.Pcl_profiler.print_summary();
-      (* Printf.printf "\nPcl micro profiler\n";Persistent_chunked_list.M.print_summary(); *)
-      Printf.printf "\nDcl profiler\n";Detachable_chunked_list.Dcl_profiler.print_summary();
-      Printf.printf "\nDcl micro profiler\n";Detachable_chunked_list.M.print_summary();
-      Printf.printf "\nDmap profiler\n";Detachable_map.Dmap_profiler.print_summary())
-    else ()
+  let _ = make_dmap_on_file
 
+  let ptr0 = Blk_id.of_int 0
+
+  module Common_dmap_on_file_instances = struct
+
+    let int_int ~fn =
+      make_dmap_on_file ~compare:(Int_.compare) ~config:Config.int_int_config
+        ~ptr0 ~fn
+
+    (* FIXME other instances here *)
+  end
+
+  module Test = struct
+
+    let detach_interval = 100
+
+
+    let test_dmap_ops_on_file ~fn ~count =
+      (* mark "start1"; *)
+      let config = Config.int_int_config in
+      let x = Common_dmap_on_file_instances.int_int ~fn in
+      let (fd,store) = x.initial_state in
+      let Generic_make_functor.{dmap_ops;pl_sync=_} = x.ops in
+      let s = ref store in
+      let run m =
+        Pcache_store_passing.run ~init_state:(!s) m |> fun (r,s') ->
+        s:=s';
+        r
+      in
+      (* mark "start2"; *)
+
+      (* loop count times, inserting kv pair *)
+      begin
+        1 |> List_.iter_break
+          (fun i ->
+             match i > count with
+             | true -> `Break ()
+             | false ->
+               let _maybe_detach =
+                 (* FIXME enable detach NOTE detach improves performance as expected *)
+                 match false (* i mod detach_interval = 0 *) with
+                 | false -> ()
+                 | true -> (
+                     (* mark "detach"; *)
+                     ignore(run (dmap_ops.detach ()));
+                     ())
+               in
+               (* mark "test_ins"; *)
+               run (dmap_ops.insert i (2*i))
+               |> fun _ -> `Continue (i+1))
+      end;
+      run (dmap_ops.dmap_write ()); (* FIXME needed? isn't this the same as sync? *)
+      Tjr_profile.measure_execution_time_and_print "final_sync" (fun () ->
+          run (dmap_ops.dmap_sync ())); (* FIXME if dmap_ops has sync, why do we need pl_sync? *)
+      Unix.close fd;
+      Tjr_profile.measure_execution_time_and_print "read_back" (fun () ->
+          let run = Pcache_store_passing.run in
+          Blk_layer.Internal_read_node.read_back ~monad_ops ~config ~fn ~ptr0 ~run |> fun ess ->
+          Printf.printf "read back %d ops\n%!" (List.length (List.concat ess)));
+      if true then (  (* always print for the moment *)
+        (* Printf.printf "\nTop-level profiler\n";Profiler1.print_summary(); *)
+        (* Printf.printf "\nWrite profiler\n";Write_profiler.print_summary(); *)
+        Printf.printf "\nPl profiler\n";Persistent_list.Pl_profiler.print_summary();
+        Printf.printf "\nPcl profiler\n";Persistent_chunked_list.Pcl_profiler.print_summary();
+        (* Printf.printf "\nPcl micro profiler\n";Persistent_chunked_list.M.print_summary(); *)
+        Printf.printf "\nDcl profiler\n";Detachable_chunked_list.Dcl_profiler.print_summary();
+        Printf.printf "\nDcl micro profiler\n";Detachable_chunked_list.M.print_summary();
+        Printf.printf "\nDmap profiler\n";Detachable_map.Dmap_profiler.print_summary())
+      else ()
+
+  end
 end
 
 
+(* FIXME other monads here *)
 
 
-
-  (** Track the various bits of state by using a functional store:
-
-      - free (free block ptr)
-      - fd (block device via file descriptor)
-      - pl  
-      - pcl  
-      - dmap
-
-  *)
-  module Fstore = struct
-
-    (* NOTE we allow_reset, but only for fd_ref (and free ref?) *)
-    module R = Tjr_store.Make_imperative_fstore(struct let allow_reset=true end)
-    (* initial block number *)
-    let free_ref = R.ref (config.next_free_ptr ptr0)
-
-    let fd_ref = R.ref fd
-    let pl_ref = R.mk_uref ~name:"pl_ref" 
-    let pcl_ref = R.mk_uref ~name:"pcl_ref"
-    let dmap_ref = R.mk_uref ~name:"dmap_ref"
-
-    let with_free = with_ref free_ref
-    let with_fd = with_ref fd_ref 
-    let with_pl = with_ref pl_ref
-    let with_pcl = with_ref pcl_ref
-    let with_dmap = with_ref dmap_ref
-
-    let _ = 
-      R.(pl_ref := Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None})
-
-    let _ = 
-      R.(pcl_ref := {pcl_data=(create_buf blk_sz,0)})
-
-    let _ =  
-      (* FIXME this should be elsewhere *)
-      let kvop_map_ops = Op_aux.default_kvop_map_ops () in
-      let empty_map = kvop_map_ops.empty in
-      R.(dmap_ref := { start_block=ptr0;
-                       current_block=ptr0;
-                       block_list_length=1;
-                       abs_past=empty_map;
-                       abs_current=empty_map })
-
-  end
-  open Fstore

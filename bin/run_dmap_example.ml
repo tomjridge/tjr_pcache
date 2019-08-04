@@ -13,4 +13,4 @@ let count = int_of_string Sys.argv.(1)
 
 let _ = 
   measure_execution_time_and_print "run_dmap_example" @@ fun () -> 
-  Dmap_example.Test.test_dmap_ops_on_file ~fn ~count
+  Dmap_example.With_fstore.Test.test_dmap_ops_on_file ~fn ~count
