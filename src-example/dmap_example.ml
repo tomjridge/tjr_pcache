@@ -326,6 +326,7 @@ val dmap_ops : (S.k, S.v, S.ptr, S.t) Generic_make_functor.dmap_with_sync end
 end
 
 
+(** Specialize to store-passing monad *)
 module With_fstore = struct
 
   open Pcache_store_passing
@@ -503,6 +504,122 @@ module With_fstore = struct
 end
 
 
-(* FIXME other monads here *)
+
+(** Specialize to lwt monad *)
+module With_lwt = struct
+
+  open Tjr_monad.With_lwt           
+
+  module Make(S:S1 with type t = Tjr_monad.With_lwt.lwt)
+    : sig   
+      open S
+      val make_dmap_ops :
+        fn:string ->
+(Unix.file_descr *
+ (ptr ref *
+  (buf * int, ptr) Simple_pl_and_pcl_implementations.Pl_impl.pl_state ref *
+  Pcl_internal_state.pcl_internal_state ref *
+  (ptr, (k, (k, v) Ins_del_op.op, unit) Tjr_map.map) Dcl_types.dcl_state ref),
+ (k, v, ptr, lwt) Generic_make_functor.dmap_with_sync)
+initial_state_and_ops
+    end
+  = struct
+    open S
 
 
+    (* An imperative store to hold state for lwt *)
+    module Store = struct
+      module S_ = Simple_pl_and_pcl_implementations
+
+      (* initial block number *)
+      let free_ref = ref (config.next_free_ptr ptr0)
+      let pl_ref = ref 
+          S_.Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None} 
+      let pcl_ref = ref Pcl_impl.{pcl_data=(create_buf blk_sz,0)}
+      let dmap_ref = ref @@
+        (* FIXME this should be elsewhere *)
+        let kvop_map_ops = Op_aux.default_kvop_map_ops () in
+        let empty_map = kvop_map_ops.empty in
+        Pcache_intf.Dcl_types.{ 
+          start_block=ptr0;
+          current_block=ptr0;
+          block_list_length=1;
+          abs_past=empty_map;
+          abs_current=empty_map }
+
+      let with_ref r = 
+        let with_state f = 
+          return () >>= fun () -> 
+          let state = !r in
+          let set_state r' = r:=r'; return () in
+          f ~state ~set_state
+        in
+        { with_state }        
+
+      let with_free = with_ref free_ref
+      let with_pl = with_ref pl_ref
+      let with_pcl = with_ref pcl_ref
+      let with_dmap = with_ref dmap_ref
+          
+      let alloc () = with_free.with_state (fun ~state:free ~set_state ->
+          let free' = free |> Blk_id.to_int |> fun x -> x+1 |> Blk_id.of_int in
+          set_state free' >>= fun () ->
+          return free)
+    end
+
+
+
+    let make_dmap_ops ~fn
+      : (Unix.file_descr *
+ (ptr ref *
+  (buf * int, ptr) Simple_pl_and_pcl_implementations.Pl_impl.pl_state ref *
+  Pcl_internal_state.pcl_internal_state ref *
+  (ptr, (k, (k, v) Ins_del_op.op, unit) Tjr_map.map) Dcl_types.dcl_state ref),
+ (k, v, ptr, lwt) Generic_make_functor.dmap_with_sync)
+initial_state_and_ops
+      =
+      let fd = Tjr_file.fd_from_file ~fn ~create:true ~init:true in
+      let module Internal = struct
+        include S
+        include Store
+        let fd = fd 
+        let alloc = alloc
+      end
+      in
+      let module A = Make(Internal) in
+      let initial_store = Store.(free_ref,pl_ref,pcl_ref,dmap_ref) in
+      {initial_state=(fd,initial_store);ops=A.dmap_ops}
+
+  end
+
+
+  (** Construct the dmap example backed by a file, using the fstore interface *)
+  let make_dmap_on_file (type k v) ~compare ~config ~ptr0 ~fn =
+    let module A = struct
+      type t = lwt
+      let monad_ops=lwt_ops
+      type nonrec k=k
+      let compare=compare
+      type nonrec v=v
+      type ptr=blk_id
+      let config=config
+      let ptr0=ptr0
+    end
+    in
+    let module B = Make(A) in
+    B.make_dmap_ops ~fn
+
+  let _ = make_dmap_on_file
+
+  let ptr0 = Blk_id.of_int 0
+
+  module Common_dmap_on_file_instances = struct
+
+    let int_int ~fn =
+      make_dmap_on_file ~compare:(Int_.compare) ~config:Config.int_int_config
+        ~ptr0 ~fn
+
+    (* FIXME other instances here *)
+  end
+
+end
