@@ -16,6 +16,11 @@
 
 open Pcache_intf
 open Pcache_intf.Ins_del_op
+module Blk_id = Blk_id_as_int
+open Blk_id
+let blk_sz = Blk_sz.blk_sz_4096
+let blk_sz_as_int = blk_sz |> Blk_sz.to_int
+
 (* open Pcache_store_passing *)
 
 type buf = Bin_prot.Common.buf
@@ -29,8 +34,6 @@ end
 
 (** Various other bits of configuration (typically how to marshal k,v etc) *)
 module Config = struct
-
-  let blk_sz = 4096
 
   type ('k,'v,'ptr) config = {
     ptr_sz:int;
@@ -100,11 +103,11 @@ open Pcl_elt
 
 
 
-module Blk_layer = struct
+module Unix_blk_layer = struct
   let blk_ops = Common_blk_ops.String_.make ~blk_sz
 
   let blk_dev_ops ~monad_ops ~fd =
-    Blk_dev_on_fd.make_blk_dev_on_fd ~monad_ops ~blk_ops ~fd
+    Blk_dev_on_fd.make_with_unix ~monad_ops ~blk_ops ~fd
 
   module Internal_read_node = struct
 
@@ -165,7 +168,17 @@ module Blk_layer = struct
   end
 
 end
-open Blk_layer
+(* open Blk_layer *)
+
+
+(* FIXME perhaps parameterize the blk_layers over blk_ops, blk_dev_ops, monad_ops *)
+module Lwt_blk_layer = struct
+  let blk_ops = Common_blk_ops.String_.make ~blk_sz
+
+  let blk_dev_ops ~fd =
+    Blk_dev_on_fd.make_with_lwt ~blk_ops ~fd
+end
+
 
 
 module Pl_impl = struct
@@ -265,8 +278,10 @@ end
 module type S3 = sig
   include S2
 
-  val fd: Unix.file_descr
-
+  (* type file_descr *)
+  (* val fd: file_descr *)
+  type blk = string
+  val blk_dev_ops : (blk_id,blk,t)blk_dev_ops
 end
 
 module Make(S:S3) : sig
@@ -274,7 +289,7 @@ val dmap_ops : (S.k, S.v, S.ptr, S.t) Generic_make_functor.dmap_with_sync end
  = struct
   open S
 
-  let blk_dev_ops = blk_dev_ops ~monad_ops ~fd
+  (* let blk_dev_ops = blk_dev_ops ~monad_ops ~fd *)
 
   let write_count = ref 0
 
@@ -362,8 +377,8 @@ module With_fstore = struct
 
       (* initial block number *)
       let free_ref = R.ref (config.next_free_ptr ptr0)
-      let pl_ref = R.ref S_.Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None} 
-      let pcl_ref = R.ref Pcl_impl.{pcl_data=(create_buf blk_sz,0)}
+      let pl_ref = R.ref S_.Pl_impl.{data=(create_buf blk_sz_as_int,0); current=ptr0; next=None} 
+      let pcl_ref = R.ref Pcl_impl.{pcl_data=(create_buf blk_sz_as_int,0)}
       let dmap_ref = R.ref @@
         (* FIXME this should be elsewhere *)
         let kvop_map_ops = Op_aux.default_kvop_map_ops () in
@@ -399,10 +414,12 @@ module With_fstore = struct
         initial_state_and_ops
       =
       let fd = Tjr_file.fd_from_file ~fn ~create:true ~init:true in
+      let blk_dev_ops = Unix_blk_layer.blk_dev_ops ~monad_ops ~fd in
       let module Internal = struct
         include S
         include Fstore
-        let fd = fd 
+        type blk=string 
+        let blk_dev_ops = blk_dev_ops
         let alloc = alloc
       end
       in
@@ -487,7 +504,7 @@ module With_fstore = struct
       Unix.close fd;
       Tjr_profile.measure_execution_time_and_print "read_back" (fun () ->
           let run = Pcache_store_passing.run in
-          Blk_layer.Internal_read_node.read_back ~monad_ops ~config ~fn ~ptr0 ~run |> fun ess ->
+          Unix_blk_layer.Internal_read_node.read_back ~monad_ops ~config ~fn ~ptr0 ~run |> fun ess ->
           Printf.printf "read back %d ops\n%!" (List.length (List.concat ess)));
       if true then (  (* always print for the moment *)
         (* Printf.printf "\nTop-level profiler\n";Profiler1.print_summary(); *)
@@ -515,7 +532,7 @@ module With_lwt = struct
       open S
       val make_dmap_ops :
         fn:string ->
-(Unix.file_descr *
+(Lwt_unix.file_descr *
  (ptr ref *
   (buf * int, ptr) Simple_pl_and_pcl_implementations.Pl_impl.pl_state ref *
   Pcl_internal_state.pcl_internal_state ref *
@@ -534,8 +551,8 @@ initial_state_and_ops
       (* initial block number *)
       let free_ref = ref (config.next_free_ptr ptr0)
       let pl_ref = ref 
-          S_.Pl_impl.{data=(create_buf blk_sz,0); current=ptr0; next=None} 
-      let pcl_ref = ref Pcl_impl.{pcl_data=(create_buf blk_sz,0)}
+          S_.Pl_impl.{data=(create_buf blk_sz_as_int,0); current=ptr0; next=None} 
+      let pcl_ref = ref Pcl_impl.{pcl_data=(create_buf blk_sz_as_int,0)}
       let dmap_ref = ref @@
         (* FIXME this should be elsewhere *)
         let kvop_map_ops = Op_aux.default_kvop_map_ops () in
@@ -570,7 +587,7 @@ initial_state_and_ops
 
 
     let make_dmap_ops ~fn
-      : (Unix.file_descr *
+      : (Lwt_unix.file_descr *
  (ptr ref *
   (buf * int, ptr) Simple_pl_and_pcl_implementations.Pl_impl.pl_state ref *
   Pcl_internal_state.pcl_internal_state ref *
@@ -579,10 +596,13 @@ initial_state_and_ops
 initial_state_and_ops
       =
       let fd = Tjr_file.fd_from_file ~fn ~create:true ~init:true in
+      let fd = Lwt_unix.of_unix_file_descr fd in
+      let blk_dev_ops = Lwt_blk_layer.blk_dev_ops ~fd in
       let module Internal = struct
         include S
         include Store
-        let fd = fd 
+        type blk=string 
+        let blk_dev_ops = blk_dev_ops
         let alloc = alloc
       end
       in
