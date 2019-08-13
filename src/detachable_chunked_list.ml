@@ -7,27 +7,19 @@
 open Pcache_intf
 open Pcl_types
 open Dcl_types
+open Profilers
 
-[%%import "pcache_optcomp_config.ml"]
+module Internal = struct
+  [@@@warning "-8"]
+  let [add; add'] = 
+    ["add";"add'"] |> List.map intern
 
-[%%if PROFILE_DCL]
-module Dcl_profiler = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
-module M = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
-(* module M = Dummy_int_profiler *)
-[%%else]
-module Dcl_profiler = Tjr_profile.Dummy_int_profiler
-module M = Tjr_profile.Dummy_int_profiler
-[%%endif]
+  let [p1;p1';p2;p2';p3;p4] = 
+    ["p1";"p1'";"p2";"p2'";"p3";"p4"] |> List.map intern
 
-open Dcl_profiler
-
-let [add; add'] = 
-  List.map allocate_int 
-    ["add";"add'"]
-[@@warning "-8"]
-
-let [p1;p1';p2;p2';p3;p4] = List.map M.allocate_int ["p1";"p1'";"p2";"p2'";"p3";"p4"] [@@warning "-8"]
-
+  let mark = dcl_profiler.mark
+end
+open Internal
 
 (** Construct the dcl operations. Parameters:
 
@@ -55,16 +47,16 @@ let make_dcl_ops
   let add op =
     return () >>= fun () ->
     (* mark add; *)
-    M.mark p1;
+    mark p1;
     with_dcl (fun ~state:s ~set_state -> 
-      M.mark p1';
+      mark p1';
       pcl_ops.insert op >>= function
       | Inserted_in_current_node ->
-        M.mark p2;
+        mark p2;
         set_state { s with abs_current=abs_ops.add op s.abs_current } >>= fun () -> 
-        M.mark p2'; return ()
+        mark p2'; return ()
       | Inserted_in_new_node ptr ->
-        M.mark p3;
+        mark p3;
         let abs_past = abs_ops.merge s.abs_past s.abs_current in
         let abs_current = abs_singleton ~abs_ops op in
         (* NOTE this code isn't concurrent safe *)
@@ -73,7 +65,7 @@ let make_dcl_ops
                     block_list_length=s.block_list_length+1;
                     abs_past;
                     abs_current} >>= fun () -> 
-        M.mark p4; return ())
+        mark p4; return ())
     >>= fun () -> 
     (* mark add';  *)
     return ()

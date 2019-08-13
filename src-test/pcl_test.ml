@@ -59,10 +59,10 @@ let main () =
   let ops = M.pcl_ops in
   let s = ref M.store in
   let run m = State_passing.to_fun m !s |> fun (r,s') -> s:=s'; r in
-  1 |> List_.iter_break (fun i -> 
+  1 |> iter_break (fun i -> 
       match i <= count with
-      | true -> ignore(run (ops.insert i)); `Continue (i+1)
-      | false -> `Break ());
+      | true -> ignore(run (ops.insert i)); Cont (i+1)
+      | false -> Break ());
   run (ops.pcl_write ()); (* NOTE need the last sync *)
   let blks = Tjr_store.get M.blks_ref !s in
   let ess = Persistent_chunked_list.pcl_to_elt_list_list ~read_node:M.read_node ~ptr:ptr0 ~blks in

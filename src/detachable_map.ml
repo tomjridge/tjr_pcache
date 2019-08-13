@@ -7,21 +7,17 @@ open Pcl_types
 open Dcl_types
 
 open Dmap_types
+open Profilers
 
-[%%import "pcache_optcomp_config.ml"]
+module Internal0 = struct
+  [@@@warning "-8"]
+  
+  let [ins; ins'] = 
+    ["ins";"ins'"] |> List.map intern
 
-[%%if PROFILE_DMAP]
-module Dmap_profiler = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
-[%%else]
-module Dmap_profiler = Tjr_profile.Dummy_int_profiler
-[%%endif]
-
-open Dmap_profiler
-
-let [ins; ins'] = 
-  List.map allocate_int 
-    ["ins";"ins'"]
-[@@warning "-8"]
+  let mark = dmap_profiler.mark
+end
+open Internal0
 
 module Internal = struct
 
@@ -29,7 +25,7 @@ module Internal = struct
   let map_merge ~map_ops ~old ~new_ = (
     let open Tjr_map in
     map_ops.bindings new_ |> fun kvs ->
-    (kvs,old) |> List_.iter_opt
+    (kvs,old) |> iter_opt
       (function
         | ([],m) -> None
         | ((k,v)::kvs,m) -> 

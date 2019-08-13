@@ -10,21 +10,17 @@ NOTE not concurrent safe; access must be serialized.
 open Pcache_intf
 open Pl_types
 open Pcl_types
+open Profilers
 
-[%%import "pcache_optcomp_config.ml"]
+module Internal = struct
+  [@@@warning "-8"]
+  let [ins; ins'] = 
+    ["ins";"ins'"] |> List.map intern
 
-[%%if PROFILE_PCL]
-module Pcl_profiler = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
-[%%else]
-module Pcl_profiler = Tjr_profile.Dummy_int_profiler
-[%%endif]
-
-open Pcl_profiler
-
-let [ins; ins'] = 
-  List.map allocate_int 
-    ["ins";"ins'"]
-[@@warning "-8"]
+  let profiler = pcl_profiler
+  let mark = pcl_profiler.mark
+end
+open Internal
 
 (** Function to construct a persistent chunked list. Parameters:
 - [pl_ops] The underlying persistent list operations.

@@ -2,23 +2,14 @@
 
 open Pcache_intf
 open Pcache_intf.Pl_types
-
-
-[%%import "pcache_optcomp_config.ml"]
-
-[%%if PROFILE_PL]
-module Pl_profiler = Tjr_profile.With_array.Make_profiler(struct let cap = int_of_float 1e7 end)
-[%%else]
-module Pl_profiler = Tjr_profile.Dummy_int_profiler
-[%%endif]
-
-open Pl_profiler
+open Profilers
 
 module Internal = struct
-  let [pl_last; pl_last'; pl_sync; pl_sync'; new_node_i; new_node'] = 
-    List.map Pl_profiler.allocate_int 
-      ["pl_last";"pl_last'";"pl_sync";"pl_sync'"; "new_node"; "new_node'"]
-[@@warning "-8"]
+  [@@@warning "-8"]
+  let [pl_last; pl_last'; pl_sync; pl_sync'; new_node_i; new_node']  = 
+    (["pl_last";"pl_last'";"pl_sync";"pl_sync'"; "new_node"; "new_node'"] |> List.map intern )
+    
+  let mark = pl_profiler.mark
 end
 open Internal
 

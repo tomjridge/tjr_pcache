@@ -480,10 +480,10 @@ module With_fstore = struct
 
       (* loop count times, inserting kv pair *)
       begin
-        1 |> List_.iter_break
+        1 |> iter_break
           (fun i ->
              match i > count with
-             | true -> `Break ()
+             | true -> Break ()
              | false ->
                let _maybe_detach =
                  (* FIXME enable detach NOTE detach improves performance as expected *)
@@ -496,7 +496,7 @@ module With_fstore = struct
                in
                (* mark "test_ins"; *)
                run (dmap_ops.insert i (2*i))
-               |> fun _ -> `Continue (i+1))
+               |> fun _ -> Cont (i+1))
       end;
       run (dmap_ops.dmap_write ()); (* FIXME needed? isn't this the same as sync? *)
       Tjr_profile.measure_execution_time_and_print "final_sync" (fun () ->
@@ -506,16 +506,7 @@ module With_fstore = struct
           let run = Pcache_store_passing.run in
           Unix_blk_layer.Internal_read_node.read_back ~monad_ops ~config ~fn ~ptr0 ~run |> fun ess ->
           Printf.printf "read back %d ops\n%!" (List.length (List.concat ess)));
-      if true then (  (* always print for the moment *)
-        (* Printf.printf "\nTop-level profiler\n";Profiler1.print_summary(); *)
-        (* Printf.printf "\nWrite profiler\n";Write_profiler.print_summary(); *)
-        Printf.printf "\nPl profiler\n";Persistent_list.Pl_profiler.print_summary();
-        Printf.printf "\nPcl profiler\n";Persistent_chunked_list.Pcl_profiler.print_summary();
-        (* Printf.printf "\nPcl micro profiler\n";Persistent_chunked_list.M.print_summary(); *)
-        Printf.printf "\nDcl profiler\n";Detachable_chunked_list.Dcl_profiler.print_summary();
-        Printf.printf "\nDcl micro profiler\n";Detachable_chunked_list.M.print_summary();
-        Printf.printf "\nDmap profiler\n";Detachable_map.Dmap_profiler.print_summary())
-      else ()
+      ()
 
   end
 end
@@ -617,7 +608,7 @@ initial_state_and_ops
   let make_dmap_on_file (type k v) ~compare ~config ~ptr0 ~fn =
     let module A = struct
       type t = lwt
-      let monad_ops=lwt_ops
+      let monad_ops=lwt_monad_ops
       type nonrec k=k
       let compare=compare
       type nonrec v=v

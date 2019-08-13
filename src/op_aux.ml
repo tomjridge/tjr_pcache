@@ -16,10 +16,9 @@ let _ = default_kvop_map_ops
 
 let op_list_to_map ops = 
   let map_ops = default_kvop_map_ops () in
-  (ops,map_ops.empty) |> List_.iter_opt
+  (ops,map_ops.empty) |> iter_break
     (function
-      | ([],m) -> None
+      | ([],m) -> Break m
       | op::ops,m -> match op with
-        | Insert(k,v) -> Some(ops,map_ops.add k v m)
-        | Delete k -> Some(ops,map_ops.remove k m))
-  |> fun ([],m) -> m[@@ocaml.warning "-8"]
+        | Insert(k,v) -> Cont(ops,map_ops.add k v m)
+        | Delete k -> Cont(ops,map_ops.remove k m))
