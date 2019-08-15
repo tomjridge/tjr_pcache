@@ -27,7 +27,7 @@ open Pcache_intf
 (** Provide the functionality in the most generic way *)
 module Generic_make_functor = struct
 
-  (** pl_sync: Execute this before closing the persistent list/dmap *)
+  (** pl_sync: Execute this before closing the persistent list/dmap FIXME don't need pl_sync now *)
   type ('k,'v,'ptr,'t) dmap_with_sync = {
     dmap_ops:('k,'v,'ptr,'t)Dmap_types.dmap_ops;
     pl_sync: (unit -> (unit,'t)m)
@@ -87,6 +87,7 @@ module Generic_make_functor = struct
 end
 
 
+(*
 module Make_functor = struct
 
   type pl_blk_with_next_ptr_and_index
@@ -156,6 +157,7 @@ module Make_functor = struct
 *)
   end
 end
+*)
 
 
 (** {2 Internal, for testing} *)
@@ -163,4 +165,5 @@ end
 module Op_aux = Op_aux
 
 module Simple_pl_and_pcl_implementations = Simple_pl_and_pcl_implementations
+
 

@@ -312,6 +312,28 @@ module Dmap_types = struct
 
 end
 
+(*
+module Pcache_layers = struct
+  open Pl_types
+  open Pcl_types
+  open Dmap_types
+
+  (** NOTE in the following type, the option refs have to be
+     initialized before calling dmap_ops *)
+  type ('k,'v,'ptr,'t,'pl_data,'pl_internal_state,'pcl_internal_state) pcache_layers = {
+    monad_ops: 't monad_ops;
+    pl_state_ops: ('pl_data,'ptr,'pl_internal_state)pl_state_ops;
+    pcl_state_ops: ('pl_data,('k,'v)op,'pcl_internal_state)pcl_state_ops;
+    alloc:(unit -> ('ptr,'t)m)option ref;
+    with_pl:('pl_internal_state,'t) with_state option ref;
+    with_pcl:('pcl_internal_state,'t) with_state option ref;
+    with_dmap:(('ptr,'k,'v)dmap_state,'t) with_state option ref;
+    dmap_ops: write_node:('pl_internal_state -> (unit,'t)m) ->  ('k,'v,'ptr,'t)dmap_ops
+  }
+
+end
+*)
+
 (* NOTE use merlin to get the collection of all types, without ocamldoc *)
 module Internal_collection_of_all_types = struct
   include Map_ops

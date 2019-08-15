@@ -95,6 +95,9 @@ module Pcl_elt = struct
 
   let elt_writer ~config =
     bin_writer_elt config.k_writer config.v_writer config.ptr_writer
+
+  let _ = elt_writer
+
   let elt_reader ~config =
     bin_reader_elt config.k_reader config.v_reader config.ptr_reader
 end
@@ -108,6 +111,8 @@ module Unix_blk_layer = struct
 
   let blk_dev_ops ~monad_ops ~fd =
     Blk_dev_on_fd.make_with_unix ~monad_ops ~blk_ops ~fd
+
+  let _ = blk_dev_ops
 
   module Internal_read_node = struct
 
@@ -631,6 +636,194 @@ initial_state_and_ops
         ~ptr0 ~fn
 
     (* FIXME other instances here *)
+  end
+
+end
+
+
+
+module Pcache_layers = struct
+  open Pl_types
+  open Pcl_types
+  open Dmap_types
+
+  (** NOTE in the following type, the option refs have to be
+      initialized before calling dmap_ops *)
+  type ('k,'v,'ptr,'t,'blk,'pl_data,'pl_internal_state,'pcl_internal_state,'fd,'e) pcache_layers = {
+    monad_ops     : 't monad_ops;
+
+    config        : ('k,'v,'ptr) Config.config;
+    elt_writer    : ('k,'v,'ptr) Pcl_elt.elt Bin_prot.Type_class.writer;
+    elt_reader    : ('k,'v,'ptr) Pcl_elt.elt Bin_prot.Type_class.reader;
+
+    blk_ops       : 'blk blk_ops;
+    blk_dev_ops   : 'fd -> ('ptr,'blk,'t)blk_dev_ops;
+    read_back     : blk_dev_ops:('ptr,'blk,'t)blk_dev_ops -> root_ptr:'ptr -> 'e list list;
+    (* NOTE 'e is likely ins/del, different from pcl_elt.elt *)
+
+    pl_state_ops  : ('pl_data,'ptr,'pl_internal_state)pl_state_ops;
+    pcl_state_ops : ('pl_data,('k,'v)op,'pcl_internal_state)pcl_state_ops;
+
+    alloc         : (unit -> ('ptr,'t)m)option ref;
+    with_pl       : ('pl_internal_state,'t) with_state option ref;
+    with_pcl      : ('pcl_internal_state,'t) with_state option ref;
+    with_dmap     : (('ptr,'k,'v)dmap_state,'t) with_state option ref;
+
+    (* FIXME why does dmap_ops need pl write_node? *)
+    dmap_ops      : write_node:('pl_internal_state -> (unit,'t)m) ->  ('k,'v,'ptr,'t)dmap_ops
+  }
+
+end
+open Pcache_layers
+
+
+(** Use the Pcache_intf.pcache_layers type *)
+module Make_layers = struct
+
+
+  (** independent of monad *)
+
+  let blk_ops = Common_blk_ops.String_.make ~blk_sz
+
+  type buf = Bin_prot.Common.buf
+  type blk_id = Blk_id_as_int.blk_id
+
+  module S = Simple_pl_and_pcl_implementations
+
+  type pl_data = buf*int
+  type pl_internal_state = (pl_data,blk_id) S.Pl_impl.pl_state
+
+  let pl_state_ops = S.Pl_impl.pl_state_ops
+
+
+  let read_node ~monad_ops ~config ~blk_dev_ops ~blk_id =
+    let ( >>= ) = monad_ops.bind in
+    let return = monad_ops.return in
+    (* FIXME for performance, try to avoid string conversions *)
+    blk_dev_ops.read ~blk_id >>= fun (blk:string) ->
+    let buf = create_buf config.blk_sz in
+    Bin_prot.Common.unsafe_blit_string_buf ~src_pos:0 blk ~dst_pos:0 buf ~len:config.blk_sz;
+    (* now we convert buf to a seq of elts *)
+    let reader = elt_reader ~config in
+    let open Pcache_intf.Ins_del_op in
+    let rec read pos_ref elts_so_far (* reversed *) =
+      reader.read buf ~pos_ref |> fun (elt:('k,'v,'ptr)elt) ->
+      match elt with
+      (* read till we reach end_of_list *)
+      | End_of_list ptr_opt -> (List.rev elts_so_far,ptr_opt)
+      | Insert(k,v) ->
+        let elt = Insert(k,v) in
+        read pos_ref (elt::elts_so_far)
+      | Delete k ->
+        let elt = Delete k in
+        read pos_ref (elt::elts_so_far)
+    in
+    return (read (ref 0) [])
+
+  let _ = read_node
+
+
+  module Int_int = struct
+    type k = int
+    type v = int
+    let config = Config.int_int_config
+    let elt_writer = Pcl_elt.elt_writer ~config
+    let elt_reader = Pcl_elt.elt_reader ~config
+  end
+
+
+  module With_lwt = struct
+    
+    let monad_ops = lwt_monad_ops
+    let ( >>= ) = monad_ops.bind
+    let return = monad_ops.return
+
+    type t = lwt
+      
+    let blk_dev_ops fd = Lwt_blk_layer.blk_dev_ops ~fd
+
+
+    let read_back ~blk_dev_ops ~config ~ptr = 
+      let read_node ptr _blks = read_node ~monad_ops ~config ~blk_dev_ops ~blk_id:ptr in
+      let _ = read_node in
+      let ess =
+        Persistent_chunked_list.pcl_to_elt_list_list  FIXME we need this to be in the monad
+          ~read_node ~ptr:ptr0 ~blks:()
+      in
+      Unix.close fd;
+      ess
+
+
+    let make_int_int_layers () = 
+      let open Int_int in
+      let module A = struct
+        module S = Int_int
+                
+        let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
+        let _ = pcl_state_ops
+                              
+        let alloc = ref None
+        let with_pl = ref None
+        let with_pcl = ref None
+        let with_dmap = ref None
+
+        let dmap_ops ~write_node = 
+          assert(
+            match () with
+            | _ when !alloc = None -> 
+              Printf.sprintf "dmap_ops not initialized, at %s\n" __LOC__
+              |> failwith
+            | _ when !with_pl = None -> 
+              Printf.sprintf "with_pl not initialized, at %s\n" __LOC__
+              |> failwith
+            | _ when !with_pcl = None -> 
+              Printf.sprintf "with_pcl not initialized, at %s\n" __LOC__
+              |> failwith
+            | _ when !with_dmap = None -> 
+              Printf.sprintf "with_map not initialized, at %s\n" __LOC__
+              |> failwith
+            | _ -> true);
+          (* FIXME might also have a version where with_pl etc are specialized to stdlib.refs *)
+          let Some alloc,Some with_pl,Some with_pcl,Some with_dmap = 
+            (!alloc),(!with_pl),(!with_pcl),(!with_dmap) [@@ocaml.warning "-8"]
+          in
+          let module Internal = struct
+            type nonrec k = k
+            type nonrec v = v
+            type nonrec ptr = blk_id
+            type nonrec t = t
+            let monad_ops = monad_ops
+
+            type nonrec pl_data = pl_data
+            type nonrec pl_internal_state = pl_internal_state
+            let pl_state_ops = pl_state_ops
+
+            type nonrec pcl_internal_state = Pcl_internal_state.pcl_internal_state
+            type e = (k,v) Pcache_intf.Ins_del_op.op
+            let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
+          end
+          in
+          let module G = Tjr_pcache.Generic_make_functor.Make(Internal) in
+          let dmap_ops  = (G.make_dmap_ops ~alloc ~with_pl ~with_pcl ~with_dmap ~write_node).dmap_ops in
+          dmap_ops        
+      end
+      in
+      A.{
+        monad_ops;
+        config;
+        elt_writer;
+        elt_reader;
+        blk_ops;
+        blk_dev_ops;
+        read_back;
+        pl_state_ops;
+        pcl_state_ops;
+        alloc;
+        with_pl;
+        with_pcl;
+        with_dmap;
+        dmap_ops
+      }
   end
 
 end
