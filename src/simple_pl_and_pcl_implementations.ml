@@ -10,11 +10,13 @@ module Pl_impl = struct
     next: 'ptr option
   }
 
-  let pl_state_ops = Pl_types.{
+  let pl_state_ops : ('a, 'ptr, ('a, 'ptr) pl_state) Pl_types.pl_state_ops = Pl_types.{
       set_data=(fun data pl_state -> {pl_state with data});
       set_next=(fun ptr pl_state -> {pl_state with next=(Some ptr)});
       new_node=(fun current data pl_state -> { data; current; next=None })
     }  
+
+  let _ : ('a, 'ptr, ('a, 'ptr) pl_state) Pl_types.pl_state_ops = pl_state_ops
 
   (** The on-disk data *)
   type ('a,'ptr) pl_node = { 

@@ -16,24 +16,30 @@
 
 open Pcache_intf
 open Pcache_intf.Ins_del_op
+
+
+(** {2 Blocks etc} *)
+
 module Blk_id = Blk_id_as_int
-open Blk_id
+type blk_id = Blk_id.blk_id
 let blk_sz = Blk_sz.blk_sz_4096
 let blk_sz_as_int = blk_sz |> Blk_sz.to_int
 
 (* open Pcache_store_passing *)
 
+(** {2 Buffers} *)
+
 type buf = Bin_prot.Common.buf
 let create_buf = Bin_prot.Common.create_buf
 
-type pcl_internal_state = {
-  pcl_data:buf*int;  (* NOTE this is the same as pl_data *)
-}
+
+(** {2 Marshalling config} *)
+
 
 (** Various other bits of configuration (typically how to marshal k,v etc) *)
-module Config = struct
+module Marshalling_config = struct
 
-  type ('k,'v,'ptr) config = {
+  type ('k,'v,'ptr) marshalling_config = {
     ptr_sz:int;
     blk_sz:int;
     k_size:int;
@@ -76,8 +82,13 @@ module Config = struct
   (* let config = int_int_config *)
 
 end
-open Config
+open Marshalling_config
 
+
+
+type pcl_internal_state = {
+  pcl_data:buf*int;  (* NOTE this is the same as pl_data *)
+}
 
 
 module Pcl_elt = struct
@@ -131,7 +142,7 @@ module Pcl_read_node = struct
 
     let _ 
 : monad_ops:'a monad_ops ->
-config:('k, 'v, 'ptr) config ->
+config:('k, 'v, 'ptr) marshalling_config ->
 blk_dev_ops:('b, string, 'a) blk_dev_ops ->
 blk_id:'b -> (('k, 'v) Ins_del_op.op list * 'ptr option, 'a) m
 = read_node
@@ -158,10 +169,8 @@ end
 
 
 module Pcl_impl = struct
-  (* include Pcl_internal_state *)
-  (* type e = (k,v)Pcache_intf.op *)
 
-  let pcl_state_ops ~(config:('k,'v,'ptr)config) =
+  let pcl_state_ops ~(config:('k,'v,'ptr)marshalling_config) =
     assert(config.k_size + config.v_size+1 <= max_data_length ~config);
     Pcache_intf.Pcl_types.{
       nil=(fun () -> {pcl_data=(create_buf config.blk_sz,0)});
@@ -193,14 +202,14 @@ end
 
 
 
-
+(** {2 Type that captures all the different layers} *)
 
 (** NOTE in the following type, the option refs have to be
     initialized before calling dmap_ops *)
 type ('k,'v,'r,'t,'blk,'pl_data,'pl_internal_state,'pcl_internal_state,'fd,'e) pcache_layers = {
   monad_ops     : 't monad_ops;
 
-  config        : ('k,'v,'r) Config.config;
+  config        : ('k,'v,'r) Marshalling_config.marshalling_config;
   elt_writer    : ('k,'v,'r) Pcl_elt.elt Bin_prot.Type_class.writer;
   elt_reader    : ('k,'v,'r) Pcl_elt.elt Bin_prot.Type_class.reader;
 
@@ -219,10 +228,12 @@ type ('k,'v,'r,'t,'blk,'pl_data,'pl_internal_state,'pcl_internal_state,'fd,'e) p
   with_pcl      : ('pcl_internal_state,'t) with_state option ref;
   with_dmap     : (('r,'k,'v)Dmap_types.dmap_state,'t) with_state option ref;
 
-  (* FIXME why does dmap_ops need pl write_node? *)
+  (* why does dmap_ops need pl write_node? because dmap is isolated from blk_dev_ops *)
   dmap_ops      : write_node:('pl_internal_state -> (unit,'t)m) ->  ('k,'v,'r,'t)Dmap_types.dmap_ops
 }
 
+
+(** {2 Construct the layers} *)
 
 (** Use the Pcache_intf.pcache_layers type *)
 module Make_layers = struct
@@ -255,7 +266,7 @@ module Make_layers = struct
   let _ 
 : monad_ops:'a monad_ops ->
 blk_dev_ops:('b, string, 'a) blk_dev_ops ->
-config:('c, 'd, 'b) config ->
+config:('c, 'd, 'b) marshalling_config ->
 blk_id:'b -> (('c, 'd) Ins_del_op.op list list, 'a) m
 = read_back
 
@@ -281,110 +292,119 @@ blk_id:'b -> (('c, 'd) Ins_del_op.op list list, 'a) m
       (* mark "end";  *)
       return x
 
+  let make_layers (type k v t) ~monad_ops ~config ~blk_dev_ops = 
+    let module A = struct
+      let elt_writer = Pcl_elt.elt_writer ~config
+      let elt_reader = Pcl_elt.elt_reader ~config
+
+      let read_back ~blk_dev_ops ~blk_id = read_back ~monad_ops ~blk_dev_ops ~config ~blk_id
+
+      let write_node ~blk_dev_ops = write_node ~monad_ops ~elt_writer ~blk_dev_ops
+      let _ = write_node
+
+      let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
+      let _ = pcl_state_ops
+
+      let alloc = ref None
+      let with_pl = ref None
+      let with_pcl = ref None
+      let with_dmap = ref None
+
+      let refs_initialized () = 
+        match () with
+        | _ when !alloc = None -> 
+          Printf.sprintf "dmap_ops not initialized, at %s\n" __LOC__
+          |> failwith
+        | _ when !with_pl = None -> 
+          Printf.sprintf "with_pl not initialized, at %s\n" __LOC__
+          |> failwith
+        | _ when !with_pcl = None -> 
+          Printf.sprintf "with_pcl not initialized, at %s\n" __LOC__
+          |> failwith
+        | _ when !with_dmap = None -> 
+          Printf.sprintf "with_map not initialized, at %s\n" __LOC__
+          |> failwith
+        | _ -> true
+
+
+      let dmap_ops ~write_node = 
+        assert(refs_initialized ());
+        (* FIXME might also have a version where with_pl etc are specialized to stdlib.refs *)
+        let alloc,with_pl,with_pcl,with_dmap = 
+          (!alloc)|>dest_Some,(!with_pl)|>dest_Some,(!with_pcl)|>dest_Some,(!with_dmap)|>dest_Some
+        in
+        let module Internal = struct
+          type nonrec k = k
+          type nonrec v = v
+          type nonrec ptr = blk_id
+          type nonrec t = t
+          let monad_ops = monad_ops
+
+          type nonrec pl_data = pl_data
+          type nonrec pl_internal_state = pl_internal_state
+          let pl_state_ops = pl_state_ops
+
+          type nonrec pcl_internal_state = pcl_internal_state
+          type e = (k,v) Pcache_intf.Ins_del_op.op
+          let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
+        end
+        in
+        let module G = Tjr_pcache.Generic_make_functor.Make(Internal) in
+        let dmap_ops  = (G.make_dmap_ops ~alloc ~with_pl ~with_pcl ~with_dmap ~write_node).dmap_ops in
+        dmap_ops        
+    end
+    in
+    A.{
+      monad_ops;
+      config;
+      elt_writer;
+      elt_reader;
+      blk_write_count;
+      blk_ops;
+      blk_dev_ops;
+      write_node;
+      read_back;
+      pl_state_ops;
+      pcl_state_ops;
+      alloc;
+      with_pl;
+      with_pcl;
+      with_dmap;
+      dmap_ops
+    }
+
+  let _
+: monad_ops:'a monad_ops ->
+config:('b, 'c, blk_id) marshalling_config ->
+blk_dev_ops:('d -> (blk_id, string, 'a) blk_dev_ops) ->
+('b, 'c, blk_id, 'a, string, Pl_impl.pl_data, Pl_impl.pl_internal_state,
+ pcl_internal_state, 'd, ('b, 'c) Ins_del_op.op)
+pcache_layers
+= make_layers
+
+
   module Int_int = struct
     type k = int
     type v = int
-    let config = Config.int_int_config
-    let elt_writer = Pcl_elt.elt_writer ~config
-    let elt_reader = Pcl_elt.elt_reader ~config
+    let config = Marshalling_config.int_int_config
   end
 
 
   module With_lwt = struct
     
     let monad_ops = lwt_monad_ops
-    let ( >>= ) = monad_ops.bind
-    let return = monad_ops.return
 
-    type t = lwt
-      
     let blk_dev_ops fd =
-      Blk_dev_on_fd.make_with_lwt ~blk_ops ~fd    
+        Blk_dev_on_fd.make_with_lwt ~blk_ops ~fd    
 
     let make_int_int_layers () = 
       let open Int_int in
-      let module A = struct
-        module S = Int_int
-
-        let read_back ~blk_dev_ops ~blk_id = read_back ~monad_ops ~blk_dev_ops ~config ~blk_id
-
-        let write_node ~blk_dev_ops = write_node ~monad_ops ~elt_writer ~blk_dev_ops
-        let _ = write_node
-                
-        let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
-        let _ = pcl_state_ops
-                              
-        let alloc = ref None
-        let with_pl = ref None
-        let with_pcl = ref None
-        let with_dmap = ref None
-
-
-        let dmap_ops ~write_node = 
-          assert(
-            match () with
-            | _ when !alloc = None -> 
-              Printf.sprintf "dmap_ops not initialized, at %s\n" __LOC__
-              |> failwith
-            | _ when !with_pl = None -> 
-              Printf.sprintf "with_pl not initialized, at %s\n" __LOC__
-              |> failwith
-            | _ when !with_pcl = None -> 
-              Printf.sprintf "with_pcl not initialized, at %s\n" __LOC__
-              |> failwith
-            | _ when !with_dmap = None -> 
-              Printf.sprintf "with_map not initialized, at %s\n" __LOC__
-              |> failwith
-            | _ -> true);
-          (* FIXME might also have a version where with_pl etc are specialized to stdlib.refs *)
-          let Some alloc,Some with_pl,Some with_pcl,Some with_dmap = 
-            (!alloc),(!with_pl),(!with_pcl),(!with_dmap) [@@ocaml.warning "-8"]
-          in
-          let module Internal = struct
-            type nonrec k = k
-            type nonrec v = v
-            type nonrec ptr = blk_id
-            type nonrec t = t
-            let monad_ops = monad_ops
-
-            type nonrec pl_data = pl_data
-            type nonrec pl_internal_state = pl_internal_state
-            let pl_state_ops = pl_state_ops
-
-            type nonrec pcl_internal_state = pcl_internal_state
-            type e = (k,v) Pcache_intf.Ins_del_op.op
-            let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
-          end
-          in
-          let module G = Tjr_pcache.Generic_make_functor.Make(Internal) in
-          let dmap_ops  = (G.make_dmap_ops ~alloc ~with_pl ~with_pcl ~with_dmap ~write_node).dmap_ops in
-          dmap_ops        
-      end
-      in
-      A.{
-        monad_ops;
-        config;
-        elt_writer;
-        elt_reader;
-        blk_write_count;
-        blk_ops;
-        blk_dev_ops;
-        write_node;
-        read_back;
-        pl_state_ops;
-        pcl_state_ops;
-        alloc;
-        with_pl;
-        with_pcl;
-        with_dmap;
-        dmap_ops
-      }
+      make_layers ~monad_ops ~config ~blk_dev_ops
 
     let _ 
 : unit ->
-(int, int, blk_id, t, string, Pl_impl.pl_data, Pl_impl.pl_internal_state,
- pcl_internal_state, Lwt_unix.file_descr,
- (int, int) Ins_del_op.op)
+(int, int, blk_id, lwt, string, Pl_impl.pl_data, Pl_impl.pl_internal_state,
+ pcl_internal_state, Lwt_unix.file_descr, (int, int) Ins_del_op.op)
 pcache_layers
 = make_int_int_layers
 

@@ -1,0 +1,92 @@
+(** Tests for persistent list *)
+
+type blk = string
+
+open Dmap_example
+open Dmap_example.Make_layers
+
+(** We construct an in-mem blk_dev, and the pcache layers on top *)
+type ('k,'v,'blk_id,'blk) state = {
+  blk_dev            :'blk_id -> 'blk;
+  min_free_blk       :'blk_id;
+  pl_internal_state  :pl_internal_state;
+  pcl_internal_state :pcl_internal_state;
+  dmap_state         :('blk_id,'k,'v) Dmap_types.dmap_state
+}
+
+open Tjr_monad.State_passing
+let monad_ops = monad_ops ()
+
+module Blk_id = Blk_id_as_int
+
+let blk_sz = Blk_sz.of_int 4096
+
+let blk_ops = Common_blk_ops.String_.make ~blk_sz
+
+let alloc = of_fun (fun s -> 
+    (s.min_free_blk,{s with min_free_blk=Blk_id.incr s.min_free_blk}))
+
+let with_pl f = of_fun (fun s ->
+    f ~state:s ~set_state:(fun pl_internal_state -> of_fun (fun s -> ((),{s with pl_internal_state}))))
+
+let with_pcl f = of_fun (fun s ->
+    f ~state:s ~set_state:(fun pcl_internal_state -> of_fun (fun s -> ((),{s with pcl_internal_state}))))
+
+let with_dmap f = of_fun (fun s ->
+    f ~state:s ~set_state:(fun dmap_state -> of_fun (fun s -> ((),{s with dmap_state}))))
+
+let f_update f k v = fun k' -> 
+  if k=k' then v else f k'
+
+let blk_dev_ops = {
+  blk_sz;
+  write=(fun ~blk_id ~blk -> of_fun (fun s -> 
+      ((),{s with blk_dev=(f_update s.blk_dev blk_id blk)})));
+  read=(fun ~blk_id -> of_fun (fun s -> (s.blk_dev blk_id,s)))
+}
+    
+
+let layers = make_layers ~monad_ops ~config ~blk_dev_ops
+  
+
+let make ~monad_
+
+(* Write some new nodes, update some, and finally print out the list *)
+let main () = 
+  Printf.printf "%s: tests starting...\n%!" __MODULE__;
+  let ptr0 = 0 in
+  let module M = Make(struct 
+      type data=string 
+      type ptr=int 
+      let initial_store=Tjr_store.empty_fstore ~allow_reset:true ()
+      let ptr0=ptr0
+      let data0="Start"
+    end)
+  in
+  let ops = M.pl_ops in
+  let cmds = 
+    ops.replace_last "New start" >>= fun () ->
+    ops.new_node "second node" >>= fun _ ->
+    ops.new_node "third node" >>= fun _ ->
+    ops.replace_last "alternative third node" >>= fun () ->
+    ops.pl_write()
+  in
+  let init_state = M.store in
+  let run ~init_state m = State_passing.to_fun m init_state in
+  run ~init_state  cmds |> fun ((),s) ->
+  (* check what is written *)
+  let xs = Persistent_list.pl_to_list 
+             ~read_node:M.read_node
+             ~ptr:ptr0
+             ~blks:(Tjr_store.get M.blks_ref s)
+  in
+  Sexplib.(Std.(Sexp.to_string_hum 
+                  [%message "Debug, xs: " (xs: string list)])) |> print_endline;
+  Alcotest.(check (list string)) "same strings" xs  ["New start";"second node";"alternative third node"];
+  Printf.printf "%s: ...tests finished\n" __MODULE__;
+  () (* actually return the state? *)
+
+let test_set = [
+  "Pl test", `Quick, main
+]
+

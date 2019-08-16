@@ -69,6 +69,9 @@ module Pl_types = struct
       - ['ptr] the type of pointers to nodes; each node has an optional next pointer
       - ['i] the internal state of the persistent list FIXME rename?
 
+      NOTE the module {!Simple_pl_and_pcl_implementations} contains
+      the obvious implementation of this type.
+
   *)
   type ('a,'ptr,'i) pl_state_ops = {
     set_data: 'a -> 'i -> 'i;

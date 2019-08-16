@@ -1,3 +1,6 @@
+(* FIXME FIXME 
+
+
 (** Test the dmap backed by a file. Command line arg is number of
    insert operations to try. *)
 
@@ -14,3 +17,4 @@ let count = int_of_string Sys.argv.(1)
 let _ = 
   measure_execution_time_and_print "run_dmap_example" @@ fun () -> 
   Dmap_example.With_fstore.Test.test_dmap_ops_on_file ~fn ~count
+*)
