@@ -84,6 +84,42 @@ alloc:(unit -> ('ptr, 't) m) ->
 
 (** Unmarshal a persistent list to a list of nodes. *)
 let pl_to_nodes
+  ~monad_ops
+  ~(read_node:'r -> ('a*'r option,'t) m)
+  ~ptr
+  =
+  let ( >>= ) = monad_ops.bind in
+  let return = monad_ops.return in
+  let mk_node ~ptr ~a ~next = (ptr,(a,next)) in
+  let rec loop acc ptr = 
+    read_node ptr >>= fun (a,next) ->
+    let node = mk_node ~ptr ~a ~next in
+    match next with 
+    | None -> return (List.rev (node::acc))
+    | Some ptr' -> 
+      assert(not(ptr' = ptr));  (* basic sanity check *)
+      loop (node::acc) ptr'
+  in
+  loop [] ptr
+
+let _ = pl_to_nodes
+
+
+(** Convenience to unmarshal to a list of node contents *)
+let pl_to_list ~monad_ops ~read_node ~(ptr:'ptr) =
+  let ( >>= ) = monad_ops.bind in
+  let return = monad_ops.return in
+  pl_to_nodes ~monad_ops ~read_node ~ptr >>= fun xs -> 
+  xs |> List.map (fun (_,(a,_)) -> (a:'a)) |> return
+
+
+
+
+
+
+(*
+(** Unmarshal a persistent list to a list of nodes. *)
+let pl_to_nodes
   ~(read_node:'ptr -> 'blks -> ('a * 'ptr option))
   ~(ptr:'ptr)
   ~(blks:'blks)
@@ -99,10 +135,11 @@ let pl_to_nodes
   in
   loop ptr
 
-
 (** Convenience to unmarshal to a list of node contents *)
 let pl_to_list ~read_node ~(ptr:'ptr) ~(blks:'blks) =
   pl_to_nodes ~read_node ~ptr ~blks 
   |> List.map (fun (_,(a,_)) -> (a:'a))
 
 let _ = pl_to_list
+*)
+

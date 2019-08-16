@@ -96,13 +96,14 @@ let pcl_to_nodes = Persistent_list.pl_to_nodes
 
 (** As [pcl_to_nodes] *)
 let pcl_to_es_node_list
-    ~(read_node:'ptr -> 'blks -> ('a list * 'ptr option))
-    ~(ptr:'ptr)
-    ~(blks:'blks)
-  : ('ptr * ('e list * 'ptr option)) list 
+      ~monad_ops
+      ~read_node
+      ~ptr
   =
-  pcl_to_nodes ~read_node ~ptr ~blks
-  |> List.map (fun (ptr,(es,next)) -> (ptr,(es,next)))
+  let ( >>= ) = monad_ops.bind in
+  let return = monad_ops.return in
+  pcl_to_nodes ~monad_ops ~read_node ~ptr >>= fun xs ->
+  xs |> List.map (fun (ptr,(es,next)) -> (ptr,(es,next))) |> return
 
 
 let _ = pcl_to_es_node_list
@@ -110,16 +111,24 @@ let _ = pcl_to_es_node_list
 
 (** Drop pointers from [pcl_to_es_node_list] *)
 let pcl_to_elt_list_list 
-  ~read_node 
-  ~ptr
-  ~blks
-  : 'e list list
+      ~monad_ops
+      ~read_node 
+      ~ptr
+  : ('e list list,'t) m
   =
+  let ( >>= ) = monad_ops.bind in
+  let return = monad_ops.return in
   pcl_to_es_node_list 
+    ~monad_ops
     ~read_node 
     ~ptr
-    ~blks
-  |> List.map (fun (ptr,(es,_)) -> es)
+  >>= fun xs ->
+  xs |> List.map (fun (ptr,(es,_)) -> es) |> return
 
 
-let _ = pcl_to_elt_list_list
+let _
+: monad_ops:'t monad_ops ->
+read_node:('a -> ('e list * 'a option, 't) m) ->
+ptr:'a -> ('e list list, 't) m
+= pcl_to_elt_list_list
+
