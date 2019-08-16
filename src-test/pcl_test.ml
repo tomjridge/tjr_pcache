@@ -1,12 +1,7 @@
+(* FIXME
 (** Test PCL, building on tests for PL *)
 
-(* test  ---------------------------------------------------------- *)
-
-(** Tests for pcl *)
-
 open Pcl_types
-open Tjr_store
-open Fstore_passing
 
 open Simple_pl_and_pcl_implementations
 
@@ -15,6 +10,9 @@ let count = 20
 
 (** Number of elements that can be stored in a node *)
 let elts_per_node = 3
+
+
+
 
 
 module Make(S:sig
@@ -132,3 +130,4 @@ let test_set = [
 (* FIXME do more testing a la gom testing with abstract models etc *)
 
 
+*)
