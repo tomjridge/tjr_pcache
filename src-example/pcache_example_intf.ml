@@ -1,6 +1,7 @@
 (** Various other bits of configuration (typically how to marshal k,v etc) *)
 module Blk_id = Blk_id_as_int
 
+(* FIXME rename pcache_marshalling ? *)
 module Marshalling_config_type = struct
   
   type ('k,'v,'ptr) marshalling_config = {
@@ -21,11 +22,25 @@ module Marshalling_config_type = struct
 end
 include Marshalling_config_type
 
+
 (** {2 Type that captures all the different layers} *)
+
+(* FIXME may want to move pcache_with to pcache_intf *)
+
+(** This type reveals how to access shared state *)
+type ('k,'v,'r,'t,'pl_internal_state, 'pcl_internal_state) pcache_with = {
+  alloc         : (unit -> ('r,'t)m);
+  with_pl       : ('pl_internal_state,'t) with_state;
+  with_pcl      : ('pcl_internal_state,'t) with_state;
+  with_dmap     : (('r,'k,'v)Dmap_types.dmap_state,'t) with_state;
+}
 
 (** NOTE in the following type, the option refs have to be
     initialized before calling dmap_ops *)
-type ('k,'v,'r,'t,'blk,'pl_data,'init,'pl_internal_state,'pcl_internal_state,'pcl_elt,'fd,'e) pcache_layers = {
+type ('k,'v,'r,'t,'blk,'pl_data,'pl_internal_state,'pcl_internal_state,'pcl_elt,'fd,'e) pcache_layers = {
+  internal : pl_data:'pl_data -> pl_internal_state:'pl_internal_state
+    -> pcl_internal_state:'pcl_internal_state -> pcl_elt:'pcl_elt ->
+    fd:'fd -> e:'e -> unit;
   monad_ops     : 't monad_ops;
 
   config        : ('k,'v,'r) marshalling_config;
@@ -42,15 +57,20 @@ type ('k,'v,'r,'t,'blk,'pl_data,'init,'pl_internal_state,'pcl_internal_state,'pc
   pl_state_ops  : ('pl_data,'r,'pl_internal_state)Pcache_intf.Pl_types.pl_state_ops;
   pcl_state_ops : ('pl_data,('k,'v)kvop,'pcl_internal_state)Pcl_types.pcl_state_ops;
 
-  alloc         : (unit -> ('r,'t)m)option ref;
-  with_pl       : ('pl_internal_state,'t) with_state option ref;
-  with_pcl      : ('pcl_internal_state,'t) with_state option ref;
-  with_dmap     : (('r,'k,'v)Dmap_types.dmap_state,'t) with_state option ref;
-
   (* why does dmap_ops need pl write_node? because dmap is isolated from blk_dev_ops *)
-  dmap_ops      : write_node:('pl_internal_state -> (unit,'t)m) ->  ('k,'v,'r,'t)Dmap_types.dmap_ops
+  dmap_ops      : 
+    pcache_with:('k,'v,'r,'t,'pl_internal_state, 'pcl_internal_state) pcache_with -> 
+    write_node:('pl_internal_state -> (unit,'t)m) ->  
+    ('k,'v,'r,'t)Dmap_types.dmap_ops
 }
 
 
 
+
+(*
+  alloc         : (unit -> ('r,'t)m)option ref;
+  with_pl       : ('pl_internal_state,'t) with_state option ref;
+  with_pcl      : ('pcl_internal_state,'t) with_state option ref;
+  with_dmap     : (('r,'k,'v)Dmap_types.dmap_state,'t) with_state option ref;
+*)
   (* initial_states: 'init -> 'pl_internal_state * 'pcl_internal_state * ('r,'k,'v)Dmap_types.dmap_state; *)

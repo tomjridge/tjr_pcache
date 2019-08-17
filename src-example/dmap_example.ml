@@ -274,34 +274,8 @@ blk_id:'b -> (('c, 'd) kvop list list, 'a) m
       let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
       let _ = pcl_state_ops
 
-      let alloc = ref None
-      let with_pl = ref None
-      let with_pcl = ref None
-      let with_dmap = ref None
-
-      let refs_initialized () = 
-        match () with
-        | _ when !alloc = None -> 
-          Printf.sprintf "dmap_ops not initialized, at %s\n" __LOC__
-          |> failwith
-        | _ when !with_pl = None -> 
-          Printf.sprintf "with_pl not initialized, at %s\n" __LOC__
-          |> failwith
-        | _ when !with_pcl = None -> 
-          Printf.sprintf "with_pcl not initialized, at %s\n" __LOC__
-          |> failwith
-        | _ when !with_dmap = None -> 
-          Printf.sprintf "with_map not initialized, at %s\n" __LOC__
-          |> failwith
-        | _ -> true
-
-
-      let dmap_ops ~write_node = 
-        assert(refs_initialized ());
-        (* FIXME might also have a version where with_pl etc are specialized to stdlib.refs *)
-        let alloc,with_pl,with_pcl,with_dmap = 
-          (!alloc)|>dest_Some,(!with_pl)|>dest_Some,(!with_pcl)|>dest_Some,(!with_dmap)|>dest_Some
-        in
+      let dmap_ops ~pcache_with ~write_node = 
+        let Pcache_example_intf.{alloc;with_pl;with_pcl;with_dmap} = pcache_with in
         let module Internal = struct
           type nonrec k = k
           type nonrec v = v
@@ -322,9 +296,11 @@ blk_id:'b -> (('c, 'd) kvop list list, 'a) m
         let dmap_ops  = (G.make_dmap_ops ~alloc ~with_pl ~with_pcl ~with_dmap ~write_node).dmap_ops in
         dmap_ops        
 
+      let internal ~pl_data ~pl_internal_state ~pcl_internal_state ~pcl_elt ~fd ~e = ()[@@ocaml.warning "-27"]
     end
     in
     A.{
+      internal;
       monad_ops;
       config;
       elt_writer;
@@ -337,10 +313,6 @@ blk_id:'b -> (('c, 'd) kvop list list, 'a) m
       pl_state_ops;
       pcl_state_ops;
       (* initial_states; *)
-      alloc;
-      with_pl;
-      with_pcl;
-      with_dmap;
       dmap_ops
     }
 
@@ -348,11 +320,8 @@ blk_id:'b -> (('c, 'd) kvop list list, 'a) m
 : monad_ops:'a monad_ops ->
 config:('b, 'c, blk_id) marshalling_config ->
 blk_dev_ops:('d -> (blk_id, string, 'a) blk_dev_ops) ->
-('b, 'c, blk_id, 'a, string, Pl_impl.pl_data,
- (Pl_impl.pl_data * blk_id * blk_id option) * pcl_internal_state *
- (blk_id, ('b, 'c) kvop_map) Dcl_types.dcl_state,
- Pl_impl.pl_internal_state, pcl_internal_state, ('b, 'c, blk_id) elt, 'd,
- ('b, 'c) kvop)
+('b, 'c, blk_id, 'a, string, Pl_impl.pl_data, Pl_impl.pl_internal_state,
+ pcl_internal_state, ('b, 'c, blk_id) elt, 'd, ('b, 'c) kvop)
 pcache_layers
 = make_layers
 
@@ -376,14 +345,21 @@ pcache_layers
       make_layers ~monad_ops ~config ~blk_dev_ops
 
     let _ 
-: unit ->
-(int, int, blk_id, lwt, string, Pl_impl.pl_data,
-  (Pl_impl.pl_data * blk_id * blk_id option) * pcl_internal_state *
- (blk_id, (int, int) kvop_map) Dcl_types.dcl_state,
- Pl_impl.pl_internal_state, pcl_internal_state, (int, int, blk_id) elt,
- Lwt_unix.file_descr, (int, int) kvop)
+:unit ->
+(int, int, blk_id, lwt, string, Pl_impl.pl_data, Pl_impl.pl_internal_state,
+ pcl_internal_state, (int, int, blk_id) elt, Lwt_unix.file_descr,
+ (int, int) kvop)
 pcache_layers
 = make_int_int_layers
+
+    (* This gives us a clear description of the less clear types (and
+       avoids having to count commas in the pcache_layers type *)
+    let _ : pl_data:Pl_impl.pl_data ->
+pl_internal_state:Pl_impl.pl_internal_state ->
+pcl_internal_state:pcl_internal_state ->
+pcl_elt:(int, int, blk_id) elt ->
+fd:Lwt_unix.file_descr -> e:(int, int) kvop -> unit
+      = (make_int_int_layers()).internal
 
   end
 end
