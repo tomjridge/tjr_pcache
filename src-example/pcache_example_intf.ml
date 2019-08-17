@@ -25,7 +25,7 @@ include Marshalling_config_type
 
 (** NOTE in the following type, the option refs have to be
     initialized before calling dmap_ops *)
-type ('k,'v,'r,'t,'blk,'pl_data,'pl_internal_state,'pcl_internal_state,'pcl_elt,'fd,'e) pcache_layers = {
+type ('k,'v,'r,'t,'blk,'pl_data,'init,'pl_internal_state,'pcl_internal_state,'pcl_elt,'fd,'e) pcache_layers = {
   monad_ops     : 't monad_ops;
 
   config        : ('k,'v,'r) marshalling_config;
@@ -40,7 +40,7 @@ type ('k,'v,'r,'t,'blk,'pl_data,'pl_internal_state,'pcl_internal_state,'pcl_elt,
   (* NOTE 'e is likely ins/del, different from pcl_elt.elt *)
 
   pl_state_ops  : ('pl_data,'r,'pl_internal_state)Pcache_intf.Pl_types.pl_state_ops;
-  pcl_state_ops : ('pl_data,('k,'v)op,'pcl_internal_state)Pcl_types.pcl_state_ops;
+  pcl_state_ops : ('pl_data,('k,'v)kvop,'pcl_internal_state)Pcl_types.pcl_state_ops;
 
   alloc         : (unit -> ('r,'t)m)option ref;
   with_pl       : ('pl_internal_state,'t) with_state option ref;
@@ -52,3 +52,5 @@ type ('k,'v,'r,'t,'blk,'pl_data,'pl_internal_state,'pcl_internal_state,'pcl_elt,
 }
 
 
+
+  (* initial_states: 'init -> 'pl_internal_state * 'pcl_internal_state * ('r,'k,'v)Dmap_types.dmap_state; *)

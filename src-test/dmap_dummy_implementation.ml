@@ -12,8 +12,8 @@ open Ins_del_op
 
 module Dummy_state = struct
   type ('k,'v,'ptr) t = {
-    map_past: ('k,('k,'v)op,unit) Tjr_map.map;
-    map_current: ('k,('k,'v)op,unit) Tjr_map.map;
+    map_past: ('k,'v)kvop_map;
+    map_current: ('k,'v)kvop_map;
     op_count_current: int;
     ptr_current: 'ptr;
     block_list_length: int;
@@ -35,7 +35,7 @@ end
 
 open Dummy_state
 
-let map_merge = Detachable_map.Internal.map_merge
+let map_merge = Tjr_map.map_merge
 
 let make_dmap_ops ~monad_ops ~with_state ~ops_per_block ~alloc_ptr
   : ('k,'v,'ptr,'t)Dmap_types.dmap_ops 

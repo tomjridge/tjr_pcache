@@ -48,7 +48,7 @@ module Generic_make_functor = struct
     val pl_state_ops: (pl_data,ptr,pl_internal_state) Pl_types.pl_state_ops
 
     type pcl_internal_state
-    type e = (k,v)Ins_del_op.op  (* each elt is an op *)
+    type e = (k,v)kvop  (* each elt is an op *)
 
     val pcl_state_ops: (pl_data,e,pcl_internal_state)Pcl_types.pcl_state_ops
   end

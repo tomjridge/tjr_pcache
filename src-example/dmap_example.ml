@@ -29,8 +29,11 @@ let blk_sz_as_int = blk_sz |> Blk_sz.to_int
 
 (** {2 Buffers} *)
 
-type buf = Bin_prot.Common.buf
-let create_buf = Bin_prot.Common.create_buf
+module Buf = struct
+  type buf = Bin_prot.Common.buf
+  let create_buf = Bin_prot.Common.create_buf
+end
+include Buf
 
 
 (** {2 Marshalling config} *)
@@ -130,7 +133,7 @@ module Pcl_read_node = struct
 : monad_ops:'a monad_ops ->
 config:('k, 'v, 'ptr) marshalling_config ->
 blk_dev_ops:('b, string, 'a) blk_dev_ops ->
-blk_id:'b -> (('k, 'v) Ins_del_op.op list * 'ptr option, 'a) m
+blk_id:'b -> (('k, 'v) kvop list * 'ptr option, 'a) m
 = read_node
 end
 
@@ -150,6 +153,8 @@ module Pl_impl = struct
   type pl_data = buf*int
   type pl_internal_state = (pl_data,blk_id) Pl_impl.pl_state
 
+  let initial_pl_state ~data ~current ~next = Pl_impl.{data;current;next}
+
   let pl_state_ops = Pl_impl.pl_state_ops
 end
 
@@ -160,13 +165,13 @@ module Pcl_impl = struct
     assert(config.k_size + config.v_size+1 <= max_data_length ~config);
     Pcache_intf.Pcl_types.{
       nil=(fun () -> {pcl_data=(create_buf config.blk_sz,0)});
-      snoc=(fun pcl_state (e:('k,'v)op) ->
+      snoc=(fun pcl_state (e:('k,'v)kvop) ->
         (* remember that we have to leave 10 bytes for the
            "End_of_list" marker *)
         let buf,pos = pcl_state.pcl_data in
         let e' = match e with
           | Insert(k,v) -> Pcl_elt.Insert(k,v)
-          | Delete k -> Pcl_elt.Delete k
+         | Delete k -> Pcl_elt.Delete k
         in
         (* FIXME note that we need to be careful to leave enough space
            for the next ptr, and we need to ensure we can write the
@@ -183,6 +188,8 @@ module Pcl_impl = struct
       );
       pl_data=(fun pcl_state -> pcl_state.pcl_data)
     }
+
+  let initial_pcl_internal_state ~pcl_data = {pcl_data}
 end
 
 
@@ -210,6 +217,11 @@ module Make_layers = struct
 
   let pl_state_ops = S.Pl_impl.pl_state_ops
 
+  (* type ('ptr, 'k, 'v) dmap_state = ('ptr, ('k, 'v) op_map) Dcl_types.dcl_state *)
+
+  (* FIXME add a {dmap_state} wrapper for dmap_state type *)
+  let initial_dmap_state ~(dcl_state:('r,('k,'v)kvop_map) Dcl_types.dcl_state) = dcl_state
+
   let read_back ~monad_ops ~blk_dev_ops ~config ~blk_id = 
     let read_node blk_id = Pcl_read_node.read_node ~monad_ops ~config ~blk_dev_ops ~blk_id in
     let ess =
@@ -224,7 +236,7 @@ module Make_layers = struct
 : monad_ops:'a monad_ops ->
 blk_dev_ops:('b, string, 'a) blk_dev_ops ->
 config:('c, 'd, 'b) marshalling_config ->
-blk_id:'b -> (('c, 'd) Ins_del_op.op list list, 'a) m
+blk_id:'b -> (('c, 'd) kvop list list, 'a) m
 = read_back
 
   let blk_write_count = ref 0
@@ -302,13 +314,14 @@ blk_id:'b -> (('c, 'd) Ins_del_op.op list list, 'a) m
           let pl_state_ops = pl_state_ops
 
           type nonrec pcl_internal_state = pcl_internal_state
-          type e = (k,v) Pcache_intf.Ins_del_op.op
+          type e = (k,v) kvop
           let pcl_state_ops = Pcl_impl.pcl_state_ops ~config
         end
         in
         let module G = Tjr_pcache.Generic_make_functor.Make(Internal) in
         let dmap_ops  = (G.make_dmap_ops ~alloc ~with_pl ~with_pcl ~with_dmap ~write_node).dmap_ops in
         dmap_ops        
+
     end
     in
     A.{
@@ -323,6 +336,7 @@ blk_id:'b -> (('c, 'd) Ins_del_op.op list list, 'a) m
       read_back;
       pl_state_ops;
       pcl_state_ops;
+      (* initial_states; *)
       alloc;
       with_pl;
       with_pcl;
@@ -334,8 +348,11 @@ blk_id:'b -> (('c, 'd) Ins_del_op.op list list, 'a) m
 : monad_ops:'a monad_ops ->
 config:('b, 'c, blk_id) marshalling_config ->
 blk_dev_ops:('d -> (blk_id, string, 'a) blk_dev_ops) ->
-('b, 'c, blk_id, 'a, string, Pl_impl.pl_data, Pl_impl.pl_internal_state,
- pcl_internal_state, ('b, 'c, blk_id) elt, 'd, ('b, 'c) Ins_del_op.op)
+('b, 'c, blk_id, 'a, string, Pl_impl.pl_data,
+ (Pl_impl.pl_data * blk_id * blk_id option) * pcl_internal_state *
+ (blk_id, ('b, 'c) kvop_map) Dcl_types.dcl_state,
+ Pl_impl.pl_internal_state, pcl_internal_state, ('b, 'c, blk_id) elt, 'd,
+ ('b, 'c) kvop)
 pcache_layers
 = make_layers
 
@@ -360,14 +377,80 @@ pcache_layers
 
     let _ 
 : unit ->
-(int, int, blk_id, lwt, string, Pl_impl.pl_data, Pl_impl.pl_internal_state,
- pcl_internal_state, (int, int, blk_id) elt, Lwt_unix.file_descr,
- (int, int) Ins_del_op.op)
+(int, int, blk_id, lwt, string, Pl_impl.pl_data,
+  (Pl_impl.pl_data * blk_id * blk_id option) * pcl_internal_state *
+ (blk_id, (int, int) kvop_map) Dcl_types.dcl_state,
+ Pl_impl.pl_internal_state, pcl_internal_state, (int, int, blk_id) elt,
+ Lwt_unix.file_descr, (int, int) kvop)
 pcache_layers
 = make_int_int_layers
 
   end
 end
+
+
+(** Auxiliary module to help with initialization *)
+module Initial_states = struct
+
+  include Pl_impl
+  type ('a,'r) pl_state = ('a,'r) Simple_pl_and_pcl_implementations.Pl_impl.pl_state
+  include Buf
+  include Dcl_types
+  type ('k,'v) op_map = ('k,'v) kvop_map
+
+  let initial_pl_state : data:Pl_impl.pl_data ->
+current:'r ->
+next:'r option -> ('a, 'r) pl_state
+    = Pl_impl.initial_pl_state
+
+  let initial_pcl_state ~(buf:buf) ~int = Pcl_impl.initial_pcl_internal_state ~pcl_data:(buf,int)
+  let _ = initial_pcl_state
+
+
+  let initial_dcl_state ~(start_block:'r) ~current_block ~block_list_length 
+      ~(past:(('k, 'v) kvop) list list)
+      ~(current:('k, 'v) kvop list)
+    = 
+    (* FIXME rename Kv_op to Kvop ? *)
+    let kvop_map_ops = Kv_op.default_kvop_map_ops() in
+    let kvop_to_key = Kv_op.op2k (* FIXME remove *) in
+    let list_to_map kvops = (* FIXME replace with Kv_op.list_to_map *)
+      kvops 
+      |> List.map (fun kvop -> (kvop_to_key kvop,kvop))
+      |> kvop_map_ops.of_bindings
+    in
+    let abs_past = 
+      (kvop_map_ops.empty,past) |> iter_k (fun ~k -> fun (acc,past) ->
+          match past with
+          | [] -> acc
+          | x::xs ->
+            list_to_map x |> fun m ->
+            Tjr_map.map_merge ~map_ops:kvop_map_ops ~old:acc ~new_:m 
+            |> fun acc -> 
+            k (acc,xs))
+    in     
+    let abs_current = list_to_map current in
+    { start_block; current_block; block_list_length; 
+      abs_past;
+      abs_current }
+
+  let _ 
+: start_block:'r ->
+current_block:'r ->
+block_list_length:int ->
+past:('k, 'v) kvop list list ->
+current:('k, 'v) kvop list ->
+('r, ('k, ('k, 'v) kvop, 'a) Tjr_map.map) dcl_state
+= initial_dcl_state
+
+  let initial_dmap_state
+    : dcl_state:('r, ('k, 'v) op_map) dcl_state ->
+      ('r, ('k, 'v) op_map)dcl_state
+    = Make_layers.initial_dmap_state
+
+end
+
+(* module M = Initial_states *)
 
 
 (* FIXME

@@ -10,7 +10,8 @@ all::
 
 -include Makefile.ocaml
 
-run_dmap_example:
+run_dmap_example: 
+	echo FIXME
 	time dune exec bin/run_dmap_example.exe 1e6
 
 run_tests:

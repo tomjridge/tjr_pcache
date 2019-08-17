@@ -16,6 +16,7 @@ end
 include Blk_dev_ops
 *)
 
+(*
 module Ins_del_op = struct
   (** A concrete type for insert and delete operations *)
 
@@ -32,6 +33,9 @@ module Ins_del_op = struct
     | Delete k -> k
 end
 include Ins_del_op
+*)
+
+module Ins_del_op = Tjr_fs_shared.Kv_op
 
 
 module Map_ops = struct
@@ -270,13 +274,11 @@ module Dmap_types = struct
 
   open Dcl_types
 
-  (** Abbreviation; FIXME move to Ins_del_op_type *)
-  type ('k,'v) op_map = ('k,('k,'v)op,unit)Tjr_map.map
 
   (** NOTE dmap_state is just an abbreviation for dcl_state *)
   type ('ptr,'k,'v) dmap_state = 
     ('ptr,
-     ('k,'v)op_map) dcl_state
+     ('k,'v)kvop_map) dcl_state
 
   (** NOTE dmap_dcl_ops is just an abbreviation for dcl_ops with:
 
@@ -285,8 +287,8 @@ module Dmap_types = struct
 
   *)
   type ('ptr,'k,'v,'t) dmap_dcl_ops = 
-    (('k,'v) op, 
-     ('k,'v) op_map,
+    (('k,'v) kvop, 
+     ('k,'v) kvop_map,
      'ptr,
      't) dcl_ops
 
@@ -294,8 +296,8 @@ module Dmap_types = struct
      all but the current node, and information about the current
      node. FIXME could be part of dcl_ops *)
   type ('k,'v,'ptr) detach_info = { 
-    past_map    : ('k,'v) op_map;
-    current_map : ('k,'v) op_map;
+    past_map    : ('k,'v) kvop_map;
+    current_map : ('k,'v) kvop_map;
     current_ptr : 'ptr
   }
 

@@ -21,17 +21,8 @@ open Internal0
 
 module Internal = struct
 
-  (* FIXME this is grossly inefficient for find - just look up in current then in past *)
-  let map_merge ~map_ops ~old ~new_ = (
-    let open Tjr_map in
-    map_ops.bindings new_ |> fun kvs ->
-    (kvs,old) |> iter_opt
-      (function
-        | ([],m) -> None
-        | ((k,v)::kvs,m) -> 
-          Some (kvs,map_ops.add k v m))
-    |> (fun ([],m) -> m)[@ocaml.warning "-8"]
-  )
+  (* FIXME map_merge is grossly inefficient for find - just look up in
+     current then in past *)
       
   let make_dmap_dcl_ops 
       ~monad_ops 
@@ -39,7 +30,7 @@ module Internal = struct
       ~(with_dmap:(('ptr,'k,'v)dmap_state,'t) Tjr_monad.with_state) 
     : ('ptr,'k,'v,'t) dmap_dcl_ops
     =
-    let map_ops = Op_aux.default_kvop_map_ops () in
+    let map_ops = Tjr_fs_shared.Kv_op.default_kvop_map_ops () in
 
     (* for the abstract view, we can't just use maps, because we need to
        track a delete explicitly (otherwise, merging past and current
@@ -52,16 +43,16 @@ module Internal = struct
           match op with
           | Insert(k,v) -> map_ops.add k op map
           | Delete k -> map_ops.add k op map);
-      merge=(fun old new_ -> map_merge ~map_ops ~old ~new_)
+      merge=(fun old new_ -> Tjr_map.map_merge ~map_ops ~old ~new_)
     } 
     in
-    let _ : (('k,'v)op,('k,('k,'v)op,unit)Tjr_map.map)abs_ops = abs_ops in
+    let _ : (('k,'v)kvop,('k,('k,'v)kvop,unit)Tjr_map.map)abs_ops = abs_ops in
     Detachable_chunked_list.make_dcl_ops ~monad_ops ~pcl_ops ~with_dcl:with_dmap ~abs_ops
 
 
   let _ :
     monad_ops:'t monad_ops ->
-    pcl_ops:(('k, 'v) Ins_del_op.op, 'ptr, 't) pcl_ops ->
+    pcl_ops:(('k, 'v) kvop, 'ptr, 't) pcl_ops ->
     with_dmap:(('ptr, 'k, 'v) dmap_state, 't) with_state ->
     ('ptr, 'k, 'v, 't) dmap_dcl_ops
     = make_dmap_dcl_ops
@@ -71,10 +62,12 @@ module Internal = struct
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in
 
-    let map_ops = Op_aux.default_kvop_map_ops () in
+    let map_ops = Tjr_fs_shared.Kv_op.default_kvop_map_ops () in
     let find k = 
       dmap_dcl_ops.peek () >>= fun dcl_state ->
-      let map = map_merge ~map_ops ~old:dcl_state.abs_past ~new_:dcl_state.abs_current in
+      (* FIXME map_merge is grossly inefficient for find - just look up in
+         current then in past *)
+      let map = Tjr_map.map_merge ~map_ops ~old:dcl_state.abs_past ~new_:dcl_state.abs_current in
       let v = 
         match map_ops.find_opt k map with
         | None -> None
