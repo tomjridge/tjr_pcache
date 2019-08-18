@@ -303,6 +303,7 @@ module Dmap_types = struct
 
   (** For the detach operation, we get the map upto the current node,
       and the map for the current node *)
+
   type ('k,'v,'ptr,'t) dmap_ops = {
     find              : 'k -> ('v option,'t) m;
     insert            : 'k -> 'v -> (unit,'t) m;
