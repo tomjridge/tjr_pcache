@@ -10,7 +10,7 @@ Usage:
 
   - filename is the name of the store
   - count is the number of operations to insert
-|} Sys.executable_name
+|} (Filename.basename Sys.executable_name)
 
 
 (* allow float representation *)
@@ -26,8 +26,9 @@ let fn,count =
   | _ -> (print_endline usage; Pervasives.exit (-1); "",-1)[@@ocaml.warning "-21"]
 
 
+(* FIXME expose these in Imperative; rename to with_imperative *)
 let ( >>= ) = imperative_monad_ops.bind
-let return = imperative_monad_ops.return  (* FIXME expose these in Imperative; rename to with_imperative *)
+let return = imperative_monad_ops.return 
 
 
 module Blk_id = Blk_id_as_int
