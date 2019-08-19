@@ -13,6 +13,7 @@ all::
 
 run_pcache_example: 
 	time dune exec bin/run_pcache_example.exe $(store) 1e6
+	ls -alh $(store)
 
 run_tests:
 	dune exec bin/run_pcache_tests.exe test 
