@@ -10,7 +10,7 @@ operations against the B-tree.
 
 There are two libraries: `tjr_pcache` for the core library, and `tjr_pcache_example` for the example.
 
-There is an executable `run_dmap_example.exe` . See the Makefile for how to run.
+There is an executable `run_pcache_example.exe` . See the Makefile for how to run.
 
 ## Quick links
 
@@ -40,54 +40,47 @@ opam install -y tjr_pcache tjr_pcache_example
 Running the example gives output similar to the following:
 
 ~~~
-make -k run_dmap_example 
-/usr/bin/time -f real %e, user %U, sys %S _build/default/bin/run_dmap_example.exe 1e6
-|  Total time   |  wp1  |  wp2  |  count     |  Unit cost  |
-|          787  |   zb  |   ab  |         1  |        787  |
-|       836717  |   cd  |   ab  |      2678  |        312  |
-|      1136435  |   ab  |   ac  |      5357  |        212  |
-|      9784823  |   za  |   ab  |      2678  |       3653  |
-|     31060580  |   ac  |   bc  |      5357  |       5798  |
-|     56638041  |   zb  |   za  |    999999  |         56  |
-|     57930322  |   bc  |   cd  |      5357  |      10813  |
-|    618748790  |   cd  |   zb  |      2678  |     231048  |
-|   1619279773  |   za  |   zb  |    997322  |       1623  |
-Profiling, test_dmap_ops_on_file: 2681274591
-Profiling, run_dmap_example: 2681281162
-read back 1000000 ops
-Profiling, read_back: 340871909
-real 3.05, user 2.89, sys 0.14
+make -k run_pcache_example 
+time dune exec bin/run_pcache_example.exe pcache.store 1e6
+run_pcache_example 875983269
+Blk write count (src-example/dmap_example.ml): 8034
+
+real	0m1.028s
+user	0m0.972s
+sys	0m0.045s
+
 ~~~
 
-This involves logging 1e6 insert operations and then reading them back in. The resulting store takes 11MB on disk. Profiling timings are in nanoseconds, using Jane Street Core.Time_stamp_counter bindings.
+This involves logging 1e6 insert operations. The resulting store takes 11MB on disk. Profiling timings are in nanoseconds, using Jane Street Core.Time_stamp_counter bindings. Overall, the time taken is 875983269 nanoseconds, or about 0.9s.
 
 ## Dependencies (core library)
 
-| package                     | Comment                 |
-| --------------------------- | ----------------------- |
-| yojson, ppx_deriving_yojson | For debugging           |
-| ppx_bin_prot                | For marshalling to disk |
-| tjr_fs_shared               | ImpFS shared library    |
+| package                               | Comment                   |
+| ------------------------------------- | ------------------------- |
+| yojson, ppx_deriving_yojson, alcotest | For testing and debugging |
+| ppx_bin_prot                          | For marshalling to disk   |
+| ppx_optcomp                           | Conditional compilation   |
+| tjr_profile                           | Profiling                 |
+| tjr_fs_shared                         | ImpFS shared library      |
 
 ## Dependencies (example)
 
 In addition to core:
 
-| Opam package | Comment                                            |
-| ------------ | -------------------------------------------------- |
-| core         | Jane Street core lib, for working with buffers etc |
-| tjr_profile  | Performance testing                                |
+| Opam package | Comment                                                      |
+| ------------ | ------------------------------------------------------------ |
+| core         | Jane Street core lib, for working with buffers etc; for TSC-based timing. |
 
 
 
 ## Rough performance measurements
 
-Note: these tests are based on running the run_dmap_example.exe example, which currently only writes full blocks (or the last block when closing), and does not attempt to force data to disk using eg fsync.
+Note: these tests are based on running the run_pcache_example.exe example, which currently only writes full blocks (or the last block when closing), and does not attempt to force data to disk using eg fsync.
 
 | Count (number of operations) | Time (s) | File size |
 | ---------------------------- | -------- | --------- |
-| 1e6                          | 2.67     | 11MB      |
-| 2e6                          | 5.15     | 22MB      |
+| 1e6                          | 0.90     | 11MB      |
+| 10e6                         | 9.0      | 22MB      |
 
 
 

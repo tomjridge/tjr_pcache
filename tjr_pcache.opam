@@ -14,14 +14,14 @@ dev-repo     : "git+https://github.com/tomjridge/tjr_pcache.git"
 # ----------------------------------------------------------------------
 
 depends: [
+    # for main lib
+  "tjr_profile"
+  "tjr_fs_shared"
+
   # for test and examples
   "ppx_deriving_yojson"
   "alcotest" 
   "core" # could be more fine-grained about deps
-  
-  # for main lib
-  "ppx_optcomp"
-  "tjr_fs_shared"
 ]
 
 # ----------------------------------------------------------------------
