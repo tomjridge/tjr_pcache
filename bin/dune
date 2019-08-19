@@ -1,11 +1,7 @@
-; (executables
-; ;  (names run_tests test_dcl)
-;   (names run_dmap_tests run_dmap_example)
-;   (libraries tjr_pcache core))
-
-
 (executables
-  (names run_dmap_example run_tests)
+  (names run_pcache_example run_pcache_tests)
   (preprocess (pps ppx_bin_prot ppx_deriving_yojson))
-  (flags (:standard  -open Tjr_monad -open Tjr_lib -open Tjr_profile -open Tjr_fs_shared -open Tjr_pcache -open Tjr_pcache_example -open Tjr_pcache_test )) 
+  (flags (:standard  
+  -open Tjr_monad -open Tjr_lib -open Tjr_profile -open Tjr_fs_shared 
+  -open Tjr_pcache -open Tjr_pcache_example -open Tjr_pcache_test ))
   (libraries tjr_profile tjr_pcache_example tjr_pcache_test alcotest))

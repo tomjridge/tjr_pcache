@@ -1,28 +1,22 @@
 TMP_DOC_DIR:=/tmp/tjr_pcache
 scratch:=/tmp/l/github/scratch
+store:=pcache.store
 
 default: all
 
 all::
 	dune build --only-packages tjr_pcache @install
-	dune build bin/run_dmap_example.exe
-	dune build bin/run_tests.exe
+	dune build bin/run_pcache_example.exe
+	dune build bin/run_pcache_tests.exe
 
 -include Makefile.ocaml
 
-run_dmap_example: 
-	echo FIXME
-	time dune exec bin/run_dmap_example.exe 1e6
+run_pcache_example: 
+	time dune exec bin/run_pcache_example.exe $(store) 1e6
 
 run_tests:
-	dune exec bin/run_tests.exe test 
-
-# test: FORCE
-# 	dune build test/test_main.exe
-# 
-# run_test:
-# 	dune exec test/test_main.exe 1 6
+	dune exec bin/run_pcache_tests.exe test 
 
 # for auto-completion of Makefile target
 clean::
-	rm -f dmap_example.store
+	rm -f $(store)

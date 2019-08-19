@@ -362,6 +362,27 @@ fd:Lwt_unix.file_descr -> e:(int, int) kvop -> unit
       = (make_int_int_layers()).internal
 
   end
+
+  
+  module With_imperative = struct
+    let monad_ops = imperative_monad_ops
+    let blk_dev_ops fd =
+      Blk_dev_on_fd.make_with_unix ~monad_ops ~blk_ops ~fd    
+
+    let make_int_int_layers () = 
+      let open Int_int in
+      make_layers ~monad_ops ~config ~blk_dev_ops
+
+    let _ 
+: unit ->
+(int, int, blk_id, imperative, string, Pl_impl.pl_data,
+ Pl_impl.pl_internal_state, pcl_internal_state, (int, int, blk_id) elt,
+ Unix.file_descr, (int, int) kvop)
+pcache_layers
+= make_int_int_layers
+
+  end
+
 end
 
 
