@@ -1,5 +1,0 @@
-PKG tjr_btree tjr_monad tjr_lib
-
-FLG -short-paths
-
-B .
