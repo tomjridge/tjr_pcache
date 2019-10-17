@@ -1,11 +1,13 @@
 open Pcache_intf
 
+(*
 module type C_rt = sig
   type t
   val monad_ops: t monad_ops
   type r [@@deriving bin_io]
   val blk_alloc: unit -> (r,t) m
 end
+*)
 
 type ('k,'v,'t) map_ops = {
   empty  : 't;
@@ -15,6 +17,22 @@ type ('k,'v,'t) map_ops = {
   merge  : older:'t -> newer:'t -> 't; 
 }
 
+
+module type MC = sig
+  type k [@@deriving bin_io]
+  type v [@@deriving bin_io]  
+  type r [@@deriving bin_io]
+  type nonrec kvop = (k,v)kvop [@@deriving bin_io]
+
+  (** This is the max # of bytes required for k *)
+  val k_size: int 
+  val v_size: int
+  val r_size: int
+end
+
+type ('k,'v,'r) marshalling_config = (module MC with type k='k and type v='v and type r='r)
+
+(*
 type ('k,'v,'ptr) marshalling_config = {
   ptr_sz        : int;
   blk_sz        : int;
@@ -27,54 +45,66 @@ type ('k,'v,'ptr) marshalling_config = {
   ptr_writer    : 'ptr Bin_prot.Type_class.writer;
   ptr_reader    : 'ptr Bin_prot.Type_class.reader;
 }
+*)
 
 module type C_dmap = sig
-  val create_buf : int -> buf
-  include C_rt
-  type k [@@deriving bin_io]
-  type v [@@deriving bin_io]
-  type nonrec kvop = (k,v)kvop [@@deriving bin_io]
+  type t
+  val monad_ops: t monad_ops
+  type k
+  type v
+  type r
+  type nonrec kvop = (k,v)kvop
+  val marshalling_config: (k,v,r) marshalling_config
   type kvop_map
   val map_ops: (k,v,kvop_map)map_ops
   type nonrec dmap_state = (r,kvop_map) dmap_state
   type blk_id = r
+  (* this should make sure to initialize the nxt pointer, or else we
+     require that None is marshalled to 1 or more 0 bytes *)
   val blk_ops: blk_id blk_ops
-  val spec_add: kvop -> (unit,t)m
-  val spec_detach: kvop list -> (unit,t)m  (* e list should be the current contents of the node *)
-  val marshalling_config : (k,v,r)marshalling_config
+  val blk_alloc: unit -> (r,t) m
   val with_dmap: (dmap_state,t)with_state
+  type nonrec dmap_ops = (k,v,r,kvop_map,t) dmap_ops
 end
 
+type ('a,'b,'c,'d,'e,'f) c_dmap = {
+  monad_ops:'a;
+  marshalling_config:'b;
+  map_ops:'c;
+  blk_ops:'d;
+  blk_alloc:'e;
+  with_dmap:'f
+}
 
-module Make(S:C_dmap) = struct
+module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
   open S
 
   let return = monad_ops.return
   let ( >>= ) = monad_ops.bind
 
-(*
-  module Elt = struct 
-    open Bin_prot.Std
-    type elt = Insert of k*v | Delete of k | Next of r [@@deriving bin_io]
+  let blk_sz = blk_ops.blk_sz |> Blk_sz.to_int
 
-    (* gives bin_reader_elt and bin_writer_elt *)
-  end
-  open Elt
-*)
+  module S = (val marshalling_config : MC with type k=k and type v=v and type r=r)
+  open S
 
   module Nxt = struct 
     open Bin_prot.Std
     type nxt = r option [@@deriving bin_io]
+    let nxt_size = r_size + 1
     (* gives bin_reader_nxt and bin_writer_nxt *)
   end
   open Nxt
 
+  (* check that None marshalls to the empty byte *)
+  let _ = 
+    buf_ops.create blk_sz |> fun buf ->
+    bin_write_nxt buf ~pos:0 None |> fun n ->
+      assert (n=1);
+      assert (Char.equal (buf_ops.get 0 buf) (Char.chr 0))
 
-  let c = marshalling_config
+  (* let next_ptr_byte_size = r_size *)
 
-  let next_ptr_byte_size = c.ptr_sz+1 
-
-  let op_byte_size = max (c.k_size + c.v_size + 1) (c.ptr_sz + 1)
+  let op_byte_size = k_size + v_size + 1
 
   let find k = with_dmap.with_state (fun ~state ~set_state:_ -> 
       map_ops.find k state.current_map |> function
@@ -83,12 +113,13 @@ module Make(S:C_dmap) = struct
 
   (* we write the next ptr at position buf_sz - next_ptr_byte_size *)
 
+  (* when next_ptr gets set, it automatically gets marshalled into last nxt_size bytes of buf *)
   let set_next_ptr r s = 
     let { buf; _ } = s in
     let _n = 
-      bin_writer_nxt.write buf ~pos:(c.blk_sz - next_ptr_byte_size)
+      bin_writer_nxt.write buf ~pos:(blk_sz - nxt_size)
     in
-    { s with buf; dirty=true }
+    { s with next_ptr=(Some r); buf; dirty=true }
 
   let alloc_next_ptr_and_set s = 
     assert (s.next_ptr = None);
@@ -97,8 +128,10 @@ module Make(S:C_dmap) = struct
 
   let write_buf buf = return () (* FIXME *)
   
+  let can_fit n state = state.buf_pos + n < blk_sz - nxt_size
+
   let add_in_current_node op state =
-    assert(state.buf_pos + op_byte_size + next_ptr_byte_size < c.blk_sz);
+    assert(can_fit op_byte_size state);
     (* write into buf, and adjust the state *)
     let { current_map; buf; buf_pos; dirty; _ } = state in
     let current_map = 
@@ -115,7 +148,7 @@ module Make(S:C_dmap) = struct
   let add op = 
     with_dmap.with_state (fun ~state ~set_state -> 
       (* can we insert in the current node? *)
-      match state.buf_pos + op_byte_size + next_ptr_byte_size < c.blk_sz with
+      match can_fit op_byte_size state with
       | true -> (
           add_in_current_node op state |> fun state -> 
           set_state state)
@@ -127,7 +160,7 @@ module Make(S:C_dmap) = struct
           let state = { state with 
                         current_ptr=r;
                         current_map=map_ops.empty;
-                        buf=create_buf c.blk_sz;
+                        buf=buf_ops.create blk_sz;
                         buf_pos=0;
                         next_ptr=None;
                         block_list_length=state.block_list_length+1;
@@ -151,7 +184,8 @@ module Make(S:C_dmap) = struct
           let { root_ptr; past_map; current_ptr; current_map; _ } = state in
           let detach_info = { root_ptr; past_map; current_ptr; current_map } in          
           let state = { state with root_ptr=current_ptr;
-                                   past_map=map_ops.empty }
+                                   past_map=map_ops.empty;
+                                   block_list_length=1 }
           in
           set_state state >>= fun () -> 
           return detach_info))
@@ -163,8 +197,31 @@ module Make(S:C_dmap) = struct
       write_buf s.buf)
 
   let dmap_sync = dmap_write
+
+  let dmap_ops = { find; insert; delete; detach; block_list_length; dmap_write; dmap_sync }
     
 end
 
 
-(* when next_ptr gets set, it automatically gets marshalled into last 10 bytes of buf *)
+
+(** make as a function *)
+let make (type t k v r kvop_map) c_dmap = 
+  let module A = struct
+    type nonrec t=t
+    type nonrec k=k
+    type nonrec v=v
+    type nonrec r=r
+    type nonrec kvop = (k,v)kvop
+    type nonrec kvop_map=kvop_map
+    type nonrec dmap_state = (r,kvop_map) dmap_state
+    type blk_id = r
+    type nonrec dmap_ops = (k,v,r,kvop_map,t) dmap_ops
+    let { monad_ops; marshalling_config; map_ops; blk_ops; blk_alloc; with_dmap } = c_dmap
+  end
+  in 
+  let module B = Make(A) in
+  B.dmap_ops
+
+let _ = make
+  
+    

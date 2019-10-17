@@ -24,6 +24,13 @@ type ('k,'v,'r,'kvop_map,'t) dmap_ops = {
 
 type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
+type buf_ops = {
+  create: int -> buf;  (* assumed to be zero-ed *)
+  get: int -> buf -> char
+}
+
+let buf_ops : buf_ops = failwith ""
+
 type ('r,'kvop_map) dmap_state = {
   root_ptr              : 'r;
   past_map              : 'kvop_map;
@@ -33,5 +40,5 @@ type ('r,'kvop_map) dmap_state = {
   buf_pos               : int;
   next_ptr              : 'r option; 
   block_list_length     : int;
-  dirty                 : bool;
+  dirty                 : bool; (* only if buf is dirty ie data changed, or next_ptr *)
 }
