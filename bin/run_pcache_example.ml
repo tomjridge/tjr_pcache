@@ -61,6 +61,10 @@ let with_dmap = {
 
 let main = 
   file_ops.fd_from_file ~fn ~create:true ~init:true >>= fun fd ->
+  let _async_write_to_disk s = 
+    Lwt.async (fun () -> to_lwt(file_ops.write_blk fd s.current_ptr (Bigstring.to_bytes s.buf)));
+    return ()
+  in
   let write_to_disk s = file_ops.write_blk fd s.current_ptr (Bigstring.to_bytes s.buf) in
   let _,dmap_ops = 
     Tjr_pcache_example.make ~blk_ops ~blk_alloc ~with_dmap ~write_to_disk in
@@ -71,6 +75,7 @@ let main =
   in
   f 0 >>= fun () ->
   file_ops.close fd
+
 
 let _ = Lwt_main.run (to_lwt main)
 
