@@ -1,51 +1,13 @@
 open Pcache_intf
 
-(*
-module type C_rt = sig
-  type t
-  val monad_ops: t monad_ops
-  type r [@@deriving bin_io]
-  val blk_alloc: unit -> (r,t) m
-end
-*)
-
 type ('k,'v,'t) map_ops = {
-  empty  : 't;
-  find   : 'k -> 't -> 'v option;
-  insert : 'k -> 'v -> 't -> 't;
-  delete : 'k -> 't -> 't;
-  merge  : older:'t -> newer:'t -> 't; 
+  empty    : 't;
+  find_opt : 'k -> 't -> 'v option;
+  insert   : 'k -> 'v -> 't -> 't;
+  delete   : 'k -> 't -> 't;
+  merge    : older:'t -> newer:'t -> 't; 
 }
 
-
-module type MC = sig
-  type k [@@deriving bin_io]
-  type v [@@deriving bin_io]  
-  type r [@@deriving bin_io]
-  type nonrec kvop = (k,v)kvop [@@deriving bin_io]
-
-  (** This is the max # of bytes required for k *)
-  val k_size: int 
-  val v_size: int
-  val r_size: int
-end
-
-type ('k,'v,'r) marshalling_config = (module MC with type k='k and type v='v and type r='r)
-
-(*
-type ('k,'v,'ptr) marshalling_config = {
-  ptr_sz        : int;
-  blk_sz        : int;
-  k_size        : int;
-  v_size        : int;
-  k_writer      : 'k Bin_prot.Type_class.writer;
-  k_reader      : 'k Bin_prot.Type_class.reader;
-  v_writer      : 'v Bin_prot.Type_class.writer;
-  v_reader      : 'v Bin_prot.Type_class.reader;
-  ptr_writer    : 'ptr Bin_prot.Type_class.writer;
-  ptr_reader    : 'ptr Bin_prot.Type_class.reader;
-}
-*)
 
 module type C_dmap = sig
   type t
@@ -61,19 +23,22 @@ module type C_dmap = sig
   type blk_id = r
   (* this should make sure to initialize the nxt pointer, or else we
      require that None is marshalled to 1 or more 0 bytes *)
-  val blk_ops: blk_id blk_ops
+  type blk
+  val blk_ops: blk blk_ops
   val blk_alloc: unit -> (r,t) m
   val with_dmap: (dmap_state,t)with_state
+  val write_to_disk: dmap_state -> (unit,t)m
   type nonrec dmap_ops = (k,v,r,kvop_map,t) dmap_ops
 end
 
-type ('a,'b,'c,'d,'e,'f) c_dmap = {
+type ('a,'b,'c,'d,'e,'f,'g) c_dmap = {
   monad_ops:'a;
   marshalling_config:'b;
   map_ops:'c;
   blk_ops:'d;
   blk_alloc:'e;
-  with_dmap:'f
+  with_dmap:'f;
+  write_to_disk:'g
 }
 
 module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
@@ -107,9 +72,9 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
   let op_byte_size = k_size + v_size + 1
 
   let find k = with_dmap.with_state (fun ~state ~set_state:_ -> 
-      map_ops.find k state.current_map |> function
+      map_ops.find_opt k state.current_map |> function
       | Some v -> return (Some v)
-      | None -> map_ops.find k state.past_map |> return)
+      | None -> map_ops.find_opt k state.past_map |> return)
 
   (* we write the next ptr at position buf_sz - next_ptr_byte_size *)
 
@@ -126,8 +91,6 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
     blk_alloc () >>= fun r -> 
     return (r,set_next_ptr r s)
 
-  let write_buf buf = return () (* FIXME *)
-  
   let can_fit n state = state.buf_pos + n < blk_sz - nxt_size
 
   let add_in_current_node op state =
@@ -156,8 +119,9 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
           (* we need to allocate a new node if not already allocated,
              issue a write for the current node then move to the next *)
           alloc_next_ptr_and_set state >>= fun (r,state) ->
-          write_buf state.buf >>= fun () ->
-          let state = { state with 
+          write_to_disk state >>= fun () ->
+          let state = { root_ptr=state.root_ptr;
+                        past_map=map_ops.merge ~older:state.past_map ~newer:state.current_map;
                         current_ptr=r;
                         current_map=map_ops.empty;
                         buf=buf_ops.create blk_sz;
@@ -166,6 +130,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
                         block_list_length=state.block_list_length+1;
                         dirty=true }
           in
+          (* Printf.printf "buf_pos: %d\n" state.buf_pos; *)
           add_in_current_node op state |> fun state ->
           set_state state))
         
@@ -194,7 +159,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
       return s.block_list_length)
 
   let dmap_write () = with_dmap.with_state (fun ~state:s ~set_state:_  ->
-      write_buf s.buf)
+      write_to_disk s)
 
   let dmap_sync = dmap_write
 
@@ -203,25 +168,68 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
 end
 
 
+(** alternative based on fixing just the types; halfway house between functor and function *)
+module Make_with_fixed_types(S: sig
+    type t 
+    type k 
+    type v 
+    type r
+    (* type nonrec kvop = (k,v)kvop *)
+    type kvop_map
+    type blk
+    (* type nonrec dmap_state = (r,kvop_map) dmap_state *)
+    (* type blk_id = r *)
+    (* type nonrec dmap_ops = (k,v,r,kvop_map,t) dmap_ops *)
+      
+end) = struct
+  open S
+
+  let make c_dmap = 
+    let module A = struct
+      type nonrec t=t
+      type nonrec k=k
+      type nonrec v=v
+      type nonrec r=r
+      type nonrec kvop = (k,v)kvop
+      type nonrec kvop_map = kvop_map
+      type nonrec dmap_state = (r,kvop_map) dmap_state
+      type blk_id = r
+      type nonrec blk = blk
+      type nonrec dmap_ops = (k,v,r,kvop_map,t) dmap_ops
+      let { monad_ops; marshalling_config; map_ops; blk_ops; blk_alloc; with_dmap; write_to_disk } = c_dmap
+    end
+    in 
+    let module B = Make(A) in
+    B.dmap_ops
+
+  let _ :
+(t monad_ops, (k, v, r) marshalling_config, (k, v, S.kvop_map) map_ops,
+ blk blk_ops, unit -> (r, t) m, ((r, S.kvop_map) dmap_state, t) with_state,
+ (r, S.kvop_map) dmap_state -> (unit, t) m)
+c_dmap -> (k, v, r, S.kvop_map, t) dmap_ops
+= make
+end
+
 
 (** make as a function *)
-let make (type t k v r kvop_map) c_dmap = 
+let make (type t k v r kvop_map blk) c_dmap = 
   let module A = struct
     type nonrec t=t
     type nonrec k=k
     type nonrec v=v
     type nonrec r=r
-    type nonrec kvop = (k,v)kvop
     type nonrec kvop_map=kvop_map
-    type nonrec dmap_state = (r,kvop_map) dmap_state
-    type blk_id = r
-    type nonrec dmap_ops = (k,v,r,kvop_map,t) dmap_ops
-    let { monad_ops; marshalling_config; map_ops; blk_ops; blk_alloc; with_dmap } = c_dmap
+    type nonrec blk = blk
   end
   in 
-  let module B = Make(A) in
-  B.dmap_ops
+  let module B = Make_with_fixed_types(A) in
+  B.make c_dmap
 
-let _ = make
-  
+let _ :
+('a monad_ops, ('b, 'c, 'd) marshalling_config, ('b, 'c, 'e) map_ops,
+ 'f blk_ops, unit -> ('d, 'a) m, (('d, 'e) dmap_state, 'a) with_state,
+ ('d, 'e) dmap_state -> (unit, 'a) m)
+c_dmap -> ('b, 'c, 'd, 'e, 'a) dmap_ops
+= make
+
     
