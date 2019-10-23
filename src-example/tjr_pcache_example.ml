@@ -4,13 +4,16 @@ open Make_
 
 module Make_with_fixed_types = Make_with_fixed_types
 
-module type MC' = MC with type k = int and type v = int and type r = int
+module Blk_id = Blk_id_as_int
+type blk_id = Blk_id.blk_id [@@deriving bin_io]
+
+module type MC' = MC with type k = int and type v = int and type r = blk_id
 
 module Int_int_marshalling_config : MC' = struct
   open Bin_prot.Std
   type k = int [@@deriving bin_io]
   type v = int [@@deriving bin_io]  
-  type r = int [@@deriving bin_io]
+  type r = blk_id [@@deriving bin_io]
   type kvop = (k,v)Kvop.kvop [@@deriving bin_io]
 
   (** This is the max # of bytes required for k *)
@@ -21,13 +24,14 @@ end
 
 let int_int_marshalling_config = (module Int_int_marshalling_config : MC')
 
-type tjr_pcache_example_map
-
-let make_map_ops cmp : ('a, 'b, ('a, 'b, tjr_pcache_example_map) Tjr_map.map) map_ops =
-  let map_ops =  Tjr_map.make_map_ops cmp in
+let make_kvop_map_ops () = 
+  let map_ops = Kv_op.default_kvop_map_ops () in
   let merge ~older ~newer = Tjr_map.map_merge ~map_ops ~old:older ~new_:newer in
   let Tjr_map.{ empty; find_opt; add; remove; _ } = map_ops in
   { empty; find_opt; insert=add; delete=remove; merge }
+
+let _ = make_kvop_map_ops
+
 
 type ('a,'b) make_t = {
   c_dmap: 'a;
@@ -36,11 +40,11 @@ type ('a,'b) make_t = {
 
 (** Construct an int->int example *)
 let make_generic ~blk_ops ~blk_alloc ~with_dmap ~write_to_disk = 
-  let map_ops = make_map_ops Pervasives.compare in
+  let kvop_map_ops = make_kvop_map_ops () in
   let c_dmap = { 
     monad_ops=lwt_monad_ops;
     marshalling_config=int_int_marshalling_config;
-    map_ops;
+    kvop_map_ops;
     blk_ops;
     blk_alloc;
     with_dmap;
@@ -53,22 +57,20 @@ let make_generic ~blk_ops ~blk_alloc ~with_dmap ~write_to_disk =
 (* FIXME why is blk_ops generic here? *)
 let _ :
 blk_ops:'a blk_ops ->
-blk_alloc:(unit -> (int, lwt) m) ->
-with_dmap:((int, (int, int, tjr_pcache_example_map) Tjr_map.map) dmap_state,
-           lwt)
+blk_alloc:(unit -> (blk_id, lwt) m) ->
+with_dmap:((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state, lwt)
           with_state ->
-write_to_disk:((int, (int, int, tjr_pcache_example_map) Tjr_map.map)
-               dmap_state -> (unit, lwt) m) ->
+write_to_disk:((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state ->
+               (unit, lwt) m) ->
 ((lwt monad_ops, (module MC'),
-  (int, int, (int, int, tjr_pcache_example_map) Tjr_map.map) map_ops,
-  'a blk_ops, unit -> (int, lwt) m,
-  ((int, (int, int, tjr_pcache_example_map) Tjr_map.map) dmap_state, lwt)
+  (int, (int, int) kvop, (int, (int, int) kvop, 'b) Tjr_map.map)
+  pcache_map_ops, 'a blk_ops, unit -> (blk_id, lwt) m,
+  ((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state, lwt)
   with_state,
-  (int, (int, int, tjr_pcache_example_map) Tjr_map.map) dmap_state ->
+  (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state ->
   (unit, lwt) m)
  c_dmap,
- (int, int, int, (int, int, tjr_pcache_example_map) Tjr_map.map, lwt)
- dmap_ops)
+ (int, int, blk_id, (int, (int, int) kvop, 'b) Tjr_map.map, lwt) dmap_ops)
 make_t
  = make_generic
 
@@ -111,19 +113,19 @@ let make = function
 
       let blk_alloc () =     
         (* Printf.printf "blk_alloc: %d\n" !min_free_blk; *)
-        let r = !min_free_blk in
+        let r = !min_free_blk  in
         incr min_free_blk;
-        return r
+        return (Blk_id.of_int r)
 
-      let map_ops = make_map_ops Pervasives.compare
+      let kvop_map_ops = Kv_op.default_kvop_map_ops ()
 
       let blk_sz = 4096
 
       let dmap_state = ref {
-          root_ptr=0;
-          past_map=map_ops.empty;
-          current_ptr=0;
-          current_map=map_ops.empty;
+          root_ptr=Blk_id.of_int 0;
+          past_map=kvop_map_ops.empty;
+          current_ptr=Blk_id.of_int 0;
+          current_map=kvop_map_ops.empty;
           buf=buf_ops.create blk_sz;
           buf_pos=0;
           next_ptr=None;
@@ -147,27 +149,12 @@ let make = function
 
 
 let _ :
-('a blk_ops, unit -> (int, lwt) m,
- ((int, (int, int, tjr_pcache_example_map) Tjr_map.map) dmap_state, lwt)
+('a blk_ops, unit -> (blk_id, lwt) m,
+ ((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state, lwt)
  with_state,
- (int, (int, int, tjr_pcache_example_map) Tjr_map.map) dmap_state ->
- (unit, lwt) m)
+ (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state -> (unit, lwt) m)
 make_args ->
-((int, int, int, (int, int, tjr_pcache_example_map) Tjr_map.map, lwt)
- dmap_ops,
- (int, (int, int, tjr_pcache_example_map) Tjr_map.map) dmap_state ref, 
- int)
+((int, int, blk_id, (int, (int, int) kvop, 'b) Tjr_map.map, lwt) dmap_ops,
+ (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state ref, int)
 make_result
  = make
-
-(*
-HOW TO ORGANIZE VARIOUS MAKE FUNCTIONS? really want just a single make, with various different possible arguments (GADT?)
-
-the inputs are all similar (but not the same)
-
-the outputs are all similar (but not the same)
-
-we want to have one make function
-
-so we could just assume make takes Make1 -> Result1 etc
-*)

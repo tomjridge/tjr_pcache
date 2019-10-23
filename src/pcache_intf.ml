@@ -10,18 +10,6 @@ type ('k,'v,'r,'kvop_map) detach_info = {
   current_map : 'kvop_map;
 }
 
-(** For the detach operation, we get the map upto the current node,
-    and the map for the current node. NOTE if root_ptr = current_ptr, then nothing was detached. *)
-type ('k,'v,'r,'kvop_map,'t) dmap_ops = {
-  find              : 'k -> ('v option,'t) m;
-  insert            : 'k -> 'v -> (unit,'t) m;
-  delete            : 'k -> (unit,'t)m;
-  detach            : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
-  block_list_length : unit -> (int,'t)m;
-  dmap_write        : unit -> (unit,'t)m;
-  dmap_sync         : unit -> (unit,'t)m
-}
-
 type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type buf_ops = {
@@ -33,6 +21,20 @@ let buf_ops : buf_ops = Bigstring.{
     create;
     get=(fun i b -> get b i)
 }
+
+(** For the detach operation, we get the map upto the current node,
+    and the map for the current node. NOTE if root_ptr = current_ptr, then nothing was detached. *)
+type ('k,'v,'r,'kvop_map,'t) dmap_ops = {
+  find              : 'k -> ('v option,'t) m;
+  insert            : 'k -> 'v -> (unit,'t) m;
+  delete            : 'k -> (unit,'t)m;
+  detach            : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
+  block_list_length : unit -> (int,'t)m;
+  dmap_write        : unit -> (unit,'t)m;
+  dmap_sync         : unit -> (unit,'t)m;
+  read_pcache       : root:'r -> read_blk_as_buf:('r -> buf) -> (('k,'v)kvop list * 'r option) list
+}
+
     
 
 type ('r,'kvop_map) dmap_state = {

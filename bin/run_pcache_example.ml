@@ -38,7 +38,7 @@ let main =
     return ()
   in
 *)
-  let write_to_disk s = file_ops.write_blk fd s.current_ptr (Bigstring.to_bytes s.buf) in
+  let write_to_disk s = file_ops.write_blk fd (Blk_id.to_int s.current_ptr) (Bigstring.to_bytes s.buf) in
   let { dmap_ops; _ } = make (Make2 { write_to_disk } ) |> dest_Res2 in
   let rec f n = 
     if n < count then dmap_ops.insert n (2*n) >>= fun () ->
