@@ -28,46 +28,18 @@ let fn,count =
 
 let file_ops = lwt_file_ops
 
-let blk_ops = Common_blk_ops.string_blk_ops
-
-let min_free_blk = ref 1
-
-let blk_alloc () =     
-  (* Printf.printf "blk_alloc: %d\n" !min_free_blk; *)
-  let r = !min_free_blk in
-  incr min_free_blk;
-  return r
-
-let map_ops = make_map_ops Pervasives.compare
-
-let blk_sz = 4096
-
-let dmap_state = ref {
-    root_ptr=0;
-    past_map=map_ops.empty;
-    current_ptr=0;
-    current_map=map_ops.empty;
-    buf=buf_ops.create blk_sz;
-    buf_pos=0;
-    next_ptr=None;
-    block_list_length=1;
-    dirty=true
-  }
-
-let with_dmap = {
-  with_state=fun f -> 
-  f ~state:!dmap_state ~set_state:(fun s -> dmap_state:=s; return ())
-}
+open Tjr_pcache_example
 
 let main = 
   file_ops.fd_from_file ~fn ~create:true ~init:true >>= fun fd ->
+(*
   let _async_write_to_disk s = 
     Lwt.async (fun () -> to_lwt(file_ops.write_blk fd s.current_ptr (Bigstring.to_bytes s.buf)));
     return ()
   in
+*)
   let write_to_disk s = file_ops.write_blk fd s.current_ptr (Bigstring.to_bytes s.buf) in
-  let _,dmap_ops = 
-    Tjr_pcache_example.make ~blk_ops ~blk_alloc ~with_dmap ~write_to_disk in
+  let { dmap_ops; _ } = make (Make2 { write_to_disk } ) |> dest_Res2 in
   let rec f n = 
     if n < count then dmap_ops.insert n (2*n) >>= fun () ->
       f (n+1)
