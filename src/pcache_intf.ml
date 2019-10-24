@@ -1,3 +1,5 @@
+let chr0 = Char.chr 0
+
 module Kvop = Tjr_fs_shared.Kv_op
 
 (** The result of "detaching" the map. We get the abstract map for
@@ -18,7 +20,7 @@ type buf_ops = {
 }
 
 let buf_ops : buf_ops = Bigstring.{
-    create;
+    create=(fun n -> Bigstring.make n chr0);
     get=(fun i b -> get b i)
 }
 

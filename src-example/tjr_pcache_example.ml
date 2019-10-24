@@ -133,9 +133,14 @@ let make = function
           dirty=true
         }
 
+      let _ = check_state (!dmap_state)
+
       let with_dmap = {
         with_state=fun f -> 
-          f ~state:!dmap_state ~set_state:(fun s -> dmap_state:=s; return ())
+          f ~state:!dmap_state 
+            ~set_state:(fun s -> 
+              check_state s;
+              dmap_state:=s; return ())
       }
 
       let { dmap_ops; c_dmap=_ } = 

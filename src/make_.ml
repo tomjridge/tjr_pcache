@@ -7,8 +7,6 @@ The 0 byte marks the end of the op list (eol); op never starts with 0.
 
 open Pcache_intf
 
-let chr0 = Char.chr 0
-
 type ('k,'v,'t) pcache_map_ops = {
   empty    : 't;
   find_opt : 'k -> 't -> 'v option;
@@ -50,6 +48,12 @@ type ('a,'b,'c,'d,'e,'f,'g) c_dmap = {
   write_to_disk:'g
 }
 
+let check_buf_pos ~buf ~buf_pos = 
+  assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) )
+
+let check_state s = 
+  check_buf_pos ~buf:s.buf ~buf_pos:s.buf_pos
+
 module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
   open S
 
@@ -75,6 +79,9 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
   (* check that None marshalls to the empty byte *)
   let _ = 
     buf_ops.create blk_sz |> fun buf ->
+(*  Buffers are zero-ed on creation  for i = 0 to blk_sz-1 do
+      assert(buf_ops.get i buf = chr0)
+    done; *)
     bin_write_nxt buf ~pos:0 None |> fun n ->
       assert (n=1);
       assert (Char.equal (buf_ops.get 0 buf) chr0)
@@ -122,6 +129,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
 
   let add_in_current_node op state =
     assert(can_fit op_byte_size state);
+    check_state state;
     (* write into buf, and adjust the state *)
     let { current_map; buf; buf_pos; dirty; _ } = state in
     let current_map = 
@@ -129,6 +137,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
       | Insert(k,v) -> kvop_map_ops.insert k op current_map 
       | Delete k -> kvop_map_ops.insert k op current_map
     in
+    assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) );
     let buf_pos =
       let n = 
         X.bin_writer_t.write buf ~pos:buf_pos (match op with
@@ -136,7 +145,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
           | Delete k -> X.Delete k)
         (* note this mutates! *)
       in
-      buf_pos+n
+      n
     in
     (* NOTE we assume that the eol byte is already 0, since the block was newly created *)
     assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) );
@@ -145,21 +154,27 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
     
   let add op = 
     with_dmap.with_state (fun ~state ~set_state -> 
+      check_state state;
       (* can we insert in the current node? *)
       match can_fit op_byte_size state with
       | true -> (
           add_in_current_node op state |> fun state -> 
+          check_state state;
           set_state state)
       | false -> (
           (* we need to allocate a new node if not already allocated,
              issue a write for the current node then move to the next *)
           alloc_next_ptr_and_set state >>= fun (r,state) ->
           write_to_disk state >>= fun () ->
+          let buf = buf_ops.create blk_sz in
+          (* for i = 0 to blk_sz-1 do
+            assert(buf_ops.get i buf = chr0)
+          done; *)
           let state = { root_ptr=state.root_ptr;
                         past_map=kvop_map_ops.merge ~older:state.past_map ~newer:state.current_map;
                         current_ptr=r;
                         current_map=kvop_map_ops.empty;
-                        buf=buf_ops.create blk_sz;
+                        buf;
                         buf_pos=0;
                         next_ptr=None;
                         block_list_length=state.block_list_length+1;
@@ -167,6 +182,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
           in
           (* Printf.printf "buf_pos: %d\n" state.buf_pos; *)
           add_in_current_node op state |> fun state ->
+          check_state state;
           set_state state))
         
   let insert k v = add (Insert(k,v))
@@ -215,6 +231,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
                                    past_map=kvop_map_ops.empty;
                                    block_list_length=1 }
           in
+          check_state state;
           set_state state >>= fun () -> 
           return detach_info))
 
