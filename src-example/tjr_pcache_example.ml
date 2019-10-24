@@ -5,16 +5,16 @@ open Make_
 module Make_with_fixed_types = Make_with_fixed_types
 
 module Blk_id = Blk_id_as_int
-type blk_id = Blk_id.blk_id [@@deriving bin_io]
+type blk_id = Blk_id.blk_id [@@deriving bin_io, yojson]
 
 module type MC' = MC with type k = int and type v = int and type r = blk_id
 
 module Int_int_marshalling_config : MC' = struct
   open Bin_prot.Std
-  type k = int [@@deriving bin_io]
-  type v = int [@@deriving bin_io]  
-  type r = blk_id [@@deriving bin_io]
-  type kvop = (k,v)Kvop.kvop [@@deriving bin_io]
+  type k = int [@@deriving bin_io, yojson]
+  type v = int [@@deriving bin_io, yojson]  
+  type r = blk_id [@@deriving bin_io, yojson]
+  type kvop = (k,v)Kvop.kvop [@@deriving bin_io, yojson]
 
   (** This is the max # of bytes required for k *)
   let k_size = 9

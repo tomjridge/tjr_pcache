@@ -34,7 +34,8 @@ type ('k,'v,'r,'kvop_map,'t) dmap_ops = {
   block_list_length : unit -> (int,'t)m;
   dmap_write        : unit -> (unit,'t)m;
   dmap_sync         : unit -> (unit,'t)m;
-  read_pcache       : root:'r -> read_blk_as_buf:('r -> buf) -> (('k,'v)kvop list * 'r option) list
+  read_pcache       : root:'r -> read_blk_as_buf:('r -> (buf,'t)m) -> 
+    ((('k,'v)kvop list * 'r option) list,'t)m
 }
 
     
@@ -53,10 +54,10 @@ type ('r,'kvop_map) dmap_state = {
 
 
 module type MC = sig
-  type k [@@deriving bin_io]
-  type v [@@deriving bin_io]  
-  type r [@@deriving bin_io]
-  type nonrec kvop = (k,v)kvop [@@deriving bin_io]
+  type k [@@deriving bin_io, yojson]
+  type v [@@deriving bin_io, yojson]  
+  type r [@@deriving bin_io, yojson]
+  type nonrec kvop = (k,v)kvop [@@deriving bin_io, yojson]
 
   (** This is the max # of bytes required for k *)
   val k_size: int 

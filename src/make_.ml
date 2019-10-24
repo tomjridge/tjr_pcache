@@ -120,6 +120,27 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
     blk_alloc () >>= fun r -> 
     return (r,set_next_ptr r s)
 
+(*
+  let alloc_next_ptr_if_none = 
+    with_dmap.with_state (fun ~state:s ~set_state ->
+      match s.next_ptr with
+      | None -> alloc_next_ptr_and_set s >>= fun (r,s) -> 
+                set_state s
+      | Some _ -> return ())
+*)
+(*
+  let get_dirty () =     
+    with_dmap.with_state (fun ~state:s ~set_state:_ ->
+      return s.dirty)
+*)
+(*
+  let write_if_dirty = 
+    with_dmap.with_state (fun ~state:s ~set_state:_ ->
+      match s.dirty with
+      | true -> write_to_disk s
+      | false -> return ())
+*)    
+
   (** We introduce an "extended op" to ensure that no op constructor is represented as a 0 byte *)
   module X = struct
     type t = Nil | Insert of (k*v) | Delete of k [@@deriving bin_io]
@@ -202,18 +223,19 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
     let nxt = bin_reader_nxt.read buf ~pos_ref:(ref nxt_pos) in
     (ops,nxt)
 
-  let read_pcache ~root ~read_blk_as_buf : (kvop list * r option) list =
+  let read_pcache ~root ~read_blk_as_buf : ((kvop list * r option) list,'t)m =
     let rec f xs nxt = 
       match nxt with
-      | None -> List.rev xs
+      | None -> return (List.rev xs)
       | Some r -> 
-        read_blk_as_buf r |> buf_to_op_list_x_nxt |> fun (ops,nxt) ->
+        read_blk_as_buf r >>= fun buf -> buf |> buf_to_op_list_x_nxt |> fun (ops,nxt) ->
         f ((ops,nxt)::xs) nxt
     in
     f [] (Some root)
     
   let _ :
-    root:r -> read_blk_as_buf:(r -> buf) -> (S.kvop list * r option) list
+root:r ->
+read_blk_as_buf:(r -> (buf, t) m) -> ((S.kvop list * r option) list, t) m
     = read_pcache
 
   let detach () = 

@@ -7,6 +7,7 @@ default: all
 all::
 	dune build --only-packages tjr_pcache @install
 	dune build bin/run_pcache_example.exe
+	dune build bin/debug.exe
 #	dune build bin/run_pcache_tests.exe
 
 -include Makefile.ocaml
@@ -14,6 +15,9 @@ all::
 run_pcache_example: 
 	time dune exec bin/run_pcache_example.exe $(store) 1e6
 	ls -alh $(store)
+
+debug:
+	dune exec bin/debug.exe $(store) 
 
 run_tests:
 	dune exec bin/run_pcache_tests.exe test 
