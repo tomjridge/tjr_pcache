@@ -25,7 +25,7 @@ end
 let int_int_marshalling_config = (module Int_int_marshalling_config : MC')
 
 let make_kvop_map_ops () = 
-  let map_ops = Kv_op.default_kvop_map_ops () in
+  let map_ops = Kvop.default_kvop_map_ops () in
   let merge ~older ~newer = Tjr_map.map_merge ~map_ops ~old:older ~new_:newer in
   let Tjr_map.{ empty; find_opt; add; remove; _ } = map_ops in
   { empty; find_opt; insert=add; delete=remove; merge }
@@ -107,7 +107,7 @@ let make = function
     let module A = struct
       open Tjr_monad.With_lwt
 
-      let blk_ops = Common_blk_ops.string_blk_ops
+      let blk_ops = Blk_factory.make_1()
 
       let min_free_blk = ref 1
 
@@ -117,7 +117,7 @@ let make = function
         incr min_free_blk;
         return (Blk_id.of_int r)
 
-      let kvop_map_ops = Kv_op.default_kvop_map_ops ()
+      let kvop_map_ops = Kvop.default_kvop_map_ops ()
 
       let blk_sz = 4096
 
@@ -133,7 +133,7 @@ let make = function
           dirty=true
         }
 
-      let _ = check_state (!dmap_state)
+      let _ : unit = check_state (!dmap_state)
 
       let with_dmap = {
         with_state=fun f -> 

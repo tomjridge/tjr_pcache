@@ -409,10 +409,10 @@ next:'r option -> ('a, 'r) pl_state
       ~(past:(('k, 'v) kvop) list list)
       ~(current:('k, 'v) kvop list)
     = 
-    (* FIXME rename Kv_op to Kvop ? *)
-    let kvop_map_ops = Kv_op.default_kvop_map_ops() in
-    let kvop_to_key = Kv_op.op2k (* FIXME remove *) in
-    let list_to_map kvops = (* FIXME replace with Kv_op.list_to_map *)
+    (* FIXME rename Kvop to Kvop ? *)
+    let kvop_map_ops = Kvop.default_kvop_map_ops() in
+    let kvop_to_key = Kvop.op2k (* FIXME remove *) in
+    let list_to_map kvops = (* FIXME replace with Kvop.list_to_map *)
       kvops 
       |> List.map (fun kvop -> (kvop_to_key kvop,kvop))
       |> kvop_map_ops.of_bindings

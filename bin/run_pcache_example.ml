@@ -23,7 +23,7 @@ let fn,count =
   Array.to_list Sys.argv |> fun xs ->
   match xs with
   | [_; fn; count] -> fn,int_of_string count
-  | _ -> (print_endline usage; Pervasives.exit (-1); "",-1)[@@ocaml.warning "-21"]
+  | _ -> (print_endline usage; Stdlib.exit (-1); "",-1)[@@ocaml.warning "-21"]
 
 
 let file_ops = lwt_file_ops

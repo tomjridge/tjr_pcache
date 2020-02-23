@@ -30,7 +30,7 @@ module Internal = struct
       ~(with_dmap:(('ptr,'k,'v)dmap_state,'t) Tjr_monad.with_state) 
     : ('ptr,'k,'v,'t) dmap_dcl_ops
     =
-    let map_ops = Tjr_fs_shared.Kv_op.default_kvop_map_ops () in
+    let map_ops = Tjr_fs_shared.Kvop.default_kvop_map_ops () in
 
     (* for the abstract view, we can't just use maps, because we need to
        track a delete explicitly (otherwise, merging past and current
@@ -62,7 +62,7 @@ module Internal = struct
     let ( >>= ) = monad_ops.bind in
     let return = monad_ops.return in
 
-    let map_ops = Tjr_fs_shared.Kv_op.default_kvop_map_ops () in
+    let map_ops = Tjr_fs_shared.Kvop.default_kvop_map_ops () in
     let find k = 
       dmap_dcl_ops.peek () >>= fun dcl_state ->
       (* FIXME map_merge is grossly inefficient for find - just look up in

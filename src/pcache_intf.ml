@@ -1,6 +1,6 @@
 let chr0 = Char.chr 0
 
-module Kvop = Tjr_fs_shared.Kv_op
+(* module Kvop = Tjr_fs_shared.Kvop *)
 
 (** The result of "detaching" the map. We get the abstract map for
     all but the current node, and information about the current
@@ -23,6 +23,8 @@ let buf_ops : buf_ops = Bigstring.{
     create=(fun n -> Bigstring.make n chr0);
     get=(fun i b -> get b i)
 }
+
+open Kvop
 
 (** For the detach operation, we get the map upto the current node,
     and the map for the current node. NOTE if root_ptr = current_ptr, then nothing was detached. *)

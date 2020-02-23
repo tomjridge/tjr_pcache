@@ -77,7 +77,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
   open Nxt
 
   (* check that None marshalls to the empty byte *)
-  let _ = 
+  let _ : unit = 
     buf_ops.create blk_sz |> fun buf ->
 (*  Buffers are zero-ed on creation  for i = 0 to blk_sz-1 do
       assert(buf_ops.get i buf = chr0)
@@ -90,17 +90,19 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
 
   let op_byte_size = k_size + v_size + 1
 
+  (* FIXME include type in tjr_fs_shared *)
+
   let find k = with_dmap.with_state (fun ~state ~set_state:_ -> 
       kvop_map_ops.find_opt k state.current_map |> function
       | Some op -> (
           match op with
           | Insert(_,v) -> return (Some v)
           | Delete _ -> return None)
-      | None -> 
+      | None -> (
         kvop_map_ops.find_opt k state.past_map |> function
         | Some(Insert(_,v)) -> return (Some v)
         | Some(Delete _) -> return None
-        | None -> return None)
+        | None -> return None))
 
   (* we write the next ptr at position buf_sz - next_ptr_byte_size *)
 
@@ -153,10 +155,10 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
     check_state state;
     (* write into buf, and adjust the state *)
     let { current_map; buf; buf_pos; dirty; _ } = state in
-    let current_map = 
+    let current_map = (
       match op with
       | Insert(k,v) -> kvop_map_ops.insert k op current_map 
-      | Delete k -> kvop_map_ops.insert k op current_map
+      | Delete k -> kvop_map_ops.insert k op current_map)
     in
     assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) );
     let buf_pos =
@@ -222,7 +224,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
     f [] |> fun ops ->
     let nxt = bin_reader_nxt.read buf ~pos_ref:(ref nxt_pos) in
     (ops,nxt)
-
+    
   let read_pcache ~root ~read_blk_as_buf : ((kvop list * r option) list,'t)m =
     let rec f xs nxt = 
       match nxt with

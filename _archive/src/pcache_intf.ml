@@ -35,7 +35,7 @@ end
 include Ins_del_op
 *)
 
-module Ins_del_op = Tjr_fs_shared.Kv_op
+module Ins_del_op = Tjr_fs_shared.Kvop
 
 
 module Map_ops = struct
