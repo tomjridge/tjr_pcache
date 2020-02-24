@@ -1,15 +1,16 @@
 (** Pcache example *)
 
 open Make_
+open Pcache_intf.Pvt
 
 module Make_with_fixed_types = Make_with_fixed_types
 
 module Blk_id = Blk_id_as_int
 type blk_id = Blk_id.blk_id [@@deriving bin_io, yojson]
 
-module type MC' = MC with type k = int and type v = int and type r = blk_id
+module type MRSHL' = MRSHL with type k = int and type v = int and type r = blk_id
 
-module Int_int_marshalling_config : MC' = struct
+module Int_int_marshalling_config : MRSHL' = struct
   open Bin_prot.Std
   type k = int [@@deriving bin_io, yojson]
   type v = int [@@deriving bin_io, yojson]  
@@ -22,13 +23,13 @@ module Int_int_marshalling_config : MC' = struct
   let r_size = 9  
 end
 
-let int_int_marshalling_config = (module Int_int_marshalling_config : MC')
+let int_int_marshalling_config = (module Int_int_marshalling_config : MRSHL')
 
 let make_kvop_map_ops () = 
   let map_ops = Kvop.default_kvop_map_ops () in
   let merge ~older ~newer = Tjr_map.map_merge ~map_ops ~old:older ~new_:newer in
   let Tjr_map.{ empty; find_opt; add; remove; _ } = map_ops in
-  { empty; find_opt; insert=add; delete=remove; merge }
+  Pc_map_ops.{ empty; find_opt; insert=add; delete=remove; merge }
 
 let _ = make_kvop_map_ops
 
@@ -62,7 +63,7 @@ with_dmap:((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state, lwt)
           with_state ->
 write_to_disk:((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state ->
                (unit, lwt) m) ->
-((lwt monad_ops, (module MC'),
+((lwt monad_ops, (module MRSHL'),
   (int, (int, int) kvop, (int, (int, int) kvop, 'b) Tjr_map.map)
   pcache_map_ops, 'a blk_ops, unit -> (blk_id, lwt) m,
   ((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state, lwt)
@@ -133,13 +134,13 @@ let make = function
           dirty=true
         }
 
-      let _ : unit = check_state (!dmap_state)
+      let _ : unit = Chk.check_state (!dmap_state)
 
       let with_dmap = {
         with_state=fun f -> 
           f ~state:!dmap_state 
             ~set_state:(fun s -> 
-              check_state s;
+              Chk.check_state s;
               dmap_state:=s; return ())
       }
 

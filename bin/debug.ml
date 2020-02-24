@@ -2,6 +2,7 @@
    insert operations to try. *)
 
 open Tjr_monad.With_lwt
+open Pvt_dmap_state
 
 let usage = Printf.sprintf {|
 Usage:

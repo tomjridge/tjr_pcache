@@ -6,17 +6,11 @@ The 0 byte marks the end of the op list (eol); op never starts with 0.
 *)
 
 open Pcache_intf
-
-type ('k,'v,'t) pcache_map_ops = {
-  empty    : 't;
-  find_opt : 'k -> 't -> 'v option;
-  insert   : 'k -> 'v -> 't -> 't;
-  delete   : 'k -> 't -> 't;
-  merge    : older:'t -> newer:'t -> 't; 
-}
+open Pcache_intf.Pvt
 
 
-module type C_dmap = sig
+(** Make functor argument type, including types and values *)
+module type S = sig
   type t
   val monad_ops: t monad_ops
   type k
@@ -26,7 +20,7 @@ module type C_dmap = sig
   val marshalling_config: (k,v,r) marshalling_config
   type kvop_map
   val kvop_map_ops: (k,kvop,kvop_map)pcache_map_ops
-  type nonrec dmap_state = (r,kvop_map) dmap_state
+  type nonrec dmap_state = (r,kvop_map) Pvt.dmap_state
   type blk_id = r
   (* this should make sure to initialize the nxt pointer, or else we
      require that None is marshalled to 1 or more 0 bytes *)
@@ -38,6 +32,19 @@ module type C_dmap = sig
   type nonrec dmap_ops = (k,v,r,kvop_map,t) dmap_ops
 end
 
+(** For testing *)
+module Chk = struct
+  let check_buf_pos ~buf ~buf_pos = 
+    assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) )
+
+  let check_state s = 
+    check_buf_pos ~buf:s.buf ~buf_pos:s.buf_pos
+
+end
+open Chk
+
+(** FIXME write_to_disk is more like "sync to disk", and is intended
+   to sync just the current tl *)
 type ('a,'b,'c,'d,'e,'f,'g) c_dmap = {
   monad_ops:'a;
   marshalling_config:'b;
@@ -48,13 +55,8 @@ type ('a,'b,'c,'d,'e,'f,'g) c_dmap = {
   write_to_disk:'g
 }
 
-let check_buf_pos ~buf ~buf_pos = 
-  assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) )
 
-let check_state s = 
-  check_buf_pos ~buf:s.buf ~buf_pos:s.buf_pos
-
-module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
+module Make(S:S) : sig val dmap_ops: S.dmap_ops end = struct
   open S
 
   let return = monad_ops.return
@@ -62,7 +64,7 @@ module Make(S:C_dmap) : sig val dmap_ops: S.dmap_ops end = struct
 
   let blk_sz = blk_ops.blk_sz |> Blk_sz.to_int
 
-  module S = (val marshalling_config : MC with type k=k and type v=v and type r=r)
+  module S = (val marshalling_config : MRSHL with type k=k and type v=v and type r=r)
   open S
 
   let eol_sz = 1
@@ -272,7 +274,7 @@ read_blk_as_buf:(r -> (buf, t) m) -> ((S.kvop list * r option) list, t) m
 end
 
 
-(** alternative based on fixing just the types; halfway house between functor and function *)
+(** Make alternative based on fixing just the types, not the values; halfway house between functor and function *)
 module Make_with_fixed_types(S: sig
     type t 
     type k 
