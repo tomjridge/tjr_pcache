@@ -1,5 +1,5 @@
 (executables
-  (names run_pcache_example debug) ;;  run_pcache_tests
+  (names run_pcache_example) ;;  run_pcache_tests  ;; debug
   (preprocess (pps ppx_bin_prot ppx_deriving_yojson))
   (flags (:standard  
   -open Tjr_monad -open Tjr_lib -open Tjr_profile -open Tjr_fs_shared 

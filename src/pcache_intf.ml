@@ -60,6 +60,18 @@ module Pvt = struct
     dirty             : bool; (* only if buf is dirty ie data changed, or next_ptr *)
   }
 
+  let dmap0 ~r ~empty = {
+    root_ptr=r;
+    past_map=empty;
+    current_ptr=r;
+    current_map=empty;
+    buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
+    buf_pos=0;
+    next_ptr=None;
+    block_list_length=1;
+    dirty=true
+  }
+
   (** NOTE 'v is expected to be kvop *)
   type ('k,'v,'t) pcache_map_ops = {
     empty    : 't;

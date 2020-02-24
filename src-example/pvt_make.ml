@@ -6,10 +6,9 @@ open Pcache_intf.Pvt
 module type S = sig
   include MRSHL
   val k_cmp: k -> k -> int
-  val blk_alloc: unit -> (r,lwt)m
 end
 
-module Make(S:S) = struct  
+module Make_1(S:S) = struct  
   open S
 
   module Map = struct
@@ -55,7 +54,6 @@ module Make(S:S) = struct
 
     let blk_ops = Blk_factory.make_3 ()
 
-    let blk_alloc = blk_alloc
   end
   include S2
 
@@ -79,7 +77,33 @@ module Make(S:S) = struct
 
   let _ = make
 
-  type pcache_descr = { blk_alloc; with_dmap; write_to_disk }
+  type nonrec dmap_ops = (k,v,r,kvop_map,t) dmap_ops
 
+  let dmap0 ~r = Pcache_intf.Pvt.dmap0 ~r ~empty:kvop_map_ops.empty
 
+(*
+  module Pvt : sig 
+    type pcache_descr = private dmap_ops
+  end = struct
+    type pcache_descr = dmap_ops
+  end
+*)
+(*
+  type pcache_descr = { 
+    (* blk_alloc:(unit -> (r,t)m);  *)
+    (* with_dmap:(dmap_state,t)with_state; *)
+    (* write_to_disk:dmap_state -> (unit,t)m; *)
+    dmap_ops:dmap_ops
+  }
+
+  let find ~pd = pd.dmap_ops.find 
+  let insert ~pd = pd.dmap_ops.insert
+  let delete ~pd = pd.dmap_ops.delete
+  let detach ~pd = pd.dmap_ops.detach ()
+  let block_list_length ~pd = pd.dmap_ops.block_list_length
+  let dmap_write ~pd = pd.dmap_ops.dmap_write
+  let dmap_sync ~pd = pd.dmap_ops.dmap_sync ()
+  let read_pcache ~pd = pd.dmap_ops.read_pcache
+*)
 end
+

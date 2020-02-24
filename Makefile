@@ -7,7 +7,7 @@ default: all
 all::
 	dune build --only-packages tjr_pcache @install
 	dune build bin/run_pcache_example.exe
-	dune build bin/debug.exe
+#	dune build bin/debug.exe
 #	dune build bin/run_pcache_tests.exe
 
 -include Makefile.ocaml

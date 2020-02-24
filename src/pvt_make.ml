@@ -1,3 +1,6 @@
+(** Private pcache constructor functions, including on-disk format etc *)
+
+
 (** On-disk format:
 
 |op1|...|opn|0|...|nxt:r option|
