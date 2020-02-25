@@ -33,7 +33,7 @@ let fn,count =
 let file_ops = lwt_file_ops
 
 let main = 
-  file_ops.fd_from_file ~fn ~create:true ~init:true >>= fun fd ->
+  file_ops.open_ ~fn ~create:true ~init:true >>= fun fd ->
   
   let min_free_blk = ref (Blk_id.of_int 1) in
 
@@ -51,7 +51,7 @@ let main =
   (* FIXME why is this a separate parameter for pcache construction? *)
   let write_to_disk s = 
     (* Printf.printf "Writing to disk with next pointer %d\n" (dest_Some s.next_ptr |> Blk_id.to_int);  *)
-    file_ops.write_blk fd (Blk_id.to_int s.current_ptr) (Bigstring.to_bytes s.buf) 
+    file_ops.write_blk fd (Blk_id.to_int s.current_ptr) s.buf
   in
 
   let dmap_ops = Ex.make ~blk_alloc ~with_dmap ~write_to_disk in
