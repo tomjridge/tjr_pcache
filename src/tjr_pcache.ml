@@ -4,17 +4,21 @@
    instead, use the versions in the pcache examples package.} *)
 
 module Pcache_intf = Pcache_intf
+module Pcache_state = Pcache_intf.Pcache_state
 
-type ('k,'v,'r,'kvop_map,'t) dmap_ops = ('k,'v,'r,'kvop_map,'t) Pcache_intf.dmap_ops
+type ('k,'v,'r,'kvop_map,'t) pcache_ops = ('k,'v,'r,'kvop_map,'t) Pcache_intf.pcache_ops
 
 
 (* module Pvt_make = Pvt_make *)
 
-module Make = Pvt_make.Make
+module type S = Make.S
+module type T = Make.T
 
-module Make_with_fixed_types = Pvt_make.Make_with_fixed_types
+module Make = Make.Make
 
-let make x : ('k,'v,'r,'kvop_map,'t) dmap_ops = Pvt_make.make x
+(* module Make_with_fixed_types = Pvt_make.Make_with_fixed_types *)
+
+(* let make x : ('k,'v,'r,'kvop_map,'t) pcache_ops = Pvt_make.make x *)
 
 
 

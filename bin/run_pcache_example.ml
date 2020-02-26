@@ -2,7 +2,7 @@
    insert operations to try. *)
 
 open Tjr_monad.With_lwt
-open Pcache_intf.Pvt
+open Pcache_intf.Pcache_state
 
 module Ex = Tjr_pcache_example.Int_int_ex
 
@@ -44,7 +44,7 @@ let main =
     return r
   in
 
-  let dmap = ref (Ex.dmap0 ~r:(Blk_id.of_int 0)) in
+  let dmap = ref (Ex.empty_dmap_state ~r:(Blk_id.of_int 0)) in
 
   let with_dmap = with_ref dmap in
 

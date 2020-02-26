@@ -5,8 +5,11 @@ store:=pcache.store
 default: all
 
 all::
-	dune build --only-packages tjr_pcache @install
 	dune build bin/run_pcache_example.exe
+
+tmp: FORCE
+	dune build --only-packages tjr_pcache @install
+#	$(MAKE) docs
 #	dune build bin/debug.exe
 #	dune build bin/run_pcache_tests.exe
 

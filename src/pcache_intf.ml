@@ -34,7 +34,7 @@ open Kvop
 (** For the detach operation, we get the map upto the current node,
    and the map for the current node. NOTE if root_ptr = current_ptr,
    then nothing was detached. *)
-type ('k,'v,'r,'kvop_map,'t) dmap_ops = {
+type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
   find              : 'k -> ('v option,'t) m;
   insert            : 'k -> 'v -> (unit,'t) m;
   delete            : 'k -> (unit,'t)m;
@@ -46,8 +46,7 @@ type ('k,'v,'r,'kvop_map,'t) dmap_ops = {
     ((('k,'v)kvop list * 'r option) list,'t)m
 }
 
-    
-module Pvt = struct
+module Pcache_state = struct
   type ('r,'kvop_map) dmap_state = {
     root_ptr          : 'r;
     past_map          : 'kvop_map;
@@ -60,10 +59,10 @@ module Pvt = struct
     dirty             : bool; (* only if buf is dirty ie data changed, or next_ptr *)
   }
 
-  let dmap0 ~r ~empty = {
-    root_ptr=r;
+  let empty_dmap_state ~root_ptr ~current_ptr ~empty = {
+    root_ptr;
     past_map=empty;
-    current_ptr=r;
+    current_ptr;
     current_map=empty;
     buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
     buf_pos=0;
@@ -72,14 +71,20 @@ module Pvt = struct
     dirty=true
   }
 
-  (** NOTE 'v is expected to be kvop *)
-  type ('k,'v,'t) pcache_map_ops = {
-    empty    : 't;
-    find_opt : 'k -> 't -> 'v option;
-    insert   : 'k -> 'v -> 't -> 't;
-    delete   : 'k -> 't -> 't;
-    merge    : older:'t -> newer:'t -> 't; 
+(*
+  let initial_dmap_state ~root_ptr ~current_ptr ~empty = {
+    root_ptr;
+    past_map=empty;
+    current_ptr;
+    current_map=empty;
+    buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
+    buf_pos=0;
+    next_ptr=None;
+    block_list_length=1;
+    dirty=true
   }
+*)
+
 end
 
 module type MRSHL = sig
