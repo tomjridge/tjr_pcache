@@ -36,55 +36,55 @@ let _ = make_kvop_map_ops
 
 
 type ('a,'b) make_t = {
-  c_dmap: 'a;
-  dmap_ops: 'b
+  c_pcache: 'a;
+  pcache_ops: 'b
 }
 
 (** Construct an int->int example *)
-let make_generic ~blk_ops ~blk_alloc ~with_dmap ~write_to_disk = 
+let make_generic ~blk_ops ~blk_alloc ~with_pcache ~flush_tl = 
   let kvop_map_ops = make_kvop_map_ops () in
-  let c_dmap = { 
+  let c_pcache = { 
     monad_ops=lwt_monad_ops;
     marshalling_config=int_int_marshalling_config;
     kvop_map_ops;
     blk_ops;
     blk_alloc;
-    with_dmap;
-    write_to_disk
+    with_pcache;
+    flush_tl
   }
   in
-  let dmap_ops = Tjr_pcache.Pvt_make.make c_dmap in
-  {c_dmap; dmap_ops}
+  let pcache_ops = Tjr_pcache.Pvt_make.make c_pcache in
+  {c_pcache; pcache_ops}
 
 (* FIXME why is blk_ops generic here? *)
 let _ :
 blk_ops:'a blk_ops ->
 blk_alloc:(unit -> (blk_id, lwt) m) ->
-with_dmap:((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state, lwt)
+with_pcache:((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) pcache_state, lwt)
           with_state ->
-write_to_disk:((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state ->
+flush_tl:((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) pcache_state ->
                (unit, lwt) m) ->
 ((lwt monad_ops, (module MRSHL'),
   (int, (int, int) kvop, (int, (int, int) kvop, 'b) Tjr_map.map)
   pcache_map_ops, 'a blk_ops, unit -> (blk_id, lwt) m,
-  ((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state, lwt)
+  ((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) pcache_state, lwt)
   with_state,
-  (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state ->
+  (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) pcache_state ->
   (unit, lwt) m)
- c_dmap,
- (int, int, blk_id, (int, (int, int) kvop, 'b) Tjr_map.map, lwt) dmap_ops)
+ c_pcache,
+ (int, int, blk_id, (int, (int, int) kvop, 'b) Tjr_map.map, lwt) pcache_ops)
 make_t
  = make_generic
 
 ;;
 
 type ('a,'b,'c,'d) make_args = 
-  | Make1: { blk_ops:'a; blk_alloc:'b; with_dmap:'c; write_to_disk:'d } -> ('a,'b,'c,'d) make_args
+  | Make1: { blk_ops:'a; blk_alloc:'b; with_pcache:'c; flush_tl:'d } -> ('a,'b,'c,'d) make_args
   (** generic version *)
 
 
-  | Make2: { write_to_disk:'d } -> ('a,'x1,'x2,'d) make_args
-  (** version with blk_ops std; dmap as a reference, and blk_alloc as a reference *)
+  | Make2: { flush_tl:'d } -> ('a,'x1,'x2,'d) make_args
+  (** version with blk_ops std; pcache as a reference, and blk_alloc as a reference *)
 
 [@@@ocaml.warning "-30"] (* duplicate record labes in mut rec type defn *)
 
@@ -92,9 +92,9 @@ type ('a,'b,'c) make_result =
   | Res1: 'a aux1 -> ('a,'x1,'x2) make_result
   | Res2: ('a,'b,'c) aux2 -> ('a,'b,'c) make_result
 
-and 'a aux1 = { dmap_ops:'a }
+and 'a aux1 = { pcache_ops:'a }
 
-and ('a,'b,'c) aux2 = { dmap_ops: 'a; dmap_ref: 'b; min_free_blk:'c ref }
+and ('a,'b,'c) aux2 = { pcache_ops: 'a; pcache_ref: 'b; min_free_blk:'c ref }
 
 let dest_Res1 (Res1 x) = x[@@ocaml.warning "-8"]
 let dest_Res2 (Res2 x) = x[@@ocaml.warning "-8"]
@@ -102,10 +102,10 @@ let dest_Res2 (Res2 x) = x[@@ocaml.warning "-8"]
 
 (** NOTE this takes Make1 to Res1, Make2 to Res2 etc *)     
 let make = function
-  | Make1 { blk_ops; blk_alloc; with_dmap; write_to_disk } -> (
-    make_generic ~blk_ops ~blk_alloc ~with_dmap ~write_to_disk |> fun {dmap_ops; c_dmap=_ } ->
-    Res1 { dmap_ops })
-  | Make2 { write_to_disk } -> 
+  | Make1 { blk_ops; blk_alloc; with_pcache; flush_tl } -> (
+    make_generic ~blk_ops ~blk_alloc ~with_pcache ~flush_tl |> fun {pcache_ops; c_pcache=_ } ->
+    Res1 { pcache_ops })
+  | Make2 { flush_tl } -> 
     let module A = struct
       open Tjr_monad.With_lwt
 
@@ -123,7 +123,7 @@ let make = function
 
       let blk_sz = 4096
 
-      let dmap_state = ref {
+      let pcache_state = ref {
           root_ptr=Blk_id.of_int 0;
           past_map=kvop_map_ops.empty;
           current_ptr=Blk_id.of_int 0;
@@ -131,38 +131,38 @@ let make = function
           buf=buf_ops.create blk_sz;
           buf_pos=0;
           next_ptr=None;
-          block_list_length=1;
+          blk_len=1;
           dirty=true
         }
 
-      let _ : unit = Chk.check_state (!dmap_state)
+      let _ : unit = Chk.check_state (!pcache_state)
 
-      let with_dmap = {
+      let with_pcache = {
         with_state=fun f -> 
-          f ~state:!dmap_state 
+          f ~state:!pcache_state 
             ~set_state:(fun s -> 
               Chk.check_state s;
-              dmap_state:=s; return ())
+              pcache_state:=s; return ())
       }
 
-      let { dmap_ops; c_dmap=_ } = 
-        make_generic ~blk_ops ~blk_alloc ~with_dmap ~write_to_disk 
+      let { pcache_ops; c_pcache=_ } = 
+        make_generic ~blk_ops ~blk_alloc ~with_pcache ~flush_tl 
 
     end
     in
-    A.(Res2 { dmap_ops; dmap_ref=dmap_state; min_free_blk })
+    A.(Res2 { pcache_ops; pcache_ref=pcache_state; min_free_blk })
 
 
 
 
 let _ :
 ('a blk_ops, unit -> (blk_id, lwt) m,
- ((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state, lwt)
+ ((blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) pcache_state, lwt)
  with_state,
- (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state -> (unit, lwt) m)
+ (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) pcache_state -> (unit, lwt) m)
 make_args ->
-((int, int, blk_id, (int, (int, int) kvop, 'b) Tjr_map.map, lwt) dmap_ops,
- (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) dmap_state ref, int)
+((int, int, blk_id, (int, (int, int) kvop, 'b) Tjr_map.map, lwt) pcache_ops,
+ (blk_id, (int, (int, int) kvop, 'b) Tjr_map.map) pcache_state ref, int)
 make_result
  = make
 *)

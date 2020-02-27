@@ -32,12 +32,12 @@ type ii_on_disk_node = ((int, int) kvop list * blk_id option) list [@@deriving y
 let main = 
   file_ops.fd_from_file ~fn ~create:false ~init:false >>= fun fd ->
 (*
-  let _async_write_to_disk s = 
+  let _async_flush_tl s = 
     Lwt.async (fun () -> to_lwt(file_ops.write_blk fd s.current_ptr (Bigstring.to_bytes s.buf)));
     return ()
   in
 *)
-  let write_to_disk s = 
+  let flush_tl s = 
     Printf.printf "Writing to disk with next pointer %d\n" (dest_Some s.next_ptr |> Blk_id.to_int); 
     file_ops.write_blk fd (Blk_id.to_int s.current_ptr) (Bigstring.to_bytes s.buf) 
   in
@@ -45,8 +45,8 @@ let main =
     file_ops.read_blk fd (Blk_id.to_int r) >>= fun blk ->
     return (Bigstring.of_bytes blk)
   in
-  let { dmap_ops; _ } = make (Make2 { write_to_disk } ) |> dest_Res2 in
-  dmap_ops.read_pcache ~root:(Blk_id.of_int 0) ~read_blk_as_buf >>= fun xs ->
+  let { pcache_ops; _ } = make (Make2 { flush_tl } ) |> dest_Res2 in
+  pcache_ops.read_pcache ~root:(Blk_id.of_int 0) ~read_blk_as_buf >>= fun xs ->
   Printf.printf "Number of blks: %d\n" (List.length xs);
   (xs |> List.map (fun (ops,_) -> ops) |> List.concat |> List.length |> fun n -> 
      Printf.printf "Number of ops: %d\n" n);
@@ -63,7 +63,7 @@ let _ = Lwt_main.run (to_lwt main)
       match i >= count with
       | true -> ()
       | false -> 
-        of_m (dmap_ops.insert i (2*i));
+        of_m (pcache_ops.insert i (2*i));
         k (i+1)));
   Unix.close fd
 *)

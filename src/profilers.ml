@@ -4,7 +4,7 @@ module Internal : sig
   val pl_profiler : int Tjr_profile.profiler 
   val pcl_profiler : int Tjr_profile.profiler 
   val dcl_profiler : int Tjr_profile.profiler 
-  val dmap_profiler : int Tjr_profile.profiler 
+  val pcache_profiler : int Tjr_profile.profiler 
 end = struct
 
 [%%if PROFILE_PL]
@@ -28,9 +28,9 @@ let dcl_profiler = Tjr_profile.dummy_profiler
 
 
 [%%if PROFILE_DMAP]
-let dmap_profiler = make_profiler ~print_header:"dmap_profiler" ()
+let pcache_profiler = make_profiler ~print_header:"pcache_profiler" ()
 [%%else]
-let dmap_profiler = Tjr_profile.dummy_profiler
+let pcache_profiler = Tjr_profile.dummy_profiler
 [%%endif]
 
 

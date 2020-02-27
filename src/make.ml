@@ -34,35 +34,37 @@ module type T = sig
   type t
 
   type kvop_map
-  (* val empty_kvop_map : kvop_map *)
 
-  (** we need to expose dmap_state because of write_to_disk *)
-  type nonrec dmap_state = (r,kvop_map)dmap_state
-  val empty_dmap_state : r:r -> dmap_state
+  (** NOTE we need empty_kvop_map to construct pcache_state *)
+  val kvop_map_ops: (k, (k,v)kvop, kvop_map) Tjr_map.map_ops
+
+  (** NOTE: can construct pcache_state by opening {!Pcache_intf.Pcache_state}. NOTE we need to expose pcache_state because of flush_tl *)
+  type nonrec pcache_state = (r,kvop_map)pcache_state
+  (* val empty_pcache_state : r:r -> pcache_state *)
 
 
-  (* val initial_dmap_state: root_ptr:r -> dmap_state *)
+  (* val initial_pcache_state: root_ptr:r -> pcache_state *)
 
-  (** Read pcache as a list of (kvop list and nxt ptr) *)
+  (** Read pcache as a list of (kvop list and nxt ptr), and also return the last elt as a buf *)
   val read_pcache: 
     root:r ->
     read_blk_as_buf:(r -> (buf, t)m) ->
-    (((k,v)kvop list * r option) list, t)m
-
+    (((k,v)kvop list * r option) list * buf * int, t)m
+      
   (** Given root and current ptrs, re-establish the state of the
      pcache *)
-  val read_initial_dmap_state: 
+  val read_initial_pcache_state: 
     read_blk_as_buf:(r->(buf,t)m) -> 
     root_ptr:r -> 
     current_ptr:r -> 
-    dmap_state
+    (pcache_state,t)m
 
   type nonrec pcache_ops = (k, v, r, kvop_map, t) pcache_ops
 
   val make_pcache_ops :
     blk_alloc:(unit -> (r, t) Tjr_monad.m) ->
-    with_dmap:(dmap_state, t) Tjr_monad.with_state ->
-    write_to_disk:(dmap_state -> (unit, t) Tjr_monad.m) -> pcache_ops
+    with_pcache:(pcache_state, t) Tjr_monad.with_state ->
+    flush_tl:(pcache_state -> (unit, t) Tjr_monad.m) -> pcache_ops
 end
 
 
@@ -79,14 +81,14 @@ end
 open Pvt_chk
 (**/**)
 
-(* and type dmap_state=(S.r,(S.k,S.v)kvop)dmap_state *)
+(* and type pcache_state=(S.r,(S.k,S.v)kvop)pcache_state *)
 module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.t = struct
   open S
   type k = S.k
   type v = S.v
   type r = S.r
   type t = S.t
-  (* type dmap_state=S.dmap_state *)
+  (* type pcache_state=S.pcache_state *)
 
   module Kvop_map = Kvop_map.Make(struct
       type k = S.k
@@ -94,12 +96,12 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       let k_cmp = k_cmp
     end)
   let kvop_map_ops = Kvop_map.map_ops
-  let empty_kvop_map = kvop_map_ops.empty
+  (* let empty_kvop_map = kvop_map_ops.empty *)
   type kvop_map = Kvop_map.t
   (* type nonrec kvop = (k,v)kvop *)
       
-  type nonrec dmap_state = (r,kvop_map)dmap_state
-  let empty_dmap_state ~r = Pcache_state.empty_dmap_state ~root_ptr:r ~current_ptr:r ~empty:empty_kvop_map
+  type nonrec pcache_state = (r,kvop_map)pcache_state
+  (* let empty_pcache_state ~r = Pcache_state.empty_pcache_state ~root_ptr:r ~current_ptr:r ~empty:empty_kvop_map *)
 
   let return = monad_ops.return
   let ( >>= ) = monad_ops.bind
@@ -145,7 +147,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       type t = Nil | Insert of (k*v) | Delete of k [@@deriving bin_io]
     end
 
-    let buf_to_op_list_x_nxt buf =
+    let buf_to_op_list_x_nxt_x_pos buf =
       let pos_ref = ref 0 in
       let rec f xs = 
         match buf_ops.get !pos_ref buf = chr0 with 
@@ -157,34 +159,34 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       in
       f [] |> fun ops ->
       let nxt = bin_reader_nxt.read buf ~pos_ref:(ref nxt_pos) in
-      (ops,nxt)
+      (ops,nxt,!pos_ref)
 
 
-    let read_pcache ~root ~read_blk_as_buf : ((kvop list * r option) list,'t)m =
-      let rec f xs nxt = 
-        match nxt with
-        | None -> return (List.rev xs)
-        | Some r -> 
-          read_blk_as_buf r >>= fun buf -> buf |> buf_to_op_list_x_nxt |> fun (ops,nxt) ->
-                                           f ((ops,nxt)::xs) nxt
-      in
-      f [] (Some root)
-
+    let read_pcache ~root ~read_blk_as_buf : ((kvop list * r option) list * buf * int,'t)m =
+      read_blk_as_buf root >>= fun buf ->
+      ([],buf) |> iter_k (fun ~k (acc,buf) ->
+          let ops,nxt,pos = buf|>buf_to_op_list_x_nxt_x_pos in
+          match nxt with
+          | None -> return (List.rev ((ops,nxt)::acc),buf,pos)
+          | Some r -> 
+            read_blk_as_buf r >>= fun buf ->
+            k ( (ops,Some r)::acc, buf))
+          
     let _ :
       root:r ->
-      read_blk_as_buf:(r -> (buf, t) m) -> ((S.kvop list * r option) list, t) m
+      read_blk_as_buf:(r -> (buf, t) m) -> ((S.kvop list * r option) list * buf * int, t) m
       = read_pcache        
   end
   open Read_pcache
 
   module Pvt(S2:sig
       val blk_alloc: unit -> (r,t) m
-      val with_dmap: (dmap_state,t)with_state          
-      val write_to_disk: dmap_state -> (unit,t)m
+      val with_pcache: (pcache_state,t)with_state          
+      val flush_tl: pcache_state -> (unit,t)m
     end) = struct
     open S2
 
-    let find k = with_dmap.with_state (fun ~state ~set_state:_ -> 
+    let find k = with_pcache.with_state (fun ~state ~set_state:_ -> 
         kvop_map_ops.find_opt k state.current_map |> function
         | Some op -> (
             match (op:kvop) with
@@ -214,7 +216,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
 
 (*
   let alloc_next_ptr_if_none = 
-    with_dmap.with_state (fun ~state:s ~set_state ->
+    with_pcache.with_state (fun ~state:s ~set_state ->
       match s.next_ptr with
       | None -> alloc_next_ptr_and_set s >>= fun (r,s) -> 
                 set_state s
@@ -222,14 +224,14 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
 *)
 (*
   let get_dirty () =     
-    with_dmap.with_state (fun ~state:s ~set_state:_ ->
+    with_pcache.with_state (fun ~state:s ~set_state:_ ->
       return s.dirty)
 *)
 (*
   let write_if_dirty = 
-    with_dmap.with_state (fun ~state:s ~set_state:_ ->
+    with_pcache.with_state (fun ~state:s ~set_state:_ ->
       match s.dirty with
-      | true -> write_to_disk s
+      | true -> flush_tl s
       | false -> return ())
 *)    
 
@@ -262,7 +264,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       { state with current_map; buf; buf_pos; dirty }
 
     let add op = 
-      with_dmap.with_state (fun ~state ~set_state -> 
+      with_pcache.with_state (fun ~state ~set_state -> 
           check_state state;
           (* can we insert in the current node? *)
           match can_fit op_byte_size state with
@@ -274,7 +276,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
               (* we need to allocate a new node if not already allocated,
                  issue a write for the current node then move to the next *)
               alloc_next_ptr_and_set state >>= fun (r,state) ->
-              write_to_disk state >>= fun () ->
+              flush_tl state >>= fun () ->
               let buf = buf_ops.create blk_sz in
               (* for i = 0 to blk_sz-1 do
                  assert(buf_ops.get i buf = chr0)
@@ -286,7 +288,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
                             buf;
                             buf_pos=0;
                             next_ptr=None;
-                            block_list_length=state.block_list_length+1;
+                            blk_len=state.blk_len+1;
                             dirty=true }
               in
               (* Printf.printf "buf_pos: %d\n" state.buf_pos; *)
@@ -298,9 +300,9 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
     let delete k = add (Delete k)
 
     let detach () = 
-      with_dmap.with_state (fun ~state ~set_state ->
-          assert(state.block_list_length >= 1);
-          match state.block_list_length with
+      with_pcache.with_state (fun ~state ~set_state ->
+          assert(state.blk_len >= 1);
+          match state.blk_len with
           | 1 -> (
               (* the case when there is only one block *)
               let { root_ptr; past_map; current_ptr; current_map; _ } = state in
@@ -310,21 +312,21 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
               let detach_info = { root_ptr; past_map; current_ptr; current_map } in          
               let state = { state with root_ptr=current_ptr;
                                        past_map=kvop_map_ops.empty;
-                                       block_list_length=1 }
+                                       blk_len=1 }
               in
               check_state state;
               set_state state >>= fun () -> 
               return detach_info))
 
-    let block_list_length () = with_dmap.with_state (fun ~state:s ~set_state:_  ->
-        return s.block_list_length)
+    let blk_len () = with_pcache.with_state (fun ~state:s ~set_state:_  ->
+        return s.blk_len)
 
-    let dmap_write () = with_dmap.with_state (fun ~state:s ~set_state:_  ->
-        write_to_disk s)
+    let pcache_write () = with_pcache.with_state (fun ~state:s ~set_state:_  ->
+        flush_tl s)
 
-    let dmap_sync = dmap_write
+    let pcache_sync = pcache_write
 
-    let pcache_ops = { find; insert; delete; detach; block_list_length; dmap_write; dmap_sync; read_pcache }
+    let pcache_ops = { find; insert; delete; detach; blk_len; pcache_write; pcache_sync }
   end
 
   type nonrec pcache_ops = (k,v,r,kvop_map,t) pcache_ops    
@@ -335,13 +337,37 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
 
   let make_pcache_ops  
       ~(blk_alloc: unit -> (r,t) m)
-      ~(with_dmap: (dmap_state,t)with_state)
-      ~(write_to_disk: dmap_state -> (unit,t)m)
+      ~(with_pcache: (pcache_state,t)with_state)
+      ~(flush_tl: pcache_state -> (unit,t)m)
     : pcache_ops
     = 
-    let module P = Pvt(struct let blk_alloc=blk_alloc let with_dmap=with_dmap let write_to_disk=write_to_disk end) in
+    let module P = Pvt(struct let blk_alloc=blk_alloc let with_pcache=with_pcache let flush_tl=flush_tl end) in
     P.pcache_ops
 
-  let read_initial_dmap_state ~read_blk_as_buf ~root_ptr ~current_ptr = failwith "FIXME"
+  let read_initial_pcache_state ~read_blk_as_buf ~root_ptr ~current_ptr = 
+    read_pcache ~root:root_ptr ~read_blk_as_buf >>= fun (xs,buf,buf_pos) ->
+    assert(List.length xs >= 1);
+    let xs : (kvop list * r option) list = xs in
+    let past_map,last = ([],xs,kvop_map_ops.empty) |> iter_k (fun ~k:kont x ->
+        match x with
+        | [],[],acc -> failwith "impossible"
+        | [],[last],acc -> acc,fst last
+        | op::xs,ys,acc -> 
+          let acc = kvop_map_ops.add (Kvop.op2k op) op acc in
+          kont (xs,ys,acc)
+        | [],y::ys,acc -> kont (fst y,ys,acc))
+    in
+    let current_map = last |> List.map (fun op -> (Kvop.op2k op,op)) |> kvop_map_ops.of_bindings in
+    return Pcache_state.{
+      root_ptr;
+      past_map;
+      current_ptr;
+      current_map;
+      buf;
+      buf_pos;
+      next_ptr=None;
+      blk_len=List.length xs;
+      dirty=false
+    }          
 
 end (* Make *)

@@ -39,15 +39,15 @@ type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
   insert            : 'k -> 'v -> (unit,'t) m;
   delete            : 'k -> (unit,'t)m;
   detach            : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
-  block_list_length : unit -> (int,'t)m;
-  dmap_write        : unit -> (unit,'t)m;
-  dmap_sync         : unit -> (unit,'t)m;
-  read_pcache       : root:'r -> read_blk_as_buf:('r -> (buf,'t)m) -> 
-    ((('k,'v)kvop list * 'r option) list,'t)m
+  blk_len : unit -> (int,'t)m;
+  pcache_write        : unit -> (unit,'t)m;
+  pcache_sync         : unit -> (unit,'t)m;
+  (* read_pcache       : root:'r -> read_blk_as_buf:('r -> (buf,'t)m) ->  *)
+    (* ((('k,'v)kvop list * 'r option) list * 'buf,'t)m *)
 }
 
 module Pcache_state = struct
-  type ('r,'kvop_map) dmap_state = {
+  type ('r,'kvop_map) pcache_state = {
     root_ptr          : 'r;
     past_map          : 'kvop_map;
     current_ptr       : 'r;
@@ -55,11 +55,11 @@ module Pcache_state = struct
     buf               : buf;  (* should be the same size as a blk *)
     buf_pos           : int;
     next_ptr          : 'r option; 
-    block_list_length : int;
+    blk_len : int;
     dirty             : bool; (* only if buf is dirty ie data changed, or next_ptr *)
   }
 
-  let empty_dmap_state ~root_ptr ~current_ptr ~empty = {
+  let empty_pcache_state ~root_ptr ~current_ptr ~empty = {
     root_ptr;
     past_map=empty;
     current_ptr;
@@ -67,12 +67,12 @@ module Pcache_state = struct
     buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
     buf_pos=0;
     next_ptr=None;
-    block_list_length=1;
+    blk_len=1;
     dirty=true
   }
 
 (*
-  let initial_dmap_state ~root_ptr ~current_ptr ~empty = {
+  let initial_pcache_state ~root_ptr ~current_ptr ~empty = {
     root_ptr;
     past_map=empty;
     current_ptr;
@@ -80,7 +80,7 @@ module Pcache_state = struct
     buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
     buf_pos=0;
     next_ptr=None;
-    block_list_length=1;
+    blk_len=1;
     dirty=true
   }
 *)

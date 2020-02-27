@@ -36,38 +36,38 @@ module Make_1(S:S) = struct
 
   let make 
       ~(blk_alloc:(unit -> (r,t)m))
-      ~(with_dmap:(dmap_state,t)with_state) 
-      ~(write_to_disk:dmap_state -> (unit,t)m)
+      ~(with_pcache:(pcache_state,t)with_state) 
+      ~(flush_tl:pcache_state -> (unit,t)m)
     : Pcache.pcache_ops = 
-    Pcache.make_pcache_ops ~blk_alloc ~with_dmap ~write_to_disk
+    Pcache.make_pcache_ops ~blk_alloc ~with_pcache ~flush_tl
 
   let _ = make
     
-  (* let empty_dmap_state ~root_ptr ~current_ptr = Pcache.empty_dmap_state S2.empPcache_state.empty_dmap_state ~root_ptr ~current_ptr ~empty:empty_kvop_map *\) *)
+  (* let empty_pcache_state ~root_ptr ~current_ptr = Pcache.empty_pcache_state S2.empPcache_state.empty_pcache_state ~root_ptr ~current_ptr ~empty:empty_kvop_map *\) *)
 
 (*
   module Pvt : sig 
-    type pcache_descr = private dmap_ops
+    type pcache_descr = private pcache_ops
   end = struct
-    type pcache_descr = dmap_ops
+    type pcache_descr = pcache_ops
   end
 *)
 (*
   type pcache_descr = { 
     (* blk_alloc:(unit -> (r,t)m);  *)
-    (* with_dmap:(dmap_state,t)with_state; *)
-    (* write_to_disk:dmap_state -> (unit,t)m; *)
-    dmap_ops:dmap_ops
+    (* with_pcache:(pcache_state,t)with_state; *)
+    (* flush_tl:pcache_state -> (unit,t)m; *)
+    pcache_ops:pcache_ops
   }
 
-  let find ~pd = pd.dmap_ops.find 
-  let insert ~pd = pd.dmap_ops.insert
-  let delete ~pd = pd.dmap_ops.delete
-  let detach ~pd = pd.dmap_ops.detach ()
-  let block_list_length ~pd = pd.dmap_ops.block_list_length
-  let dmap_write ~pd = pd.dmap_ops.dmap_write
-  let dmap_sync ~pd = pd.dmap_ops.dmap_sync ()
-  let read_pcache ~pd = pd.dmap_ops.read_pcache
+  let find ~pd = pd.pcache_ops.find 
+  let insert ~pd = pd.pcache_ops.insert
+  let delete ~pd = pd.pcache_ops.delete
+  let detach ~pd = pd.pcache_ops.detach ()
+  let blk_len ~pd = pd.pcache_ops.blk_len
+  let pcache_write ~pd = pd.pcache_ops.pcache_write
+  let pcache_sync ~pd = pd.pcache_ops.pcache_sync ()
+  let read_pcache ~pd = pd.pcache_ops.read_pcache
 *)
 end
 
