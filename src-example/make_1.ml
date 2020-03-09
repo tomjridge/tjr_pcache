@@ -1,26 +1,33 @@
-(** A simplified "Make" functor, to construct a persistent cache. *)
-
+(** Simplified, providing an object version *)
 open Pcache_intf
-(* open Pcache_state *)
+
+(* module Std_types = Std_types *)
+(* open Std_types *)
 
 module type S = sig
-  include MRSHL
+  include MRSHL 
   val k_cmp: k -> k -> int
 end
 
-module Make_1(S:S) = struct  
+module Make(S:S) = struct  
   (* open S *)
 
   (* what we use with Tjr_pcache.Make *)
   module S2 = struct
     include S
 
-    type t = lwt
+    type t = Std_types.t
 
     let monad_ops = lwt_monad_ops
 
     type nonrec kvop = (k, v) Tjr_fs_shared.kvop
     
+    module Mrshl = struct
+      include S
+      type r = Std_types.r[@@deriving bin_io, yojson]
+      let r_size = 9
+    end
+
     let marshalling_config : (k,v,r)marshalling_config = (module S)
 
     type blk_id = r
@@ -70,4 +77,6 @@ module Make_1(S:S) = struct
   let read_pcache ~pd = pd.pcache_ops.read_pcache
 *)
 end
+
+
 

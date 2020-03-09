@@ -65,6 +65,8 @@ module type T = sig
     blk_alloc:(unit -> (r, t) Tjr_monad.m) ->
     with_pcache:(pcache_state, t) Tjr_monad.with_state ->
     flush_tl:(pcache_state -> (unit, t) Tjr_monad.m) -> pcache_ops
+
+  val make_as_obj: unit -> (k, v, r, ba_buf, kvop_map, t) pcache_as_obj
 end
 
 
@@ -162,7 +164,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       (ops,nxt,!pos_ref)
 
 
-    let read_pcache ~root ~read_blk_as_buf : ((kvop list * r option) list * buf * int,'t)m =
+    let read_pcache ~root ~read_blk_as_buf : (((k,v)kvop list * r option) list * buf * int,'t)m =
       read_blk_as_buf root >>= fun buf ->
       ([],buf) |> iter_k (fun ~k (acc,buf) ->
           let ops,nxt,pos = buf|>buf_to_op_list_x_nxt_x_pos in
@@ -174,7 +176,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
           
     let _ :
       root:r ->
-      read_blk_as_buf:(r -> (buf, t) m) -> ((S.kvop list * r option) list * buf * int, t) m
+      read_blk_as_buf:(r -> (buf, t) m) -> (((k,v)kvop list * r option) list * buf * int, t) m
       = read_pcache        
   end
   open Read_pcache
@@ -189,7 +191,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
     let find k = with_pcache.with_state (fun ~state ~set_state:_ -> 
         kvop_map_ops.find_opt k state.current_map |> function
         | Some op -> (
-            match (op:kvop) with
+            match (op:(k,v)kvop) with
             | Insert(_,v) -> return (Some v)
             | Delete _ -> return None)
         | None -> (
@@ -244,7 +246,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       (* write into buf, and adjust the state *)
       let { current_map; buf; buf_pos; dirty; _ } = state in
       let current_map = 
-        match (op:kvop) with
+        match (op:(k,v)kvop) with
         | Insert(k,v) -> kvop_map_ops.add k op current_map 
         | Delete k -> kvop_map_ops.add k op current_map
       in
@@ -347,7 +349,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
   let read_initial_pcache_state ~read_blk_as_buf ~root_ptr ~current_ptr = 
     read_pcache ~root:root_ptr ~read_blk_as_buf >>= fun (xs,buf,buf_pos) ->
     assert(List.length xs >= 1);
-    let xs : (kvop list * r option) list = xs in
+    let xs : ((k,v)kvop list * r option) list = xs in
     let past_map,last = ([],xs,kvop_map_ops.empty) |> iter_k (fun ~k:kont x ->
         match x with
         | [],[],acc -> failwith "impossible"
@@ -369,5 +371,60 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       blk_len=List.length xs;
       dirty=false
     }          
+
+
+  let with_ref r = 
+    let with_state f = 
+      f ~state:(!r) ~set_state:(fun s -> r:=s; return ()) in
+    { with_state }
+
+  let make_as_obj () : (k,v,r,'blk,kvop_map,t) pcache_as_obj = 
+    let open (struct 
+      let blk_alloc = ref None
+      (* let blk_dev_ops = ref None  *)
+      let flush_tl = ref None 
+      let with_state = ref None 
+      let set_blk_alloc x = blk_alloc:=Some x
+      let set_initial_state x = 
+        let x = ref x in
+        let wr = with_ref x in
+        with_state:=Some wr
+      let set_flush_tl x = flush_tl:=Some x
+      let set_blk_dev_ops (blk_dev_ops:('r,'blk,'t)blk_dev_ops) =
+        let flush_tl s = 
+          (* Printf.printf "Writing to disk with next pointer %d\n" (dest_Some s.next_ptr |> Blk_id.to_int);  *)
+          blk_dev_ops.write ~blk_id:s.current_ptr ~blk:s.buf
+        in
+        set_flush_tl flush_tl      
+      let check_initialized () =
+        let open Option in
+        assert(is_some !blk_alloc);
+        assert(is_some !flush_tl);
+        assert(is_some !with_state);
+        ()
+      let kvop_map_ops () = kvop_map_ops
+      let get_with_pcache () = 
+        check_initialized();
+        Option.get !with_state
+      let get_pcache_ops () = 
+        check_initialized ();
+        make_pcache_ops 
+          ~blk_alloc:(Option.get !blk_alloc)
+          ~with_pcache:(Option.get !with_state)
+          ~flush_tl:(Option.get !flush_tl)
+    end)
+    in
+    object 
+      method set_blk_alloc=set_blk_alloc
+      method set_initial_state=set_initial_state
+      method set_flush_tl=set_flush_tl
+      method set_blk_dev_ops=set_blk_dev_ops
+      method check_initialized=check_initialized
+      method kvop_map_ops=kvop_map_ops
+      method get_with_pcache=get_with_pcache
+      method get_pcache_ops=get_pcache_ops
+    end
+
+  let _ = make_as_obj
 
 end (* Make *)

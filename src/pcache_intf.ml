@@ -88,10 +88,10 @@ module Pcache_state = struct
 end
 
 module type MRSHL = sig
-  type k [@@deriving bin_io, yojson]
-  type v [@@deriving bin_io, yojson]  
-  type r [@@deriving bin_io, yojson]
-  type nonrec kvop = (k,v)kvop [@@deriving bin_io, yojson]
+  type k [@@deriving bin_io]
+  type v [@@deriving bin_io]  
+  type r [@@deriving bin_io]
+  (* type nonrec kvop = (k,v)kvop [@@deriving bin_io] *)
 
   (** This is the max # of bytes required for k *)
   val k_size: int 
@@ -116,3 +116,19 @@ type ('k,'v,'ptr) marshalling_config = {
   ptr_reader    : 'ptr Bin_prot.Type_class.reader;
 }
 *)
+
+
+(** Object-based interface *)
+open Pcache_state
+
+class type ['k,'v, 'r, 'blk, 'kvop_map,'t] pcache_as_obj = object
+  method set_blk_alloc     : (unit -> ('r,'t)m) -> unit
+  method set_initial_state : ('r,'kvop_map) pcache_state -> unit
+  method set_flush_tl      : (('r,'kvop_map) pcache_state -> (unit,'t)m) -> unit
+  method set_blk_dev_ops   : ('r,'blk,'t) blk_dev_ops -> unit (** this overrides set_flush_tl *)
+
+  method check_initialized : unit -> unit
+  method kvop_map_ops      : unit -> ('k,('k,'v)kvop,'kvop_map)Tjr_map.map_ops
+  method get_with_pcache   : unit -> ( ('r,'kvop_map)pcache_state,'t)with_state
+  method get_pcache_ops    : unit -> ('k,'v,'r,'kvop_map,'t)pcache_ops
+end
