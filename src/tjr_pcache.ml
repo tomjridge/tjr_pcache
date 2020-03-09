@@ -11,10 +11,7 @@ type ('k,'v,'r,'kvop_map,'t) pcache_ops = ('k,'v,'r,'kvop_map,'t) Pcache_intf.pc
 
 (* module Pvt_make = Pvt_make *)
 
-module type S = Make.S
-module type T = Make.T
-
-module Make = Make.Make
+module Make = Make
 
 (* module Make_with_fixed_types = Pvt_make.Make_with_fixed_types *)
 

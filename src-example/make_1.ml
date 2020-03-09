@@ -38,7 +38,7 @@ module Make(S:S) = struct
   end
   include S2
   
-  module Pcache = Tjr_pcache.Make(S2)
+  module Pcache = Tjr_pcache.Make.Make(S2)
   include Pcache
 
   let make 
