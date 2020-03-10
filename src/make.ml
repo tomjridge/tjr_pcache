@@ -47,24 +47,31 @@ module type T = sig
 
   (** Read pcache as a list of (kvop list and nxt ptr), and also return the last elt as a buf *)
   val read_pcache: 
-    root:r ->
-    read_blk_as_buf:(r -> (buf, t)m) ->
+    root            :r ->
+    read_blk_as_buf :(r -> (buf, t)m) ->
     (((k,v)kvop list * r option) list * buf * int, t)m
       
   (** Given root and current ptrs, re-establish the state of the
      pcache *)
   val read_initial_pcache_state: 
-    read_blk_as_buf:(r->(buf,t)m) -> 
-    root_ptr:r -> 
-    current_ptr:r -> 
+    read_blk_as_buf :(r->(buf,t)m) -> 
+    root_ptr        :r -> 
+    current_ptr     :r -> 
     (pcache_state,t)m
 
   type nonrec pcache_ops = (k, v, r, kvop_map, t) pcache_ops
 
   val make_pcache_ops :
-    blk_alloc:(unit -> (r, t) Tjr_monad.m) ->
-    with_pcache:(pcache_state, t) Tjr_monad.with_state ->
-    flush_tl:(pcache_state -> (unit, t) Tjr_monad.m) -> pcache_ops
+    blk_alloc   :(unit -> (r, t) Tjr_monad.m) ->
+    with_pcache :(pcache_state, t) Tjr_monad.with_state ->
+    flush_tl    :(pcache_state -> (unit, t) Tjr_monad.m) -> 
+    pcache_ops
+
+  val make_pcache_ops_with_blk_dev :
+    blk_dev_ops :(r, ba_buf, t) blk_dev_ops ->
+    blk_alloc   :(unit -> (r, t) m) ->
+    with_pcache :(pcache_state, t) with_state -> 
+    pcache_ops
 
   val make_as_obj: unit -> (k, v, r, ba_buf, kvop_map, t) pcache_as_obj
 end
@@ -372,6 +379,20 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       dirty=false
     }          
 
+  (* FIXME this requires blk=buf=ba_buf *)
+  let make_pcache_ops_with_blk_dev 
+      ~(blk_dev_ops: (blk_id,ba_buf,t)blk_dev_ops)
+      ~(blk_alloc: unit -> (r,t) m)
+      ~(with_pcache: (pcache_state,t)with_state)
+    : pcache_ops
+    =
+    let flush_tl s = 
+      (* Printf.printf "Writing to disk with next pointer %d\n" (dest_Some s.next_ptr |> Blk_id.to_int);  *)
+      blk_dev_ops.write ~blk_id:s.current_ptr ~blk:s.buf
+    in
+    make_pcache_ops ~blk_alloc ~with_pcache ~flush_tl
+
+  let _ = make_pcache_ops_with_blk_dev
 
   let with_ref r = 
     let with_state f = 
