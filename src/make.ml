@@ -1,16 +1,16 @@
-(** Private pcache constructor functions, including on-disk format etc *)
+(** Pcache constructor functions, including on-disk format etc *)
 
 
 (** On-disk format:
 
 |op1|...|opn|0|...|nxt:r option|
 
-The 0 byte marks the end of the op list (eol); op never starts with 0.
+The 0 byte marks the end of the op list (eol); op never starts with 0 byte.
 *)
 
 open Pcache_intf
 
-(** Make functor argument type, including types and values *)
+(** Make functor argument sig, including types and values *)
 module type S = sig
   type t
   val monad_ops: t monad_ops
@@ -28,9 +28,9 @@ module type S = sig
   val v_mshlr: v bp_mshlr
   val r_mshlr: r bp_mshlr
 
-  (* val marshalling_config: (k,v,r) marshalling_config *)
 end
 
+(** Make functor return sig *)
 module type T = sig
   type k
   type v
@@ -38,52 +38,10 @@ module type T = sig
   type t
 
   type kvop_map
-
-(*
-  (** NOTE we need empty_kvop_map to construct pcache_state *)
-  val kvop_map_ops: (k, (k,v)kvop, kvop_map) Tjr_map.map_ops
-
-  (** NOTE: can construct pcache_state by opening {!Pcache_intf.Pcache_state}. NOTE we need to expose pcache_state because of flush_tl *)
-  type nonrec pcache_state = (r,kvop_map)pcache_state
-  (* val empty_pcache_state : r:r -> pcache_state *)
-
-
-  (* val initial_pcache_state: root_ptr:r -> pcache_state *)
-
-  (** Read pcache as a list of (kvop list and nxt ptr), and also return the last elt as a buf *)
-  val read_pcache: 
-    root            :r ->
-    read_blk_as_buf :(r -> (buf, t)m) ->
-    (((k,v)kvop list * r option) list * buf * int, t)m
-      
-  (** Given root and current ptrs, re-establish the state of the
-     pcache *)
-  val read_initial_pcache_state: 
-    read_blk_as_buf :(r->(buf,t)m) -> 
-    root_ptr        :r -> 
-    current_ptr     :r -> 
-    (pcache_state,t)m
-
-  type nonrec pcache_ops = (k, v, r, kvop_map, t) pcache_ops
-
-  val make_pcache_ops :
-    blk_alloc   :(unit -> (r, t) Tjr_monad.m) ->
-    with_pcache :(pcache_state, t) Tjr_monad.with_state ->
-    flush_tl    :(pcache_state -> (unit, t) Tjr_monad.m) -> 
-    pcache_ops
-
-  val make_pcache_ops_with_blk_dev :
-    blk_dev_ops :(r, ba_buf, t) blk_dev_ops ->
-    blk_alloc   :(unit -> (r, t) m) ->
-    with_pcache :(pcache_state, t) with_state -> 
-    pcache_ops
-
-  val make_as_obj: unit -> (k, v, r, ba_buf, kvop_map, t) pcache_as_obj
-*)
   
-  (* FIXME prefer this to the functions above *)
   val pcache_factory: 
-    blk_alloc:(unit -> (r, t) m) -> (k, v, r, buf, kvop_map, t) pcache_factory
+    blk_alloc:(unit -> (r, t) m) -> 
+    (k, v, r, buf, kvop_map, t) pcache_factory
 
 end
 

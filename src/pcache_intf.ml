@@ -77,22 +77,20 @@ let empty_pcache_state ~root_ptr ~current_ptr ~empty = {
 }
 
 
-(* type ('r,'kvop_map) pcache_state = ('r,'kvop_map) Pcache_state.pcache_state *)
-(* open Pcache_state *)
-
-
 (** {2 Pcache factory} *)
 
 
-(* $(NOTE("It would be nice to define types in a setting where the
+(* $(NOTE("""It would be nice to define types in a setting where the
    type parameters were fixed (to avoid spelling them out each time),
    and then 'export' them so that their type parameters are explicit;
    but this is currently not supported by the language; something like
    local type abbrevs would also be useful. As an alternative, we use
    lots of naming of arguments and results, to avoid having to parse
-   the types themselves.")) *)
+   the types themselves.""")) *)
 
-(* assume blk_alloc is given *)
+(** NOTE the following types are unreadable in odoc; refer to src code instead *)
+
+(* $(PIPE2SH("""sed -n '/type[ ].*pcache_factory_1/,/^>/p' >GEN.pcache_factory_1.ml_""")) *)
 type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
   read_pcache: 
     'r -> 
@@ -119,6 +117,8 @@ type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
   >
 >
 
+(* assume blk_alloc is given *)
+(* $(PIPE2SH("""sed -n '/type[ ].*pcache_factory[ ]/,/^>/p' >GEN.pcache_factory.ml_""")) *)
 type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
   kvop_map_ops: ('k,('k,'v)kvop,'kvop_map) Tjr_map.map_ops;
 
