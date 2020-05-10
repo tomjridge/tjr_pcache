@@ -13,18 +13,23 @@ open Pcache_intf.Pcache_state
 
 (** Make functor argument type, including types and values *)
 module type S = sig
+  type t
+  val monad_ops: t monad_ops
+
   type k
   type v
   type r
   type blk_id = r
   type blk
 
-  val marshalling_config: (k,v,r) marshalling_config
   val blk_ops: blk blk_ops
   val k_cmp: k -> k -> int
 
-  type t
-  val monad_ops: t monad_ops
+  val k_mshlr: k bp_mshlr
+  val v_mshlr: v bp_mshlr
+  val r_mshlr: r bp_mshlr
+
+  (* val marshalling_config: (k,v,r) marshalling_config *)
 end
 
 module type T = sig
@@ -35,6 +40,7 @@ module type T = sig
 
   type kvop_map
 
+(*
   (** NOTE we need empty_kvop_map to construct pcache_state *)
   val kvop_map_ops: (k, (k,v)kvop, kvop_map) Tjr_map.map_ops
 
@@ -74,6 +80,12 @@ module type T = sig
     pcache_ops
 
   val make_as_obj: unit -> (k, v, r, ba_buf, kvop_map, t) pcache_as_obj
+*)
+  
+  (* FIXME prefer this to the functions above *)
+  val pcache_factory: 
+    blk_alloc:(unit -> (r, t) m) -> (k, v, r, buf, kvop_map, t) pcache_factory
+
 end
 
 
@@ -117,17 +129,24 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
 
   let blk_sz = blk_ops.blk_sz |> Blk_sz.to_int
 
+  module K = (val k_mshlr)
+  module V = (val v_mshlr)
+  module R = (val r_mshlr)
+
+
+(*
   module S = (val marshalling_config : 
                MRSHL with type k=k and type v=v and type r=r)
   open S
+*)
 
   let eol_sz = 1
 
   (** NOTE we use the fact that None marshalls to the 0 byte *)
   module Nxt = struct 
     open Bin_prot.Std
-    type nxt = r option [@@deriving bin_io]
-    let nxt_size = r_size + 1
+    type nxt = R.t option [@@deriving bin_io]
+    let nxt_size = R.max_sz + 1  (* +1 for option *)
     (* gives bin_reader_nxt and bin_writer_nxt *)
   end
   open Nxt
@@ -144,7 +163,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
 
   (* let next_ptr_byte_size = r_size *)
       
-  let op_byte_size = k_size + v_size + 1
+  let op_byte_size = K.max_sz + V.max_sz + 1
 
   (* FIXME include type in tjr_fs_shared *)
 
@@ -153,7 +172,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
 
     (** We introduce an "extended op" to ensure that no op constructor is represented as a 0 byte *)
     module X = struct
-      type t = Nil | Insert of (k*v) | Delete of k [@@deriving bin_io]
+      type t = Nil | Insert of (K.t*V.t) | Delete of K.t [@@deriving bin_io]
     end
 
     let buf_to_op_list_x_nxt_x_pos buf =
@@ -171,19 +190,27 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
       (ops,nxt,!pos_ref)
 
 
-    let read_pcache ~root ~read_blk_as_buf : (((k,v)kvop list * r option) list * buf * int,'t)m =
+    let read_pcache ~root ~read_blk_as_buf 
+      : ( <tl: ((k,v)kvop list * r option) list;
+           hd:  (r * buf * int) >,'t)m =
       read_blk_as_buf root >>= fun buf ->
-      ([],buf) |> iter_k (fun ~k (acc,buf) ->
+      ([],root,buf) |> iter_k (fun ~k (acc,r,buf) ->
           let ops,nxt,pos = buf|>buf_to_op_list_x_nxt_x_pos in
           match nxt with
-          | None -> return (List.rev ((ops,nxt)::acc),buf,pos)
+          | None -> return (object
+                      method tl=List.rev ((ops,nxt)::acc)
+                      method hd=(r,buf,pos) end)
           | Some r -> 
             read_blk_as_buf r >>= fun buf ->
-            k ( (ops,Some r)::acc, buf))
+            k ( (ops,Some r)::acc, r, buf))
           
     let _ :
-      root:r ->
-      read_blk_as_buf:(r -> (buf, t) m) -> (((k,v)kvop list * r option) list * buf * int, t) m
+root:r ->
+read_blk_as_buf:(r -> (Tjr_pcache__.Pcache_intf.buf, t) Tjr_monad.m) ->
+(< hd : r * Tjr_pcache__.Pcache_intf.buf * int;
+   tl : ((k, v) Tjr_fs_shared.kvop list * r option) list >,
+ t)
+Tjr_monad.m
       = read_pcache        
   end
   open Read_pcache
@@ -353,8 +380,12 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
     let module P = Pvt(struct let blk_alloc=blk_alloc let with_pcache=with_pcache let flush_tl=flush_tl end) in
     P.pcache_ops
 
-  let read_initial_pcache_state ~read_blk_as_buf ~root_ptr ~current_ptr = 
-    read_pcache ~root:root_ptr ~read_blk_as_buf >>= fun (xs,buf,buf_pos) ->
+  (* FIXME current_ptr is not needed - we get this from read_pcache *)
+  let read_initial_pcache_state ~read_blk_as_buf ~root_ptr = 
+    read_pcache ~root:root_ptr ~read_blk_as_buf >>= fun o ->
+    (* (xs,buf,buf_pos) *)
+    let (current_ptr,buf,buf_pos) = o#hd in
+    let xs = o#tl in
     assert(List.length xs >= 1);
     let xs : ((k,v)kvop list * r option) list = xs in
     let past_map,last = ([],xs,kvop_map_ops.empty) |> iter_k (fun ~k:kont x ->
@@ -447,5 +478,52 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
     end
 
   let _ = make_as_obj
+    
+  let pcache_factory ~(blk_alloc:unit -> (r,t)m) : (k,v,r,buf,kvop_map,t) pcache_factory 
+    = 
+    object (self)
+      method kvop_map_ops = kvop_map_ops
+
+      method empty_pcache_state = fun ~root_ptr ~current_ptr ->
+        empty_pcache_state ~root_ptr ~current_ptr ~empty:(self#kvop_map_ops.empty)
+
+      method with_read_blk_as_buf = 
+        fun ~read_blk_as_buf ~flush_tl -> 
+        object (self1)
+          method read_pcache = fun root -> 
+            Read_pcache.read_pcache ~root ~read_blk_as_buf >>= fun o -> 
+            return o
+            (* return (object method tail=tail method hd=(hd,i) end) *)
+
+          method read_initial_pcache_state = fun root ->
+            read_initial_pcache_state ~read_blk_as_buf ~root_ptr:root 
+
+          method make_pcache_ops = object (self2)
+            method with_state = fun with_pcache -> 
+              make_pcache_ops ~blk_alloc ~with_pcache ~flush_tl
+
+            method from_root = fun r -> 
+              self1#read_initial_pcache_state r >>= fun pc -> 
+              let r = ref pc in
+              let with_pcache = Tjr_monad.with_imperative_ref ~monad_ops r in
+              return (object
+                method with_state=with_pcache 
+                method pcache_ops=(self2#with_state with_pcache)
+              end)
+          end
+        end
+
+      method with_blk_dev_ops ~blk_dev_ops = 
+        let flush_tl s = 
+          (* Printf.printf "Writing to disk with next pointer %d\n"
+             (dest_Some s.next_ptr |> Blk_id.to_int); *)
+          blk_dev_ops.write ~blk_id:s.current_ptr ~blk:s.buf
+        in
+        let read_blk_as_buf r = blk_dev_ops.read ~blk_id:r in
+        self#with_read_blk_as_buf ~read_blk_as_buf ~flush_tl
+
+    end
+
+  let _ = pcache_factory
 
 end (* Make *)

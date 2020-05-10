@@ -4,7 +4,7 @@
 open Tjr_monad.With_lwt
 open Pcache_intf.Pcache_state
 
-module Ex = Tjr_pcache_example.Int_int_ex
+let factory = Tjr_pcache_example.pcache_factory
 
 module Blk_id = Blk_id_as_int
 
@@ -45,6 +45,7 @@ let pp_large_int i =
 
 let main = 
   file_ops.open_ ~fn ~create:true ~init:true >>= fun fd ->
+  let blk_dev_ops = Blk_dev_factory.make_5 fd in
   
   let min_free_blk = ref (Blk_id.of_int 1) in
 
@@ -55,19 +56,18 @@ let main =
     return r
   in
 
-  let pcache = ref (
-      let r = (Blk_id.of_int 0) in
-      empty_pcache_state ~root_ptr:r ~current_ptr:r ~empty:Ex.kvop_map_ops.empty) in
+  let fact = pcache_factory ~blk_alloc in
+
+  let pcache = ref @@
+    let r = (Blk_id.of_int 0) in
+    fact#empty_pcache_state ~root_ptr:r ~current_ptr:r
+  in
 
   let with_pcache = with_ref pcache in
 
-  (* FIXME why is this a separate parameter for pcache construction? *)
-  let flush_tl s = 
-    (* Printf.printf "Writing to disk with next pointer %d\n" (dest_Some s.next_ptr |> Blk_id.to_int);  *)
-    file_ops.write_blk fd (Blk_id.to_int s.current_ptr) s.buf
-  in
+  let fact1 = fact#with_blk_dev_ops ~blk_dev_ops in
 
-  let pcache_ops = Ex.make ~blk_alloc ~with_pcache ~flush_tl in
+  let pcache_ops = fact1#make_pcache_ops#with_state with_pcache in
 
   let rec f n = 
     (* Printf.printf "n is %d\n%!" n; *)
@@ -90,10 +90,8 @@ let main =
     (Blk_id_as_int.to_int current_ptr);
   file_ops.open_ ~fn ~create:false ~init:false >>= fun fd ->
   let blk_dev_ops = Blk_dev_factory.make_5 fd in
-  Ex.read_initial_pcache_state 
-    ~read_blk_as_buf:(fun blk_id -> blk_dev_ops.read ~blk_id)
-    ~root_ptr
-    ~current_ptr >>= fun s ->
+  let fact1 = fact#with_blk_dev_ops ~blk_dev_ops in
+  fact1#read_initial_pcache_state root_ptr >>= fun s ->
   let t2 = Tjr_profile.now () in
   Printf.printf "pcache: read %d blocks\n" s.blk_len;
   Printf.printf "pcache: write_time/ns %s; read_time/ns %s\n" (pp_large_int (t1-t0)) (pp_large_int (t2-t1));
@@ -101,27 +99,3 @@ let main =
 
 let _ = Lwt_main.run (to_lwt main)
 
-
-(*
-  measure_execution_time_and_print "run_pcache_example" @@ (fun () -> 
-  0 |> iter_k (fun ~k i ->
-      match i >= count with
-      | true -> ()
-      | false -> 
-        of_m (pcache_ops.insert i (2*i));
-        k (i+1)));
-  Unix.close fd
-
-  let _read_blk_as_buf r = 
-    file_ops.read_blk fd (Blk_id.to_int r) >>= fun blk ->
-    return (Bigstring.of_bytes blk)
-  in
-
-*)
-
-(* FIXME implement async writes with pcache, or use vector writes
-  let _async_flush_tl s = 
-    Lwt.async (fun () -> to_lwt(file_ops.write_blk fd s.current_ptr (Bigstring.to_bytes s.buf)));
-    return ()
-  in
-*)

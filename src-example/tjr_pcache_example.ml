@@ -1,12 +1,26 @@
 (** Pcache example, k and v are ints *)
 
-module Make_1 = Make_1
 
-module Int_int_ex = Make_1.Make(Pvt_int_int.Int_int_mrshl)
+module Int_int = struct
+  include Std_types
+  type k = int
+  let k_mshlr = bp_mshlrs#int_mshlr
+  type v = int
+  let v_mshlr = bp_mshlrs#int_mshlr
+  let r_mshlr = bp_mshlrs#r_mshlr  (* FIXME add to std_types *)
+
+  let k_cmp = Int_.compare
+end
+
+module Pcache = Tjr_pcache.Make.Make(Int_int)
+
+let pcache_factory = Pcache.pcache_factory
+
+(*
 
 type blk_id = Blk_id_as_int.blk_id
 
 let make ~blk_alloc ~with_pcache ~flush_tl 
-  : Int_int_ex.pcache_ops 
+  : (_,_,_,_,_) pcache_ops 
   = Int_int_ex.make ~blk_alloc ~with_pcache ~flush_tl 
-
+*)

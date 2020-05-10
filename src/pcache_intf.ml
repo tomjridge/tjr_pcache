@@ -2,7 +2,7 @@
 
 (* module Kvop = Tjr_fs_shared.Kvop *)
 
-(* FIXME why are these here? *)
+(* $(FIXME("why are these buf ops here?")) *)
 
 type buf = ba_buf
 (* (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t *)
@@ -35,16 +35,17 @@ open Kvop
    and the map for the current node. NOTE if root_ptr = current_ptr,
    then nothing was detached. *)
 type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
-  find              : 'k -> ('v option,'t) m;
-  insert            : 'k -> 'v -> (unit,'t) m;
-  delete            : 'k -> (unit,'t)m;
-  detach            : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
-  blk_len : unit -> (int,'t)m;
-  pcache_write        : unit -> (unit,'t)m;
-  pcache_sync         : unit -> (unit,'t)m;
+  find         : 'k -> ('v option,'t) m;
+  insert       : 'k -> 'v -> (unit,'t) m;
+  delete       : 'k -> (unit,'t)m;
+  detach       : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
+  blk_len      : unit -> (int,'t)m;
+  pcache_write : unit -> (unit,'t)m;
+  pcache_sync  : unit -> (unit,'t)m;
+}
+
   (* read_pcache       : root:'r -> read_blk_as_buf:('r -> (buf,'t)m) ->  *)
     (* ((('k,'v)kvop list * 'r option) list * 'buf,'t)m *)
-}
 
 module Pcache_state = struct
   type ('r,'kvop_map) pcache_state = {
@@ -87,6 +88,9 @@ module Pcache_state = struct
 
 end
 
+(* $(FIXME("combine these binprot marshalling sigs with those elsewhere")) *)
+
+(*
 module type MRSHL = sig
   type k [@@deriving bin_io]
   type v [@@deriving bin_io]  
@@ -100,7 +104,7 @@ module type MRSHL = sig
 end
 
 type ('k,'v,'r) marshalling_config = (module MRSHL with type k='k and type v='v and type r='r)
-
+*)
 
 (*
 type ('k,'v,'ptr) marshalling_config = {
@@ -119,6 +123,9 @@ type ('k,'v,'ptr) marshalling_config = {
 
 
 (** Object-based interface *)
+
+(* FIXME remove this *)
+
 open Pcache_state
 
 class type ['k,'v, 'r, 'blk, 'kvop_map,'t] pcache_as_obj = object
@@ -132,3 +139,63 @@ class type ['k,'v, 'r, 'blk, 'kvop_map,'t] pcache_as_obj = object
   method get_with_pcache   : unit -> ( ('r,'kvop_map)pcache_state,'t)with_state
   method get_pcache_ops    : unit -> ('k,'v,'r,'kvop_map,'t)pcache_ops
 end
+
+
+
+
+(** {2 Pcache factory} *)
+
+
+(* $(NOTE("It would be nice to define types in a setting where the
+   type parameters were fixed (to avoid spelling them out each time),
+   and then 'export' them so that their type parameters are explicit;
+   but this is currently not supported by the language; something like
+   local type abbrevs would also be useful. As an alternative, we use
+   lots of naming of arguments and results, to avoid having to parse
+   the types themselves.")) *)
+
+(* assume blk_alloc is given *)
+
+type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
+  read_pcache: 
+    'r -> 
+    ( < tl: (('k,'v)kvop list * 'r option) list;
+        hd: ('r*'buf*int) 
+      >,'t)m;
+  (** Read the whole pcache; O(length of pcache) *)
+
+  read_initial_pcache_state: 
+    'r -> 
+    ( ('r,'kvop_map)pcache_state, 't)m;
+  (** Construct pcache state via read_cache *)
+
+  make_pcache_ops: <
+    with_state: 
+      (('r,'kvop_map)pcache_state,'t) with_state -> 
+      ('k,'v,'r,'kvop_map,'t) pcache_ops;
+    from_root: 
+      'r -> 
+      ( < with_state: (('r,'kvop_map)pcache_state,'t) with_state;
+          pcache_ops: ('k,'v,'r,'kvop_map,'t) pcache_ops
+        >, 't)m
+  (** NOTE this constructs a [with_state] via a reference *)
+  >
+>
+
+type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
+  kvop_map_ops: ('k,('k,'v)kvop,'kvop_map) Tjr_map.map_ops;
+
+  empty_pcache_state: root_ptr:'r -> current_ptr:'r -> ('r,'kvop_map)pcache_state;
+
+  with_read_blk_as_buf: 
+    read_blk_as_buf : ('r -> ('buf,'t) m) ->
+    flush_tl        : (('r,'kvop_map)pcache_state -> (unit,'t)m) ->
+    ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1;
+  (** NOTE flush_tl is used to write to disk *)
+
+  with_blk_dev_ops: 
+    blk_dev_ops : ('r,'buf,'t)blk_dev_ops -> (* NOTE this requires 'buf as 'blk *)
+    ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1;
+  (** NOTE blk_dev_ops is used to provide [flush_tl] *)
+>    
+
