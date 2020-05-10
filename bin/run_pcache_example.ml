@@ -2,7 +2,7 @@
    insert operations to try. *)
 
 open Tjr_monad.With_lwt
-open Pcache_intf.Pcache_state
+open Pcache_intf
 
 let factory = Tjr_pcache_example.pcache_factory
 

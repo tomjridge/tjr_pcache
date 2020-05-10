@@ -9,7 +9,6 @@ The 0 byte marks the end of the op list (eol); op never starts with 0.
 *)
 
 open Pcache_intf
-open Pcache_intf.Pcache_state
 
 (** Make functor argument type, including types and values *)
 module type S = sig
@@ -398,7 +397,7 @@ Tjr_monad.m
         | [],y::ys,acc -> kont (fst y,ys,acc))
     in
     let current_map = last |> List.map (fun op -> (Kvop.op2k op,op)) |> kvop_map_ops.of_bindings in
-    return Pcache_state.{
+    return {
       root_ptr;
       past_map;
       current_ptr;
@@ -425,6 +424,7 @@ Tjr_monad.m
 
   let _ = make_pcache_ops_with_blk_dev
 
+(*
   let with_ref r = 
     let with_state f = 
       f ~state:(!r) ~set_state:(fun s -> r:=s; return ()) in
@@ -478,6 +478,7 @@ Tjr_monad.m
     end
 
   let _ = make_as_obj
+*)
     
   let pcache_factory ~(blk_alloc:unit -> (r,t)m) : (k,v,r,buf,kvop_map,t) pcache_factory 
     = 

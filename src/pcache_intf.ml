@@ -1,3 +1,6 @@
+(** Main pcache interfaces; don't open *)
+
+
 (* let chr0 = Char.chr 0 *)
 
 (* module Kvop = Tjr_fs_shared.Kvop *)
@@ -47,100 +50,35 @@ type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
   (* read_pcache       : root:'r -> read_blk_as_buf:('r -> (buf,'t)m) ->  *)
     (* ((('k,'v)kvop list * 'r option) list * 'buf,'t)m *)
 
-module Pcache_state = struct
-  type ('r,'kvop_map) pcache_state = {
-    root_ptr          : 'r;
-    past_map          : 'kvop_map;
-    current_ptr       : 'r;
-    current_map       : 'kvop_map;
-    buf               : buf;  (* should be the same size as a blk *)
-    buf_pos           : int;
-    next_ptr          : 'r option; 
-    blk_len : int;
-    dirty             : bool; (* only if buf is dirty ie data changed, or next_ptr *)
-  }
+(* module Pcache_state = struct *)
 
-  let empty_pcache_state ~root_ptr ~current_ptr ~empty = {
-    root_ptr;
-    past_map=empty;
-    current_ptr;
-    current_map=empty;
-    buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
-    buf_pos=0;
-    next_ptr=None;
-    blk_len=1;
-    dirty=true
-  }
-
-(*
-  let initial_pcache_state ~root_ptr ~current_ptr ~empty = {
-    root_ptr;
-    past_map=empty;
-    current_ptr;
-    current_map=empty;
-    buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
-    buf_pos=0;
-    next_ptr=None;
-    blk_len=1;
-    dirty=true
-  }
-*)
-
-end
-
-(* $(FIXME("combine these binprot marshalling sigs with those elsewhere")) *)
-
-(*
-module type MRSHL = sig
-  type k [@@deriving bin_io]
-  type v [@@deriving bin_io]  
-  type r [@@deriving bin_io]
-  (* type nonrec kvop = (k,v)kvop [@@deriving bin_io] *)
-
-  (** This is the max # of bytes required for k *)
-  val k_size: int 
-  val v_size: int
-  val r_size: int
-end
-
-type ('k,'v,'r) marshalling_config = (module MRSHL with type k='k and type v='v and type r='r)
-*)
-
-(*
-type ('k,'v,'ptr) marshalling_config = {
-  ptr_sz        : int;
-  blk_sz        : int;
-  k_size        : int;
-  v_size        : int;
-  k_writer      : 'k Bin_prot.Type_class.writer;
-  k_reader      : 'k Bin_prot.Type_class.reader;
-  v_writer      : 'v Bin_prot.Type_class.writer;
-  v_reader      : 'v Bin_prot.Type_class.reader;
-  ptr_writer    : 'ptr Bin_prot.Type_class.writer;
-  ptr_reader    : 'ptr Bin_prot.Type_class.reader;
+type ('r,'kvop_map) pcache_state = {
+  root_ptr          : 'r;
+  past_map          : 'kvop_map;
+  current_ptr       : 'r;
+  current_map       : 'kvop_map;
+  buf               : buf;  (* should be the same size as a blk *)
+  buf_pos           : int;
+  next_ptr          : 'r option; 
+  blk_len : int;
+  dirty             : bool; (* only if buf is dirty ie data changed, or next_ptr *)
 }
-*)
+
+let empty_pcache_state ~root_ptr ~current_ptr ~empty = {
+  root_ptr;
+  past_map=empty;
+  current_ptr;
+  current_map=empty;
+  buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
+  buf_pos=0;
+  next_ptr=None;
+  blk_len=1;
+  dirty=true
+}
 
 
-(** Object-based interface *)
-
-(* FIXME remove this *)
-
-open Pcache_state
-
-class type ['k,'v, 'r, 'blk, 'kvop_map,'t] pcache_as_obj = object
-  method set_blk_alloc     : (unit -> ('r,'t)m) -> unit
-  method set_initial_state : ('r,'kvop_map) pcache_state -> unit
-  method set_flush_tl      : (('r,'kvop_map) pcache_state -> (unit,'t)m) -> unit
-  method set_blk_dev_ops   : ('r,'blk,'t) blk_dev_ops -> unit (** this overrides set_flush_tl *)
-
-  method check_initialized : unit -> unit
-  method kvop_map_ops      : unit -> ('k,('k,'v)kvop,'kvop_map)Tjr_map.map_ops
-  method get_with_pcache   : unit -> ( ('r,'kvop_map)pcache_state,'t)with_state
-  method get_pcache_ops    : unit -> ('k,'v,'r,'kvop_map,'t)pcache_ops
-end
-
-
+(* type ('r,'kvop_map) pcache_state = ('r,'kvop_map) Pcache_state.pcache_state *)
+(* open Pcache_state *)
 
 
 (** {2 Pcache factory} *)
@@ -155,7 +93,6 @@ end
    the types themselves.")) *)
 
 (* assume blk_alloc is given *)
-
 type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
   read_pcache: 
     'r -> 

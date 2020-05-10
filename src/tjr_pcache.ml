@@ -4,7 +4,7 @@
    instead, use the versions in the pcache examples package.} *)
 
 module Pcache_intf = Pcache_intf
-module Pcache_state = Pcache_intf.Pcache_state
+(* module Pcache_state = Pcache_intf.Pcache_state *)
 
 type ('k,'v,'r,'kvop_map,'t) pcache_ops = ('k,'v,'r,'kvop_map,'t) Pcache_intf.pcache_ops
 
