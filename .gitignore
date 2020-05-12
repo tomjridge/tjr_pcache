@@ -1,10 +1,1 @@
-/dune-project
-/tjr_pcache.install
-_build/
-/test_dcl_ops.store
-/dmap_example.store
-.merlin
-/tjr_pcache_example.install
-/tjr_pcache_test.install
 /pcache.store
-GEN.*.ml_
