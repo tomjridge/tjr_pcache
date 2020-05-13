@@ -12,7 +12,7 @@ module type S = sig
   type v
   val k_mshlr: k bp_mshlr
   val v_mshlr: v bp_mshlr
-  (* type r = Std_types.r[@@deriving bin_io,yojson] *)
+  (* type r = Sh_std_ctxt.r[@@deriving bin_io,yojson] *)
   val k_cmp: k -> k -> int
 end
 
@@ -22,7 +22,7 @@ module Make(S:S) = struct
   module S2 = struct
     include S
 
-    type t = Std_types.t
+    type t = Sh_std_ctxt.t
 
     let monad_ops = lwt_monad_ops
 
@@ -30,7 +30,7 @@ module Make(S:S) = struct
     
     module Mrshl = struct
       include S
-      type r = Std_types.r[@@deriving bin_io, yojson]
+      type r = Sh_std_ctxt.r[@@deriving bin_io, yojson]
       let r_size = 9
     end
 

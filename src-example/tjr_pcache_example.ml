@@ -2,7 +2,7 @@
 
 
 module Int_int = struct
-  include Std_types
+  include Sh_std_ctxt
   type k = int
   let k_mshlr = bp_mshlrs#int_mshlr
   type v = int
