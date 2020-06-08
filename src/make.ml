@@ -10,6 +10,7 @@ The 0 byte marks the end of the op list (eol); op never starts with 0 byte.
 
 open Pcache_intf
 
+(* $(PIPE2SH("""sed -n '/Make[ ]functor argument/,/^end/p' >GEN.S.ml_""")) *)
 (** Make functor argument sig, including types and values *)
 module type S = sig
   type t
@@ -443,8 +444,8 @@ Tjr_monad.m
     object (self)
       method kvop_map_ops = kvop_map_ops
 
-      method empty_pcache_state = fun ~root_ptr ~current_ptr ->
-        empty_pcache_state ~root_ptr ~current_ptr ~empty:(self#kvop_map_ops.empty)
+      method empty_pcache_state = fun ~ptr ->
+        empty_pcache_state ~ptr ~empty:(self#kvop_map_ops.empty)
 
       method with_read_blk_as_buf = 
         fun ~read_blk_as_buf ~flush_tl -> 
@@ -466,6 +467,7 @@ Tjr_monad.m
               let r = ref pc in
               let with_pcache = Tjr_monad.with_imperative_ref ~monad_ops r in
               return (object
+                method pcache_state_ref=r
                 method with_state=with_pcache 
                 method pcache_ops=(self2#with_state with_pcache)
               end)

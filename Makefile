@@ -1,9 +1,17 @@
 store:=pcache.store
 
-default: all
+default: 
+	$(MAKE) update_generated_doc
+	$(MAKE) all
 
 all::
 	dune build bin/run_pcache_example.exe
+
+update_generated_doc::
+	cd src && (ocamldoc_pyexpander pcache_intf.ml)
+	cd src && (ocamldoc_pyexpander make.ml)
+	cd src && (ocamldoc_pyexpander tjr_pcache.t.ml > tjr_pcache.ml)
+
 
 tmp: FORCE
 	dune build --only-packages tjr_pcache @install

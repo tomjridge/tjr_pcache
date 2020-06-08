@@ -37,6 +37,7 @@ open Kvop
 (** For the detach operation, we get the map upto the current node,
    and the map for the current node. NOTE if root_ptr = current_ptr,
    then nothing was detached. *)
+(* $(PIPE2SH("""sed -n '/type[ ].*pcache_ops/,/^}/p' >GEN.pcache_ops.ml_""")) *)
 type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
   find         : 'k -> ('v option,'t) m;
   insert       : 'k -> 'v -> (unit,'t) m;
@@ -52,22 +53,38 @@ type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
 
 (* module Pcache_state = struct *)
 
+(* $(PIPE2SH("""sed -n '/type[ ].*pcache_state/,/^}/p' >GEN.pcache_state.ml_""")) *)
 type ('r,'kvop_map) pcache_state = {
-  root_ptr          : 'r;
-  past_map          : 'kvop_map;
-  current_ptr       : 'r;
-  current_map       : 'kvop_map;
-  buf               : buf;  (* should be the same size as a blk *)
-  buf_pos           : int;
-  next_ptr          : 'r option; 
-  blk_len : int;
-  dirty             : bool; (* only if buf is dirty ie data changed, or next_ptr *)
+  root_ptr    : 'r;
+  past_map    : 'kvop_map;
+  current_ptr : 'r;
+  current_map : 'kvop_map;
+  buf         : buf;  (* should be the same size as a blk *)
+  buf_pos     : int;
+  next_ptr    : 'r option; 
+  blk_len     : int;
+  dirty       : bool; (* only if buf is dirty ie data changed, or next_ptr *)
 }
 
+(*
 let empty_pcache_state ~root_ptr ~current_ptr ~empty = {
   root_ptr;
   past_map=empty;
   current_ptr;
+  current_map=empty;
+  buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
+  buf_pos=0;
+  next_ptr=None;
+  blk_len=1;
+  dirty=true
+}
+*)
+
+(** Create an empty pcache state (without writing to disk) *)
+let empty_pcache_state ~ptr ~empty = {
+  root_ptr=ptr;
+  past_map=empty;
+  current_ptr=ptr;
   current_map=empty;
   buf=ba_buf_ops.create (Blk_sz.to_int blk_sz_4096);
   buf_pos=0;
@@ -97,12 +114,12 @@ type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
     ( < tl: (('k,'v)kvop list * 'r option) list;
         hd: ('r*'buf*int) 
       >,'t)m;
-  (** Read the whole pcache; O(length of pcache) *)
+  (** Read the whole pcache; all tl nxt pointers are Some; O(length of pcache) *)
 
   read_initial_pcache_state: 
     'r -> 
     ( ('r,'kvop_map)pcache_state, 't)m;
-  (** Construct pcache state via read_cache *)
+  (** Construct pcache state via read_cache; O(n) *)
 
   make_pcache_ops: <
     with_state: 
@@ -110,7 +127,9 @@ type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
       ('k,'v,'r,'kvop_map,'t) pcache_ops;
     from_root: 
       'r -> 
-      ( < with_state: (('r,'kvop_map)pcache_state,'t) with_state;
+      ( < 
+          pcache_state_ref: ('r,'kvop_map)pcache_state ref;
+          with_state: (('r,'kvop_map)pcache_state,'t) with_state;
           pcache_ops: ('k,'v,'r,'kvop_map,'t) pcache_ops
         >, 't)m
   (** NOTE this constructs a [with_state] via a reference *)
@@ -122,7 +141,8 @@ type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
 type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
   kvop_map_ops: ('k,('k,'v)kvop,'kvop_map) Tjr_map.map_ops;
 
-  empty_pcache_state: root_ptr:'r -> current_ptr:'r -> ('r,'kvop_map)pcache_state;
+  empty_pcache_state: ptr:'r -> ('r,'kvop_map)pcache_state;
+  (** NOTE this does not access disk *)
 
   with_read_blk_as_buf: 
     read_blk_as_buf : ('r -> ('buf,'t) m) ->

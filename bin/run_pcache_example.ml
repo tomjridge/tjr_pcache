@@ -60,7 +60,7 @@ let main =
 
   let pcache = ref @@
     let r = (Blk_id.of_int 0) in
-    fact#empty_pcache_state ~root_ptr:r ~current_ptr:r
+    fact#empty_pcache_state ~ptr:r
   in
 
   let with_pcache = with_ref pcache in

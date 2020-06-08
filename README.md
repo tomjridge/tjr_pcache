@@ -14,7 +14,7 @@ There is an executable `run_pcache_example.exe` . See the Makefile for how to ru
 
 ## Quick links
 
-* ocamldoc, see https://tomjridge.github.io/tjr_pcache/
+* ocamldoc, see https://tomjridge.github.io/ocamldocs/
 
 ## Install
 
