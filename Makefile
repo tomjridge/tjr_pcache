@@ -1,7 +1,6 @@
 store:=pcache.store
 
 default: 
-	$(MAKE) update_generated_doc
 	$(MAKE) all
 
 all::
