@@ -45,7 +45,7 @@ let pp_large_int i =
 
 let main = 
   file_ops.open_ ~fn ~create:true ~init:true >>= fun fd ->
-  let blk_dev_ops = Blk_dev_factory.make_5 fd in
+  let blk_dev_ops = blk_devs#with_ba_buf#from_fd fd |> fun o -> o#blk_dev_ops in
   
   let min_free_blk = ref (Blk_id.of_int 1) in
 
@@ -89,7 +89,7 @@ let main =
     (Blk_id_as_int.to_int root_ptr) 
     (Blk_id_as_int.to_int current_ptr);
   file_ops.open_ ~fn ~create:false ~init:false >>= fun fd ->
-  let blk_dev_ops = Blk_dev_factory.make_5 fd in
+  let blk_dev_ops = (blk_devs#with_ba_buf#from_fd fd)#blk_dev_ops  in
   let fact1 = fact#with_blk_dev_ops ~blk_dev_ops in
   fact1#read_initial_pcache_state root_ptr >>= fun s ->
   let t2 = Tjr_profile.now () in
