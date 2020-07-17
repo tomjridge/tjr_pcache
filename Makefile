@@ -4,7 +4,7 @@ default:
 	$(MAKE) all
 
 all::
-	dune build bin/run_pcache_example.exe
+#	dune build bin/run_pcache_example.exe
 
 update_generated_doc::
 	cd src && (ocamldoc_pyexpander pcache_intf.ml)
