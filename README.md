@@ -8,7 +8,7 @@ This is a persistent cache, part of ImpFS. It maintains a persistent
 list of map operations, which avoids actually executing these
 operations against the B-tree.
 
-There are two libraries: `tjr_pcache` for the core library, and `tjr_pcache_example` for the example.
+There are two libraries: `tjr_pcache` for the core library, and `tjr_pcache_examples` for the example.
 
 There is an executable `run_pcache_example.exe` . See the Makefile for how to run.
 

@@ -22,7 +22,7 @@ module type S = sig
   type blk_id = r
   type blk
 
-  val blk_ops: blk blk_ops
+  val blk_ops: (blk,buf) blk_ops
   val k_cmp: k -> k -> int
 
   val k_mshlr: k bp_mshlr
