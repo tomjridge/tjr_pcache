@@ -1,15 +1,12 @@
-(** Main pcache interfaces; don't open *)
+(** Main pcache interfaces; don't open (defines buf and buf_ops) *)
 
-
-(* let chr0 = Char.chr 0 *)
-
-(* module Kvop = Tjr_fs_shared.Kvop *)
 
 (* $(FIXME("why are these buf ops here?")) *)
 
-type buf = ba_buf
+(* type buf = ba_buf *)
 (* (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t *)
 
+(*
 type buf_ops = {
   create: int -> buf;  (* assumed to be zero-ed *)
   get: int -> buf -> char
@@ -19,52 +16,61 @@ let buf_ops : buf_ops = Bigstring.{
     create=(fun n -> Bigstring.make n chr0);
     get=(fun i b -> get b i)
 }
+*)
+let buf_ops = ba_buf_ops
 
-
-(** The result of "detaching" the map. We get the abstract map for
-    all but the current node, and information about the current
-    node. *)
-type ('k,'v,'r,'kvop_map) detach_info = { 
-  root_ptr    : 'r;
-  past_map    : 'kvop_map;
-  current_ptr : 'r;
-  current_map : 'kvop_map;
-}
-
+module Detach_info = struct
+  (** The result of "detaching" the map. We get the abstract map for
+      all but the current node, and information about the current
+      node. *)
+  (* $(PIPE2SH("""sed -n '/type[ ].*detach_info = /,/}/p' >GEN.detach_info.ml_""")) *)
+  type ('k,'v,'r,'kvop_map) detach_info = { 
+    root_ptr    : 'r;
+    past_map    : 'kvop_map;
+    current_ptr : 'r;
+    current_map : 'kvop_map;
+  }
+  type ('k,'v,'r,'kvop_map) t = ('k,'v,'r,'kvop_map) detach_info
+end
+include Detach_info
 
 open Kvop
 
-(** For the detach operation, we get the map upto the current node,
-   and the map for the current node. NOTE if root_ptr = current_ptr,
-   then nothing was detached. *)
-(* $(PIPE2SH("""sed -n '/type[ ].*pcache_ops/,/^}/p' >GEN.pcache_ops.ml_""")) *)
-type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
-  find         : 'k -> ('v option,'t) m;
-  insert       : 'k -> 'v -> (unit,'t) m;
-  delete       : 'k -> (unit,'t)m;
-  detach       : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
-  blk_len      : unit -> (int,'t)m;
-  pcache_write : unit -> (unit,'t)m;
-  pcache_sync  : unit -> (unit,'t)m;
-}
-
+module Pcache_ops = struct
+  (** For the detach operation, we get the map upto the current node,
+      and the map for the current node. NOTE if root_ptr = current_ptr,
+      then nothing was detached. *)
+  (* $(PIPE2SH("""sed -n '/type[ ].*pcache_ops/,/}/p' >GEN.pcache_ops.ml_""")) *)
+  type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
+    find         : 'k -> ('v option,'t) m;
+    insert       : 'k -> 'v -> (unit,'t) m;
+    delete       : 'k -> (unit,'t)m;
+    detach       : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
+    blk_len      : unit -> (int,'t)m;
+    pcache_write : unit -> (unit,'t)m;
+    pcache_sync  : unit -> (unit,'t)m;
+  }
+end
+include Pcache_ops
   (* read_pcache       : root:'r -> read_blk_as_buf:('r -> (buf,'t)m) ->  *)
     (* ((('k,'v)kvop list * 'r option) list * 'buf,'t)m *)
 
-(* module Pcache_state = struct *)
-
-(* $(PIPE2SH("""sed -n '/type[ ].*pcache_state/,/^}/p' >GEN.pcache_state.ml_""")) *)
-type ('r,'kvop_map) pcache_state = {
-  root_ptr    : 'r;
-  past_map    : 'kvop_map;
-  current_ptr : 'r;
-  current_map : 'kvop_map;
-  buf         : buf;  (* should be the same size as a blk *)
-  buf_pos     : int;
-  next_ptr    : 'r option; 
-  blk_len     : int;
-  dirty       : bool; (* only if buf is dirty ie data changed, or next_ptr *)
-}
+module Pcache_state = struct
+  (* $(PIPE2SH("""sed -n '/type[ ].*pcache_state = {/,/}/p' >GEN.pcache_state.ml_""")) *)
+  type ('r,'kvop_map) pcache_state = {
+    root_ptr    : 'r;
+    past_map    : 'kvop_map;
+    current_ptr : 'r;
+    current_map : 'kvop_map;
+    buf         : ba_buf;  (* should be the same size as a blk *)
+    buf_pos     : int;
+    next_ptr    : 'r option; 
+    blk_len     : int;
+    dirty       : bool; (* only if buf is dirty ie data changed, or next_ptr *)
+  }
+  type ('r,'kvop_map) t = ('r,'kvop_map) pcache_state 
+end
+include Pcache_state
 
 (*
 let empty_pcache_state ~root_ptr ~current_ptr ~empty = {
@@ -148,7 +154,8 @@ type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
     read_blk_as_buf : ('r -> ('buf,'t) m) ->
     flush_tl        : (('r,'kvop_map)pcache_state -> (unit,'t)m) ->
     ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1;
-  (** NOTE flush_tl is used to write to disk *)
+  (** NOTE flush_tl is used to write to disk; read_blk_as_buf since we
+     require ba_buf anyway (so no need to have conversions blk <-> buf) *)
 
   with_blk_dev_ops: 
     blk_dev_ops : ('r,'buf,'t)blk_dev_ops -> (* NOTE this requires 'buf as 'blk *)

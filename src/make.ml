@@ -10,6 +10,10 @@ The 0 byte marks the end of the op list (eol); op never starts with 0 byte.
 
 open Pcache_intf
 
+(* NOTE specialized to ba_buf... we use bin_prot internally which uses
+   this; worth generalizing? *)
+open (struct type buf = ba_buf end)
+
 (* $(PIPE2SH("""sed -n '/Make[ ]functor argument/,/^end/p' >GEN.S.ml_""")) *)
 (** Make functor argument sig, including types and values *)
 module type S = sig
@@ -23,6 +27,7 @@ module type S = sig
   type blk
 
   val blk_ops: (blk,buf) blk_ops
+  val buf_ops: buf buf_ops
   val k_cmp: k -> k -> int
 
   val k_mshlr: k bp_mshlr
@@ -33,10 +38,8 @@ end
 
 (** Make functor return sig *)
 module type T = sig
-  type k
-  type v
-  type r
-  type t
+  module S : S
+  open S
 
   type kvop_map
   
@@ -51,7 +54,7 @@ end
 (** For testing *)
 module Pvt_chk = struct
   let check_buf_pos ~buf ~buf_pos = 
-    assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) )
+    assert( (buf_ops.buf_get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.buf_get buf_pos buf); false) )
 
   let check_state s = 
     check_buf_pos ~buf:s.buf ~buf_pos:s.buf_pos
@@ -61,13 +64,11 @@ open Pvt_chk
 (**/**)
 
 (* and type pcache_state=(S.r,(S.k,S.v)kvop)pcache_state *)
-module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.t = struct
+module Make(S:S) : T with module S = S = struct
+  module S = S
   open S
-  type k = S.k
-  type v = S.v
-  type r = S.r
-  type t = S.t
-  (* type pcache_state=S.pcache_state *)
+
+  let Buf_ops.{ buf_create; buf_get; _ } = buf_ops
 
   module Kvop_map = Kvop_map.Make(struct
       type k = S.k
@@ -111,13 +112,13 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
 
   (* check that None marshalls to the empty byte *)
   let _ : unit = 
-    buf_ops.create blk_sz |> fun buf ->
+    buf_create blk_sz |> fun buf ->
     (*  Buffers are zero-ed on creation  for i = 0 to blk_sz-1 do
           assert(buf_ops.get i buf = chr0)
         done; *)
     bin_write_nxt buf ~pos:0 None |> fun n ->
     assert (n=1);
-    assert (Char.equal (buf_ops.get 0 buf) chr0)
+    assert (Char.equal (buf_get 0 buf) chr0)
 
   (* let next_ptr_byte_size = r_size *)
       
@@ -136,7 +137,7 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
     let buf_to_op_list_x_nxt_x_pos buf =
       let pos_ref = ref 0 in
       let rec f xs = 
-        match buf_ops.get !pos_ref buf = chr0 with 
+        match buf_get !pos_ref buf = chr0 with 
         | true -> List.rev xs
         | false -> 
           X.bin_reader_t.read buf ~pos_ref |> fun xop ->
@@ -164,8 +165,8 @@ module Make(S:S) : T with type k=S.k and type v=S.v and type r=S.r and type t=S.
           
     let _ :
 root:r ->
-read_blk_as_buf:(r -> (Tjr_pcache__.Pcache_intf.buf, t) Tjr_monad.m) ->
-(< hd : r * Tjr_pcache__.Pcache_intf.buf * int;
+read_blk_as_buf:(r -> (buf, t) Tjr_monad.m) ->
+(< hd : r * buf * int;
    tl : ((k, v) Tjr_fs_shared.kvop list * r option) list >,
  t)
 Tjr_monad.m
@@ -242,7 +243,7 @@ Tjr_monad.m
         | Insert(k,v) -> kvop_map_ops.add k op current_map 
         | Delete k -> kvop_map_ops.add k op current_map
       in
-      assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) );
+      assert( (buf_get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_get buf_pos buf); false) );
       let buf_pos =
         let n = 
           X.bin_writer_t.write buf ~pos:buf_pos (match op with
@@ -253,7 +254,7 @@ Tjr_monad.m
         n
       in
       (* NOTE we assume that the eol byte is already 0, since the block was newly created *)
-      assert( (buf_ops.get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_ops.get buf_pos buf); false) );
+      assert( (buf_get buf_pos buf = chr0) || (Printf.printf "Erk!: %d %c\n" buf_pos (buf_get buf_pos buf); false) );
       let dirty = true in
       { state with current_map; buf; buf_pos; dirty }
 
@@ -271,7 +272,7 @@ Tjr_monad.m
                  issue a write for the current node then move to the next *)
               alloc_next_ptr_and_set state >>= fun (r,state) ->
               flush_tl state >>= fun () ->
-              let buf = buf_ops.create blk_sz in
+              let buf = buf_create blk_sz in
               (* for i = 0 to blk_sz-1 do
                  assert(buf_ops.get i buf = chr0)
                  done; *)

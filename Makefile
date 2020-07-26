@@ -9,7 +9,7 @@ all::
 update_generated_doc::
 	cd src && (ocamldoc_pyexpander pcache_intf.ml)
 	cd src && (ocamldoc_pyexpander make.ml)
-	cd src && (ocamldoc_pyexpander tjr_pcache.t.ml > tjr_pcache.ml)
+	cd src && (ocamldoc_pyexpander summary.t.ml > summary.ml)
 
 
 tmp: FORCE
