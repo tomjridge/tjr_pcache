@@ -1,79 +1,61 @@
-(** Summary of main types *)
+(** Summary *)
 
 (**
-{[
-(** Make functor argument sig, including types and values *)
-module type S = sig
-  type t
-  val monad_ops: t monad_ops
 
-  type k
-  type v
-  type r
-  type blk_id = r
-  type blk
+The persistent cache is an on-disk singly-linked list of blks (each
+   blk contains the data, and an optional next pointer). The list
+   starts from a "root" block. The data consists of a list of map
+   operations (insert or delete), which is effectively a log of
+   operations that have taken place on the in-memory map. New
+   operations are appended to the end of the list (multiple
+   insert/delete operations per blk). The on-disk list grows
+   automatically: new blks are appended when the current "tail"
+   becomes full.
 
-  val blk_ops: (blk,buf) blk_ops
-  val buf_ops: buf buf_ops
-  val k_cmp: k -> k -> int
+In memory we maintain the map itself.
 
-  val k_mshlr: k bp_mshlr
-  val v_mshlr: v bp_mshlr
-  val r_mshlr: r bp_mshlr
+At a given point, we can execute one of the (find,insert,delete)
+   oeprations.
 
-end
+Additionally, we can perform a "detach" operation. This effectively
+   dicards everything upto the current tail block. The result returned
+   from the detach operation is the "past map" (everything from the
+   old root upto -- but not including -- the current tail block). The
+   new list starts with the current tail block.
 
-  type ('k,'v,'r,'kvop_map) detach_info = { 
+The idea is that modifications to the persistent cache are quick
+   (typically one block write). So we can use it in front of an
+   on-disk B-tree. However, the persistent cache requires an O(n)
+   initialization (all blocks in the list need to be read). So
+   periodically we need to detach the cache, and merge into the
+   B-tree.
+
+The persistent cache is similar to the "write ahead log" found in
+   traditional filesystems, but we have one per filesystem object.
+
+Main types:
+
+{[   type ('k,'v,'r,'kvop_map) detach_info = { 
     root_ptr    : 'r;
     past_map    : 'kvop_map;
     current_ptr : 'r;
     current_map : 'kvop_map;
   }
 
-type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
-  kvop_map_ops: ('k,('k,'v)kvop,'kvop_map) Tjr_map.map_ops;
+type ('a,'k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
 
-  empty_pcache_state: ptr:'r -> ('r,'kvop_map)pcache_state;
-  (** NOTE this does not access disk *)
+  note_these_types_are_equal : 'a -> ('k,'v)kvop -> unit;
 
-  with_read_blk_as_buf: 
-    read_blk_as_buf : ('r -> ('buf,'t) m) ->
-    flush_tl        : (('r,'kvop_map)pcache_state -> (unit,'t)m) ->
-    ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1;
-  (** NOTE flush_tl is used to write to disk *)
+  kvop_map_ops : ('k,('k,'v)kvop,'kvop_map) Tjr_map.map_ops;
 
-  with_blk_dev_ops: 
-    blk_dev_ops : ('r,'buf,'t)blk_dev_ops -> (* NOTE this requires 'buf as 'blk *)
-    ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1;
-  (** NOTE blk_dev_ops is used to provide [flush_tl] *)
->    
+  simple_plist_factory : ('a,'r,'buf,'buf,'t) simple_plist_factory;
+  (* NOTE in our use cases, 'buf='blk *)
 
-type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
-  read_pcache: 
-    'r -> 
-    ( < tl: (('k,'v)kvop list * 'r option) list;
-        hd: ('r*'buf*int) 
-      >,'t)m;
-  (** Read the whole pcache; all tl nxt pointers are Some; O(length of pcache) *)
+  plist_to_pcache : 
+    simple_plist_ops : ('a,'r,'t)simple_plist_ops -> 
+    with_state       : (('r,'kvop_map) pcache_state,'t) with_state ->
+    ('k,'v,'r,'kvop_map,'t) pcache_ops
 
-  read_initial_pcache_state: 
-    'r -> 
-    ( ('r,'kvop_map)pcache_state, 't)m;
-  (** Construct pcache state via read_cache; O(n) *)
-
-  make_pcache_ops: <
-    with_state: 
-      (('r,'kvop_map)pcache_state,'t) with_state -> 
-      ('k,'v,'r,'kvop_map,'t) pcache_ops;
-    from_root: 
-      'r -> 
-      ( < 
-          pcache_state_ref: ('r,'kvop_map)pcache_state ref;
-          with_state: (('r,'kvop_map)pcache_state,'t) with_state;
-          pcache_ops: ('k,'v,'r,'kvop_map,'t) pcache_ops
-        >, 't)m
-  (** NOTE this constructs a [with_state] via a reference *)
-  >
 >
 
   type ('k,'v,'r,'kvop_map,'t) pcache_ops = {
@@ -82,7 +64,6 @@ type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
     delete       : 'k -> (unit,'t)m;
     detach       : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
     blk_len      : unit -> (int,'t)m;
-    pcache_write : unit -> (unit,'t)m;
     pcache_sync  : unit -> (unit,'t)m;
   }
 
@@ -91,12 +72,7 @@ type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory_1 = <
     past_map    : 'kvop_map;
     current_ptr : 'r;
     current_map : 'kvop_map;
-    buf         : ba_buf;  (* should be the same size as a blk *)
-    buf_pos     : int;
-    next_ptr    : 'r option; 
-    blk_len     : int;
-    dirty       : bool; (* only if buf is dirty ie data changed, or next_ptr *)
   }
+ ]}
 
-]}
 *)

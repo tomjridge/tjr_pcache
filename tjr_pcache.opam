@@ -9,7 +9,7 @@ bug-reports: "https://github.com/tomjridge/tjr_pcache/issues"
 depends: [
   "dune" {>= "2.0"}
   "bigstring"
-  "tjr_fs_shared"
+  "tjr_plist"
   "ppx_jane"
   "ppx_deriving_yojson"
 ]

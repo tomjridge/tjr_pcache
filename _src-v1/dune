@@ -3,12 +3,9 @@
   (public_name tjr_pcache)
   (preprocess (pps ppx_deriving_yojson ppx_jane))
 ;;  (preprocessor_deps (file "pcache_optcomp_config.ml"))
-  (flags (:standard "-w" "-27-39" 
-           -open Tjr_monad -open Tjr_lib -open Tjr_profile -open Tjr_fs_shared
-           -open Tjr_plist
-  ))  
+  (flags (:standard "-w" "-27-39" -open Tjr_monad -open Tjr_lib -open Tjr_profile -open Tjr_fs_shared))  
   ; -27 is unused var, -39 is unused rec flag
-  (libraries tjr_fs_shared tjr_plist ppx_jane ppx_deriving_yojson bigstring)
+  (libraries tjr_fs_shared ppx_jane ppx_deriving_yojson bigstring)
 )
 
 (include_subdirs unqualified)

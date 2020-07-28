@@ -15,21 +15,21 @@
  (synopsis "tjr_pcache: A persistent cache (part of ImpFS)")
  (depends 
 bigstring
-tjr_fs_shared
+tjr_plist
 ppx_jane
 ppx_deriving_yojson
 
 ))
 
-(package 
- (name tjr_pcache_examples)
- (synopsis "tjr_pcache: A persistent cache (part of ImpFS) (examples)")
- (depends
-tjr_pcache
-alcotest
-core
-
-   ))
+;; (package 
+;;  (name tjr_pcache_examples)
+;;  (synopsis "tjr_pcache: A persistent cache (part of ImpFS) (examples)")
+;;  (depends
+;; tjr_pcache
+;; alcotest
+;; core
+;; 
+;;    ))
 
 ;; (package 
 ;;  (name tjr_pcache_test)

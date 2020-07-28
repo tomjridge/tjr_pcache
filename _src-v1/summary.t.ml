@@ -30,9 +30,6 @@ The idea is that modifications to the persistent cache are quick
    periodically we need to detach the cache, and merge into the
    B-tree.
 
-The persistent cache is similar to the "write ahead log" found in
-   traditional filesystems, but we have one per filesystem object.
-
 Main types:
 
 {[ $(INCLUDE("GEN.*.ml_")) ]}
