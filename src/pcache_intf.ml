@@ -86,6 +86,8 @@ let empty_pcache_state ~ptr ~empty = {
 (* assume blk_alloc is given *)
 (* $(PIPE2SH("""sed -n '/type[ ].*pcache_factory[ ]/,/^>/p' >GEN.pcache_factory.ml_""")) *)
 type ('a,'k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
+  (* NOTE the type exposed by this library is slightly different than
+     the above; see the package module Tjr_pcache *)
 
   note_these_types_are_equal : 'a -> ('k,'v)kvop -> unit;
 
