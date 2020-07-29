@@ -100,6 +100,7 @@ type ('a,'k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
   plist_to_pcache : 
     simple_plist_ops : ('a,'r,'t)simple_plist_ops -> 
     with_state       : (('r,'kvop_map) pcache_state,'t) with_state ->
-    ('k,'v,'r,'kvop_map,'t) pcache_ops
-
+    ('k,'v,'r,'kvop_map,'t) pcache_ops;
+  (** NOTE you have to construct the plist first using the
+     simple_plist_factory, then convert to pcache *)
 >

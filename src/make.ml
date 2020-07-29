@@ -72,45 +72,82 @@ let plist_to_pcache
   in
   Pcache_ops.{ find; insert; delete; detach; blk_len; pcache_sync }
 
+
+open Shared_ctxt
+
+module type S = sig
+    type k
+    val k_cmp: k->k->int
+    type v
+    type a = (k,v)kvop
+    val simple_plist_factory: (a,blk_id,blk,buf,t) simple_plist_factory
+end
+
+module type T = sig
+  module S : S
+  open S
+  type kvop_map
+  val pcache_factory : (a,k,v,blk_id,buf,kvop_map,t) pcache_factory
+(* NOTE this is specific to shared_ctxt; we could generalize further
+   if needed *)
+end
+
+module Make_example(S:S) : T with module S=S = struct
+  module S = S
+  open S
+
+  let note_these_types_are_equal=(fun (a:a) (b:(k,v)kvop) -> ())  
+
+  module Map = Tjr_map.Make_map_ops(struct 
+      type nonrec k = k type nonrec v = (k,v)kvop let k_cmp = k_cmp end)
+
+  type kvop_map = Map.t
+
+  let kvop_map_ops = Map.map_ops
+      
+  let empty_pcache r = Pcache_intf.empty_pcache_state ~ptr:r ~empty:kvop_map_ops.empty
+
+  let simple_plist_factory = simple_plist_factory
+
+  let plist_to_pcache ~simple_plist_ops ~with_state = 
+      plist_to_pcache
+        ~kvop_map_ops
+        ~monad_ops
+        ~simple_plist_ops
+        ~with_state    
+
+  let pcache_factory : _ pcache_factory = object
+    method empty_pcache=empty_pcache
+    method note_these_types_are_equal=note_these_types_are_equal
+    method kvop_map_ops=kvop_map_ops
+    method simple_plist_factory=simple_plist_factory
+    method plist_to_pcache=plist_to_pcache
+  end
+  
+  let _ = pcache_factory
+end
+
+
 module Examples = struct
   
   (* int int example *)
 
   module Int_int = struct
-
-    open With_lwt
-
-    module Map = Tjr_map.Make_map_ops(struct 
-        type k = int type v = (int,int)kvop let k_cmp = Int_.compare end)
-
-    let kvop_map_ops = Map.map_ops
-
-    let empty_pcache r = Pcache_intf.empty_pcache_state ~ptr:r ~empty:kvop_map_ops.empty
-
-    let plist_to_pcache ~simple_plist_ops ~with_state = 
-      plist_to_pcache
-        ~kvop_map_ops
-        ~monad_ops
-        ~simple_plist_ops
-        ~with_state                    
-
-    let example : _ pcache_factory =     
-      object
-        method empty_pcache=empty_pcache
-        method note_these_types_are_equal=(fun (type a) (a:a) (b:a) -> ())
-        method kvop_map_ops=kvop_map_ops
-        method simple_plist_factory=simple_pl_examples#for_int_int_kvop
-        method plist_to_pcache=plist_to_pcache
-      end
-
-
+    module S' = struct
+      type k = int
+      let k_cmp = Int_.compare
+      type v = int
+      type a = (k,v)kvop
+      let simple_plist_factory = simple_pl_examples#for_int_int_kvop
+    end
+    include Make_example(S')
   end
 
 end
 
 let examples = 
   object 
-    method for_int_int : (_,int,int,_,_,_,_) pcache_factory = Examples.Int_int.example
+    method for_int_int : (_,int,int,_,_,_,_) pcache_factory = Examples.Int_int.pcache_factory
   end
 
 let _ = examples
