@@ -85,6 +85,8 @@ module Examples = struct
 
     let kvop_map_ops = Map.map_ops
 
+    let empty_pcache r = Pcache_intf.empty_pcache_state ~ptr:r ~empty:kvop_map_ops.empty
+
     let plist_to_pcache ~simple_plist_ops ~with_state = 
       plist_to_pcache
         ~kvop_map_ops
@@ -94,6 +96,7 @@ module Examples = struct
 
     let example : _ pcache_factory =     
       object
+        method empty_pcache=empty_pcache
         method note_these_types_are_equal=(fun (type a) (a:a) (b:a) -> ())
         method kvop_map_ops=kvop_map_ops
         method simple_plist_factory=simple_pl_examples#for_int_int_kvop

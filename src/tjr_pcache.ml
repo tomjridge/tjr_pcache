@@ -17,4 +17,4 @@ type ('k,'v,'r,'kvop_map,'t) pcache_ops = ('k,'v,'r,'kvop_map,'t) Pcache_ops.pca
 
 module Make = Make
 
-
+let pcache_examples = Make.examples

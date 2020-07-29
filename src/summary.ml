@@ -48,6 +48,9 @@ type ('a,'k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
 
   kvop_map_ops : ('k,('k,'v)kvop,'kvop_map) Tjr_map.map_ops;
 
+  empty_pcache : 'r -> ('r,'kvop_map) pcache_state;
+  (** NOTE just in memory; doesn't write to disk *)
+
   simple_plist_factory : ('a,'r,'buf,'buf,'t) simple_plist_factory;
   (* NOTE in our use cases, 'buf='blk *)
 
