@@ -31,6 +31,7 @@ module Pcache_ops = struct
     delete       : 'k -> (unit,'t)m;
     detach       : unit -> ( ('k,'v,'r,'kvop_map) detach_info, 't) m;
     blk_len      : unit -> (int,'t)m;
+    get_origin   : unit -> ('r Pl_origin.t,'t)m;
     pcache_sync  : unit -> (unit,'t)m;
   }
   (* $(FIXME("barrier? taken care of by plist?")) *)

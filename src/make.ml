@@ -66,11 +66,13 @@ let plist_to_pcache
 
     let blk_len () = simple_plist_ops.blk_len ()
 
+    let get_origin () = simple_plist_ops.get_origin ()
+
     let pcache_sync () = simple_plist_ops.sync_tl ()
 
   end)
   in
-  Pcache_ops.{ find; insert; delete; detach; blk_len; pcache_sync }
+  Pcache_ops.{ find; insert; delete; detach; blk_len; get_origin; pcache_sync }
 
 
 open Shared_ctxt
@@ -181,7 +183,7 @@ module Make_example(S:S) : T with module S=S = struct
       let pc_ref = ref pc in
       let with_state = with_imperative_ref ~monad_ops pc_ref in
       let pcache_ops = plist_to_pcache ~simple_plist_ops ~with_state in
-      return pcache_ops      
+      return pcache_ops
 
     let obj = object
       method create=create
