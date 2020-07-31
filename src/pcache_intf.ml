@@ -105,4 +105,16 @@ type ('a,'k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
     ('k,'v,'r,'kvop_map,'t) pcache_ops;
   (** NOTE you have to construct the plist first using the
      simple_plist_factory, then convert to pcache *)
+
+
+  with_ : 
+    blk_dev_ops  : ('r,'buf,'t)blk_dev_ops ->
+    barrier      : (unit -> (unit,'t)m) -> 
+    freelist_ops : ('r,'t) freelist_ops_af -> 
+    <
+      create  : unit -> (('k,'v,'r,'kvop_map,'t) pcache_ops,'t)m;
+      restore : hd:'r -> (('k,'v,'r,'kvop_map,'t) pcache_ops,'t)m;
+      (* NOTE for restore, we only need the hd ptr *)
+    >;
+
 >

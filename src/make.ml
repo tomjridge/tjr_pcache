@@ -116,12 +116,96 @@ module Make_example(S:S) : T with module S=S = struct
         ~simple_plist_ops
         ~with_state    
 
+  module With_(A:sig
+      val blk_dev_ops  : (r,buf,t)blk_dev_ops
+      val barrier      : (unit -> (unit,t)m)  
+      val freelist_ops : (r,t) freelist_ops_af
+    end) = struct
+    open A
+        
+    let plist_factory = simple_plist_factory#plist_factory
+
+    let pl_with = plist_factory#with_blk_dev_ops ~blk_dev_ops ~barrier
+
+    (* let spl_with = simple_plist_factory#with_ ~blk_dev_ops ~barrier ~freelist_ops *)
+
+    let create () =
+      freelist_ops.blk_alloc () >>= fun b_pcache ->
+      (* let simple_plist_factory = simple_plist_factory in *)
+      pl_with#create b_pcache >>= fun created_pl ->
+      let plist_ops = created_pl#plist_ops in
+      created_pl#plist_ops.get_origin () >>= fun pl_origin ->
+      let simple_plist_ops = 
+        simple_plist_factory#convert_to_simple_plist ~freelist_ops ~plist_ops in
+      let pc_ref = ref (empty_pcache b_pcache) in
+      let with_state = with_imperative_ref ~monad_ops pc_ref in
+      let pcache_ops = plist_to_pcache ~simple_plist_ops ~with_state in
+      return pcache_ops
+
+    let ops_to_map ops = 
+      (kvop_map_ops.empty,ops) |> iter_k (fun ~k:kont (map,xs) -> 
+          match xs with
+          | [] -> map
+          | op::xs -> Kvop.(
+              match op with
+              | Insert(k,v) -> 
+                kont (kvop_map_ops.add k op map, xs)
+              | Delete k -> 
+                kont (kvop_map_ops.add k op map, xs)))
+
+    let restore ~(hd:blk_id) = 
+      (* we read the plist from the hd, convert to past and current maps *)
+      pl_with#init#read_from_hd hd >>= fun blks -> 
+      (hd,0,blks,kvop_map_ops.empty) |> iter_k (fun ~k:kont (ptr,len,blks,map) -> 
+          (* NOTE ptr is a ptr to the first blk in blks *)
+          match blks with 
+          | [] -> failwith "impossible: list is not nil and we return when tl is []" 
+          | [(ops,nxt)] -> 
+            assert(nxt=None);
+            let past_map = map in
+            let current_map = ops_to_map ops in
+            let current_ptr = ptr in
+            let len = len+1 in
+            len,Pcache_state.{root_ptr=hd;past_map;current_ptr;current_map}
+          | (ops,nxt)::blks -> 
+            assert(nxt <> None);
+            let m = ops_to_map ops in
+            let map = Tjr_map.map_merge ~map_ops:kvop_map_ops ~old:map ~new_:m in
+            let ptr = dest_Some nxt in
+            let len = len+1 in
+            kont (ptr,len,blks,map))
+      |> fun (len,pc) -> 
+      (* now reconstruct the plist *)
+      pl_with#restore Pl_origin.{hd;tl=pc.current_ptr;blk_len=len} >>= fun pl_o -> 
+      let simple_plist_ops = simple_plist_factory#convert_to_simple_plist ~freelist_ops ~plist_ops:pl_o#plist_ops in
+      let pc_ref = ref pc in
+      let with_state = with_imperative_ref ~monad_ops pc_ref in
+      let pcache_ops = plist_to_pcache ~simple_plist_ops ~with_state in
+      return pcache_ops      
+
+    let obj = object
+      method create=create
+      method restore=restore
+    end
+  end
+
+  let with_ ~blk_dev_ops ~barrier ~freelist_ops = 
+    let module A = With_(struct 
+        let blk_dev_ops = blk_dev_ops 
+        let barrier=barrier 
+        let freelist_ops = freelist_ops 
+      end) 
+    in
+    A.obj
+      
+
   let pcache_factory : _ pcache_factory = object
     method empty_pcache=empty_pcache
     method note_these_types_are_equal=note_these_types_are_equal
     method kvop_map_ops=kvop_map_ops
     method simple_plist_factory=simple_plist_factory
     method plist_to_pcache=plist_to_pcache
+    method with_=with_
   end
   
   let _ = pcache_factory
@@ -151,3 +235,6 @@ let examples =
   end
 
 let _ = examples
+
+
+
