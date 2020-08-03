@@ -68,7 +68,9 @@ let plist_to_pcache
 
     let get_origin () = simple_plist_ops.get_origin ()
 
-    let pcache_sync () = simple_plist_ops.sync_tl ()
+    let pcache_sync () = 
+      Printf.printf "%s: pcache_sync called\n%!" __FILE__;
+      simple_plist_ops.sync_tl ()
 
   end)
   in
