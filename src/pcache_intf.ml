@@ -34,7 +34,7 @@ module Pcache_ops = struct
     get_origin   : unit -> ('r Pl_origin.t,'t)m;
     pcache_sync  : unit -> (unit,'t)m;
   }
-  (* $(FIXME("barrier? taken care of by plist?")) *)
+  (* $(FIXME("barrier? taken care of by plist? also rename pcache_sync to sync")) *)
 end
 include Pcache_ops
 
