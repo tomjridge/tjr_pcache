@@ -91,7 +91,7 @@ module type T = sig
   module S : S
   open S
   type kvop_map
-  val pcache_factory : (a,k,v,blk_id,buf,kvop_map,t) pcache_factory
+  val pcache_factory : (a,k,v,blk_id,blk,buf,kvop_map,t) pcache_factory
 (* NOTE this is specific to shared_ctxt; we could generalize further
    if needed *)
 end
@@ -121,7 +121,7 @@ module Make_example(S:S) : T with module S=S = struct
         ~with_state    
 
   module With_(A:sig
-      val blk_dev_ops  : (r,buf,t)blk_dev_ops
+      val blk_dev_ops  : (r,blk,t)blk_dev_ops
       val barrier      : (unit -> (unit,t)m)  
       val freelist_ops : (r,t) freelist_ops_af
     end) = struct
@@ -235,7 +235,7 @@ end
 
 let examples = 
   object 
-    method for_int_int : (_,int,int,_,_,_,_) pcache_factory = Examples.Int_int.pcache_factory
+    method for_int_int : (_,int,int,_,_,_,_,_) pcache_factory = Examples.Int_int.pcache_factory
   end
 
 let _ = examples

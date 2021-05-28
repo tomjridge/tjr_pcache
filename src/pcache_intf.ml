@@ -86,7 +86,7 @@ let empty_pcache_state ~ptr ~empty = {
 
 (* assume blk_alloc is given *)
 (* $(PIPE2SH("""sed -n '/type[ ].*pcache_factory[ ]/,/^>/p' >GEN.pcache_factory.ml_""")) *)
-type ('a,'k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
+type ('a,'k,'v,'r,'blk,'buf,'kvop_map,'t) pcache_factory = <
   (* NOTE the type exposed by this library is slightly different than
      the above; see the package module Tjr_pcache *)
 
@@ -97,8 +97,7 @@ type ('a,'k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
   empty_pcache : 'r -> ('r,'kvop_map) pcache_state;
   (** NOTE just in memory; doesn't write to disk *)
 
-  simple_plist_factory : ('a,'r,'buf,'buf,'t) simple_plist_factory;
-  (* NOTE in our use cases, 'buf='blk *)
+  simple_plist_factory : ('a,'r,'blk,'buf,'t) simple_plist_factory;
 
   plist_to_pcache : 
     simple_plist_ops : ('a,'r,'t)simple_plist_ops -> 
@@ -109,7 +108,7 @@ type ('a,'k,'v,'r,'buf,'kvop_map,'t) pcache_factory = <
 
 
   with_ : 
-    blk_dev_ops  : ('r,'buf,'t)blk_dev_ops ->
+    blk_dev_ops  : ('r,'blk,'t)blk_dev_ops ->
     barrier      : (unit -> (unit,'t)m) -> 
     freelist_ops : ('r,'t) freelist_ops_af -> 
     <

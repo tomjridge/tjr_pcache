@@ -17,8 +17,8 @@ type ('k,'v,'r,'kvop_map,'t) pcache_ops = ('k,'v,'r,'kvop_map,'t) Pcache_ops.pca
 
 (** NOTE this is slightly different to the internal pcache_factory -
    the 'a is revealed as ('k,'v)kvop *)
-type ('k,'v,'r,'buf,'kvop_map,'t) pcache_factory = 
-  (('k,'v)kvop,'k,'v,'r,'buf,'kvop_map,'t) Pcache_intf.pcache_factory
+type ('k,'v,'r,'blk,'buf,'kvop_map,'t) pcache_factory = 
+  (('k,'v)kvop,'k,'v,'r,'blk,'buf,'kvop_map,'t) Pcache_intf.pcache_factory
 
 module Make = Make
 
