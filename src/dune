@@ -4,7 +4,7 @@
   (preprocess (pps ppx_deriving_yojson ppx_jane))
 ;;  (preprocessor_deps (file "pcache_optcomp_config.ml"))
   (flags (:standard "-w" "-27-39" 
-           -open Tjr_monad -open Tjr_lib -open Tjr_profile -open Tjr_fs_shared
+           -open Tjr_monad -open Tjr_profile -open Tjr_fs_shared
            -open Tjr_plist
   ))  
   ; -27 is unused var, -39 is unused rec flag
